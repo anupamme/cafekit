@@ -11,6 +11,9 @@
 #     --threshold 0 --tag single-turn
 #   evals/run.sh specs --out sonnet-history --model sonnet --judge-model sonnet --runs 3 \
 #     --threshold 0 --ablation none --allow-tools Write Edit --tag history
+#   evals/run.sh code-review --with-agent code-auditor --out pilot-x --model sonnet \
+#     --judge-model sonnet --runs 1 --threshold 0 --ablation none --allow-tools Bash Agent
+#     # a case that measures an agent needs it loaded the way the product ships it
 #
 # Why a script: the harness treats the plugin root as the tree it enumerates, and it
 # passes one Read/Glob/Grep grant per path to the child as a single --allowed-tools
@@ -34,12 +37,25 @@ cases="$root/evals/$skill"
 # asks an under-specified question can only choose between doors that exist, and with one skill
 # loaded the only alternatives are that skill or no skill at all — which is not the world the
 # product ships. Refuse an unknown name rather than building a plugin that silently lacks it.
+# `--with-agent <name>`, repeatable and in any order with `--with-skill`: copy an agent into the
+# plugin's agents/ folder, which the harness loads by default, so a case can measure the agent
+# the way the product ships it. Both flags come right after <skill>.
 extra=()
-while [ "${1:-}" = "--with-skill" ]; do
-  name="${2:?usage: --with-skill <name>}"
-  [ -f "$root/packages/spec/src/claude/skills/$name/SKILL.md" ] \
-    || { echo "no skill at packages/spec/src/claude/skills/$name" >&2; exit 2; }
-  extra+=("$name"); shift 2
+agents=()
+while [ "${1:-}" = "--with-skill" ] || [ "${1:-}" = "--with-agent" ]; do
+  if [ "$1" = "--with-skill" ]; then
+    name="${2:?usage: --with-skill <name>}"
+    [ -f "$root/packages/spec/src/claude/skills/$name/SKILL.md" ] \
+      || { echo "no skill at packages/spec/src/claude/skills/$name" >&2; exit 2; }
+    extra+=("$name")
+  else
+    name="${2:?usage: --with-agent <name>}"
+    case "$name" in *[!A-Za-z0-9._-]*|.|..) echo "--with-agent takes one agent name" >&2; exit 2;; esac
+    [ -f "$root/packages/spec/src/claude/agents/$name.md" ] \
+      || { echo "no agent at packages/spec/src/claude/agents/$name.md" >&2; exit 2; }
+    agents+=("$name")
+  fi
+  shift 2
 done
 
 work="$(mktemp -d "${TMPDIR:-/tmp}/cafekit-eval-$skill-XXXXXX")"
@@ -52,6 +68,10 @@ for name in ${extra[@]+"${extra[@]}"}; do
   mkdir -p "$work/skills/$name"
   rsync -a --exclude 'results/' "$root/packages/spec/src/claude/skills/$name/" "$work/skills/$name/"
   skill_list="$skill_list, \"./skills/$name\""
+done
+for name in ${agents[@]+"${agents[@]}"}; do
+  mkdir -p "$work/agents"
+  cp "$root/packages/spec/src/claude/agents/$name.md" "$work/agents/$name.md"
 done
 version="$(node -p "require('$root/packages/spec/package.json').version")"
 mkdir -p "$work/.claude-plugin"
