@@ -6159,6 +6159,131 @@ async function runSourceTreeCleanlinessCheck() {
   return 1;
 }
 
+// The review skill and the auditor forbid test runs, share one impact-based severity scale, and keep their
+// headers and labels verbatim; the legacy verification gate no longer demands the reviewer's own proof.
+// Each rule is checked on the real files and must also reject one in-memory weakening of itself.
+async function runCodeReviewBoundaryCheck() {
+  const sources = {
+    skill: join(packageRoot, "src/claude/skills/code-review/SKILL.md"),
+    auditor: join(packageRoot, "src/claude/agents/code-auditor.md"),
+    gate: join(packageRoot, "src/claude/skills/code-review/references/verification-gate.md"),
+  };
+  const texts = {};
+  for (const [key, path] of Object.entries(sources)) texts[key] = await readFile(path, "utf8");
+  const normalize = (text) => text.replace(/\s+/g, " ");
+  // A phrase rule holds when the normalized file has (or lacks) the phrase; its weakening removes (or restores) it.
+  const present = (id, file, phrase, replacement = "") => ({
+    id, file, what: `missing "${phrase}"`,
+    holds: (content) => normalize(content).includes(phrase),
+    weaken: (content) => normalize(content).split(phrase).join(replacement),
+  });
+  const absent = (id, file, phrase) => ({
+    id, file, what: `still present "${phrase}"`,
+    holds: (content) => !normalize(content).includes(phrase),
+    weaken: (content) => `${content}\n${phrase}\n`,
+  });
+  // A tier rule reads the text between two severity markers: the debug-log example sits in the Medium tier only.
+  const between = (content, from, to) => {
+    const flat = normalize(content);
+    const start = flat.indexOf(from);
+    if (start < 0) return null;
+    const end = flat.indexOf(to, start + from.length);
+    return end < 0 ? null : flat.slice(start, end);
+  };
+  const debugLogTier = (id, file, markers) => ({
+    id, file, what: "the leftover debug log is not an example of the Medium tier only",
+    holds: (content) => {
+      const tiers = markers.slice(0, -1).map((marker, i) => between(content, marker, markers[i + 1]));
+      if (tiers.some((tier) => tier === null)) return false;
+      const [critical, high, medium] = tiers;
+      return medium.includes("a leftover debug log") && !critical.includes("debug log") && !high.includes("debug log");
+    },
+    weaken: (content) => {
+      const flat = normalize(content).replace("; a leftover debug log", "");
+      return flat.replace(markers[2], `(a leftover debug log) ${markers[2]}`);
+    },
+  });
+  const rules = [
+    present("skill names its test-run boundary", "skill", "## Test-run boundary"),
+    present("skill forbids the test suite", "skill", "Never run the project's test suite or a test file, not even as a sanity check"),
+    present("skill allows a read-only reproduction", "skill", "may reproduce a defect; cite it as a reproduction, never as test evidence"),
+    present("skill reports no test result as evidence", "skill", "Never report a test result, pass count, or exit code as the review's evidence"),
+    present("skill fixes the unavailable proof line", "skill", "`**Execution proof:** unavailable (owned by cf:test)` and do not otherwise say whether tests pass"),
+    absent("skill drops the loose proof wording", "skill", "say `execution proof unavailable`"),
+    present("skill caps a debug log at Medium", "skill", "A leftover debug log is at most Medium", "A leftover debug log is High"),
+    present("skill defines Critical with its example", "skill", "- Critical: a concrete failure a user or operator hits that loses or corrupts data, breaks security, or stops the product (a login bypass)."),
+    present("skill defines High with its example", "skill", "- High: a concrete wrong result a user or operator hits (an order exactly at a tier boundary priced with the wrong discount)."),
+    present("skill defines Medium with its example", "skill", "- Medium: a real risk with a failure scenario that has not reached users (a changed boundary with no test; a leftover debug log)."),
+    present("skill defines Low with its example", "skill", "- Low: cleanup, clarity, or a question (a naming nit; a behavior the change's README or docs state as intended)."),
+    debugLogTier("skill keeps the debug-log example in the Medium tier", "skill", ["- Critical: a concrete failure", "- High: a concrete wrong result", "- Medium: a real risk", "- Low: cleanup"]),
+    present("skill splits a printed secret", "skill", "report that exposure as a separate security finding"),
+    present("skill keeps documented behavior below Medium", "skill", "is not a Medium or heavier defect"),
+    present("skill limits compliance Criticals", "skill", "are Critical only when a task or spec is supplied"),
+    present("skill defines UNVERIFIED", "skill", "`UNVERIFIED` means supplied proof that failed"),
+    present("skill maps a non-blocking Medium", "skill", "A review whose heaviest remaining finding is a non-blocking Medium returns `PASS_WITH_WARNINGS`"),
+    present("skill passes a Low-only review", "skill", "one with only Low findings returns `PASS`"),
+    present("skill defines PASS without Medium", "skill", "`PASS` means no Critical, High, or Medium finding remains; Low findings may remain"),
+    absent("skill drops the overlapping PASS clause", "skill", "`PASS` also requires no blocking Medium finding"),
+    absent("skill drops the overlapping warnings clause", "skill", "means only documented non-blocking findings remain"),
+    present("skill keeps severity labels", "skill", "Write the labels `Critical`, `High`, `Medium`, and `Low` verbatim in English"),
+    present("skill keeps its header, field and severity labels", "skill", "Copy the header line `# Code Review Results [cf:code-review]`, the field labels, and the severity labels verbatim in English; write the content in the user's language"),
+    present("auditor names its test-run boundary", "auditor", "## Test-Run Boundary"),
+    present("auditor forbids the test suite", "auditor", "Never run the project's test suite or a test file, not even as a sanity check"),
+    present("auditor limits Bash", "auditor", "`Bash` is for read-only inspection only"),
+    present("auditor allows a read-only reproduction", "auditor", "cited as a reproduction and never as test evidence"),
+    present("auditor allows the Strict validator", "auditor", "the attestation validator `node .claude/scripts/validate-spec-output.cjs <specDir> --semantic-digest`"),
+    present("auditor reports no test result as evidence", "auditor", "Never report a test result, pass count, or exit code as the review's evidence"),
+    present("auditor fixes the unavailable proof line", "auditor", "write the proof line exactly as `**Execution proof:** unavailable (owned by cf:test)`"),
+    present("auditor reports the proof field", "auditor", "- **Execution proof:** test-proof-v1 consumed | unavailable (owned by cf:test)"),
+    present("auditor does not block on missing proof", "auditor", "Missing execution proof alone is not `BLOCKED`"),
+    absent("auditor drops the old BLOCKED reason", "auditor", "execution proof, permission, environment, or user-owned decision is missing"),
+    present("auditor caps a debug log at Medium", "auditor", "A leftover debug log is at most Medium", "A leftover debug log is High"),
+    present("auditor defines Critical with its example", "auditor", "- 🔴 **Critical** — a concrete failure a user or operator hits that loses or corrupts data, breaks security, or stops the product (a login bypass)."),
+    present("auditor defines High with its example", "auditor", "- 🟠 **High** — a concrete wrong result a user or operator hits (an order exactly at a tier boundary priced with the wrong discount)."),
+    present("auditor defines Medium with its example", "auditor", "- 🟡 **Medium** — a real risk with a failure scenario that has not reached users (a changed boundary with no test; a leftover debug log)."),
+    present("auditor defines Low with its example", "auditor", "- 🔵 **Low** — cleanup, clarity, or a question (a naming nit; a behavior the change's README or docs state as intended)."),
+    debugLogTier("auditor keeps the debug-log example in the Medium tier", "auditor", ["- 🔴 **Critical** — a concrete failure", "- 🟠 **High** — a concrete wrong result", "- 🟡 **Medium** — a real risk", "- 🔵 **Low** — cleanup"]),
+    present("auditor splits a printed secret", "auditor", "report that exposure as a separate security finding"),
+    present("auditor keeps documented behavior below Medium", "auditor", "is not a Medium or heavier defect"),
+    present("auditor limits the compliance rules", "auditor", "These compliance rules apply only when a task or spec is supplied"),
+    present("auditor scopes the Automatic Criticals", "auditor", "the logging-redaction and filesystem-write ones apply whenever the diff touches those surfaces; every other one applies only when a task or spec is supplied"),
+    present("auditor defines UNVERIFIED", "auditor", "`UNVERIFIED` means supplied proof that failed"),
+    present("auditor reads UNVERIFIED in the completion Critical", "auditor", "Task marked complete while supplied proof is still FAIL / UNVERIFIED"),
+    absent("auditor drops the old completion Critical", "auditor", "required commands/evidence are still FAIL / UNVERIFIED"),
+    present("auditor maps a non-blocking Medium", "auditor", "when the heaviest remaining finding is a non-blocking Medium, the verdict is `PASS_WITH_WARNINGS`, and with only Low findings it is `PASS`"),
+    present("auditor gives FAIL its threshold", "auditor", "- **FAIL:** a Critical, High, or blocking Medium finding remains"),
+    present("auditor defines PASS without Medium", "auditor", "- **PASS:** no Critical, High, or Medium finding remains; Low findings may remain"),
+    absent("auditor drops the overlapping PASS clause", "auditor", "no Critical or High findings and no blocking Medium finding"),
+    absent("auditor drops the overlapping warnings row", "auditor", "nly documented non-blocking findings remain"),
+    present("auditor keeps severity labels", "auditor", "write the labels `Critical`, `High`, `Medium`, `Low` verbatim in English"),
+    present("auditor keeps its report headings", "auditor", "Keep `## Review Report`, its headings and the severity labels verbatim in English"),
+    absent("gate drops the Iron Law", "gate", "Iron Law"),
+    absent("gate drops the PASS demand", "gate", "MUST NOT issue a final verdict of PASS unless"),
+    absent("gate drops the not-knowing claim", "gate", "you do not know if it works"),
+    absent("gate drops the run-it demand", "gate", "ran it, or seen it pass tests"),
+    absent("gate drops the cite demand", "gate", "you must cite one of the following concrete proofs"),
+    absent("gate drops the proof-first description", "gate", "without providing concrete execution proofs"),
+    absent("gate drops the missing-proof branch", "gate", "no execution proof is available"),
+    absent("gate drops the wait for proof", "gate", "Resume only after proof arrives"),
+  ];
+
+  console.log("\n[skill-test] code-review and code-auditor keep the review boundary");
+  const failures = [];
+  let rejected = 0;
+  for (const rule of rules) {
+    if (!rule.holds(texts[rule.file])) failures.push(`${rule.id}: ${rule.what} in ${sources[rule.file]}`);
+    if (!rule.holds(rule.weaken(texts[rule.file]))) rejected++;
+    else failures.push(`${rule.id}: a weakened copy still passes`);
+  }
+  if (failures.length > 0) {
+    for (const failure of failures) console.error(`[FAIL] code-review review boundary — ${failure}`);
+    process.exit(1);
+  }
+  console.log(`code-review review boundary rejects ${rejected} weakenings of ${rules.length} rules`);
+  console.log(`Ran ${rules.length * 2} tests in code-review review boundary`);
+  return rules.length * 2;
+}
+
 async function runLocalePreservationFixtureTest() {
   const root = await mkdtemp(join(tmpdir(), "cafekit-installer-locale-"));
 
@@ -7003,6 +7128,7 @@ async function main() {
 
   totalTests += await runCompletionPolicyWordingCheck();
   totalTests += await runSourceTreeCleanlinessCheck();
+  totalTests += await runCodeReviewBoundaryCheck();
 
   console.log(`\n[skill-test] PASS: ${totalTests} tests executed`);
 }

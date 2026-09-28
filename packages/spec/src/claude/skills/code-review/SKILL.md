@@ -73,6 +73,17 @@ runtime binding, concrete `evidence`, and literal `verdict: "PASS"`.
 `independent: true`, `PASS_WITH_WARNINGS`, missing binding, or reused session
 provenance is insufficient.
 
+## Test-run boundary
+
+Review reads code; it does not run tests. Never run the project's test suite or a
+test file, not even as a sanity check. A read-only run of the reviewed code (for
+example `node -e` on the changed function) may reproduce a defect; cite it as a
+reproduction, never as test evidence. Never report a test result, pass count, or
+exit code as the review's evidence. Without a `test-proof-v1` handoff, write the
+proof line exactly as `**Execution proof:** unavailable (owned by cf:test)` and do
+not otherwise say whether tests pass; the review still returns its correctness
+verdict.
+
 ## Execution-proof boundary
 
 For process-first work, consume only the controller-validated `test-proof-v1`
@@ -85,10 +96,34 @@ process-first receipt; Develop alone writes Status and inline `## Receipt` after
 proof and review are both literal `PASS`.
 
 Never rerun commands to manufacture proof. If execution proof is missing or
-invalid, say `execution proof unavailable` and leave closeout unfinished; do not
-claim feature PASS from review alone. A review may still return a correctness
+invalid, write the proof line from the test-run boundary and leave closeout
+unfinished; do not claim feature PASS from review alone. A review may still return a correctness
 verdict when its review inputs are complete, but that verdict is not execution
 proof or GATE-DONE approval.
+
+## Severity
+
+Rate each finding by its production impact. Write the labels `Critical`, `High`,
+`Medium`, and `Low` verbatim in English, whatever language the report uses.
+
+- Critical: a concrete failure a user or operator hits that loses or corrupts
+  data, breaks security, or stops the product (a login bypass).
+- High: a concrete wrong result a user or operator hits (an order exactly at a
+  tier boundary priced with the wrong discount).
+- Medium: a real risk with a failure scenario that has not reached users (a
+  changed boundary with no test; a leftover debug log).
+- Low: cleanup, clarity, or a question (a naming nit; a behavior the change's
+  README or docs state as intended).
+
+A leftover debug log is at most Medium; if it prints a secret or credential,
+report that exposure as a separate security finding at its own severity. A
+behavior the change's README or docs state as intended is not a Medium or
+heavier defect; raise it as Low or a question. Task and spec compliance findings
+are Critical only when a task or spec is supplied, and there `UNVERIFIED` means
+supplied proof that failed, never proof that is unavailable. A blocking Medium is
+one with a concrete failure before merge. A review whose heaviest remaining
+finding is a non-blocking Medium returns `PASS_WITH_WARNINGS`; one with only Low
+findings returns `PASS`.
 
 ## Verdict
 
@@ -98,13 +133,17 @@ Use the shared adapter surface exactly:
 
 Legacy adapter inputs may include `PASS | FAIL | BLOCKED`, but they are
 normalized to the shared surface and no second enum is allowed. `PASS` means no
-Critical/High correctness, security, or compliance finding. `PASS_WITH_WARNINGS`
-means only documented non-blocking findings remain. `FAIL` requires remediation;
-`PASS` also requires no blocking Medium finding. `PASS_WITH_WARNINGS` may carry
-documented non-blocking findings. Finding count never selects depth or overrides
-missing execution proof. A review `PASS_WITH_WARNINGS` remains an unfinished
+Critical, High, or Medium finding remains; Low findings may remain.
+`PASS_WITH_WARNINGS` means the heaviest remaining finding is a non-blocking
+Medium. `FAIL` means a Critical, High, or blocking Medium finding requires
+remediation. Finding count never selects depth or overrides missing execution
+proof. A review `PASS_WITH_WARNINGS` remains an unfinished
 closeout result; only literal `PASS` can finish a task. `BLOCKED` means the review input or a user-owned
 decision is unavailable.
+
+Copy the header line `# Code Review Results [cf:code-review]`, the field labels,
+and the severity labels verbatim in English; write the content in the user's
+language.
 
 ```markdown
 # Code Review Results [cf:code-review]

@@ -1,31 +1,24 @@
 ---
 name: verification-gate
-description: The Iron Law of Proof. Prohibits reporting a 'PASS' status without providing concrete execution proofs (like exit code 0 or successfully passing tests).
+description: Legacy proof consumption. Defines what supplied execution proof contains when a review of a legacy packet consumes it; the reviewer never produces that proof.
 ---
 
-# Verification Gate: The Iron Law of Proof
+# Verification Gate: legacy proof consumption
 
-In the Hapo ecosystem, words are cheap. Code that "looks right" to an AI can easily break in production. This reference defines the strictest, most uncompromising rule for Code Review.
+This reference applies only after the Legacy route in `SKILL.md` is selected. A
+review never runs tests, builds, or linters to produce proof; `cf:test` owns
+execution, and the test-run boundary in `SKILL.md` applies here as well.
 
-## 1. The Iron Law
-**You MUST NOT issue a final verdict of PASS unless you hold concrete, verifiable execution proof.**
+## 1. What supplied proof contains
 
-## 2. Hallucination Block
-Never use the following phrases or implications to assess code functionality:
-- "The code looks good."
-- "The logic seems sound."
-- "This should work as expected."
-- "There are no obvious errors."
+Proof reaches the review from the test owner, never from the review itself. It
+may be:
 
-If you have not compiled it, ran it, or seen it pass tests, **you do not know if it works**.
-
-## 3. Accepted Proofs of Execution
-To clear the Verification Gate, you must cite one of the following concrete proofs in your report:
-
-- **Test Suite Logs:** Output showing tests ran and passed (e.g., `PASS src/components/Login.test.tsx`).
-- **Compilation/Build Status:** Terminal output proving the typescript compiler (`tsc`) or bundler succeeded with `Exit code: 0`.
-- **Linter Completion:** Output proving no syntax errors exist.
-- **Multimodal Visual Evidence:** `cf:ai-multimodal` when installed, or another available runtime visual capability; otherwise report visual parity as `UNPROVEN`.
+- **Test suite logs:** output showing which tests ran and their result.
+- **Compilation or build status:** compiler or bundler output with its exit code.
+- **Linter completion:** output showing the lint run and its result.
+- **Multimodal visual evidence:** `cf:ai-multimodal` when installed, or another
+  available runtime visual capability; otherwise visual parity is `UNPROVEN`.
 
 For Specs v2, accepted proof must be persisted by the test owner at
 `receipts/<task-basename>.md`; legacy `## Evidence` remains fallback-only. The
@@ -40,7 +33,9 @@ exact criteria and counterexamples shaped as `criterion`, `case_kind`,
 `scenario`, `expected`, `decision_refs`, and `verification_ref`. Deterministic
 validator success is never a semantic-review verdict.
 
-## 4. How to Handle Missing Proof
-If you are asked to review a PR or commit and no execution proof is available:
-1. **Return `BLOCKED`** and name missing commands, artifacts, permissions, or environment access.
-2. Do not issue `PASS`, do not downgrade to a tentative pass, and do not blind-retry. Resume only after proof arrives.
+## 2. When supplied proof is missing or failed
+
+A missing legacy receipt leaves the closeout unfinished: the review still
+returns its correctness verdict and states execution proof as unavailable (owned
+by `cf:test`). Supplied proof that failed is a finding the review reports. Never
+rerun or retry anything to fill the gap.
