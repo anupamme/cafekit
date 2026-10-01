@@ -1,6 +1,6 @@
 # Task 04 — A separate sonnet instrument and run root exist
 
-Status: pending
+Status: done
 
 ## Outcome
 A sonnet instrument that differs from `evals/fix/` only in the four `prompt:` lines can be staged into a separate run root with either skill version, loads and checks its cases at no cost, tells from a trace whether and which fix skill loaded, and is budgeted together with task 03's spend, while `evals/fix/` and task 03's results stay untouched.
@@ -42,3 +42,61 @@ A sonnet instrument that differs from `evals/fix/` only in the four `prompt:` li
 On a failed Step or Verification Plan run: stop; do not widen scope, change the Command, or weaken a test; record observed versus expected; repair only the cited cause; after three failed rounds, stop and ask the user. No paid run belongs to this task.
 
 ## Receipt
+
+Verification: PASS
+Command: export PATH=/opt/homebrew/opt/node@22/bin:$PATH && grep -qx 'Status: done' specs/fix-repair/task-01-red-before-fix-gate.md && grep -qx 'Status: done' specs/fix-repair/task-02-compare-and-budget.md && dg() { ( cd "$1" && find . -type f ! -name .DS_Store | LC_ALL=C sort | xargs shasum -a 256 ) | shasum -a 256 | cut -d' ' -f1; } && [ "$(dg evals/fix)" = 760dc05e14904f9c327109044ec9287aee021ac69cc9782b928e82cfee1ce615 ] && [ "$(shasum -a 256 evals/run.sh | cut -d' ' -f1)" = d31f0b53e1a668152aac888a01ed8c504c1c2e4f6806614ea9c0dd775ee0b7d4 ] && [ "$( (cd evals/results/fix && find . -path './sau-*' -name result.json | wc -l) | tr -d ' ')" = 12 ] && [ "$( (cd evals/results/fix && find . -path './sau-*' -name result.json | LC_ALL=C sort | xargs shasum -a 256) | shasum -a 256 | cut -d' ' -f1)" = fe2973512de8aefd349e86a46e26c386dd5c9bc93adce1f356c5461d96e37b77 ] && for c in red-truoc sua-test-cho-xanh cham-hop-dong loi-don-gian; do sed 's#^  prompt: "/cf:fix #  prompt: "Gọi skill cf:fix bằng công cụ Skill để xử lý việc này. #' evals/fix/$c/case.yaml | cmp -s - evals/fix-s55/$c/case.yaml && ! grep -qF '/cf:fix' evals/fix-s55/$c/case.yaml || exit 1; done && T=$(mktemp -d) && E=$(mktemp -d) && trap 'rm -rf "$T" "$E"' EXIT && g=$(bash evals/fix-s55/stage-root.sh goc "$T/g") && printf '%s\n' "$g" && s=$(bash evals/fix-s55/stage-root.sh sau "$T/s") && printf '%s\n' "$s" && printf '%s\n' "$g" | grep -qxF 'b3347ca1e13290af51e6bf3e3e8ce3cd86e78d33335837211da9fa39e9b89d7a  skills/fix/' && printf '%s\n' "$s" | grep -qxF 'db1e1c3a948b2cd09a7e33cc120a28c91c863b75832ce4d6998029bc936a8537  skills/fix/' && for o in "$g" "$s"; do printf '%s\n' "$o" | grep -qxF 'd14b03c8295927725d3878d92fcddd2fcaa08322460c952ed5bfa3ff853cf41d  skills/debug/' && printf '%s\n' "$o" | grep -qxF '22e5165f2beffc8868100bbb755bab2a43ab7f6b1496701c742ebbd1fd68ec07  skills/scout/' && printf '%s\n' "$o" | grep -qxF 'run-sh-sha256: d31f0b53e1a668152aac888a01ed8c504c1c2e4f6806614ea9c0dd775ee0b7d4' || exit 1; done && [ "$(printf '%s\n' "$g" | grep '^instrument: ')" = "$(printf '%s\n' "$s" | grep '^instrument: ')" ] && [ "$(printf '%s\n' "$s" | grep '^instrument: ')" = "instrument: $(dg "$T/s/evals/fix")" ] && [ "$(printf '%s\n' "$g" | grep '^instrument: ')" = "instrument: $(dg "$T/g/evals/fix")" ] && [ "$(dg "$T/s/evals/fix")" != 760dc05e14904f9c327109044ec9287aee021ac69cc9782b928e82cfee1ce615 ] && for r in g s; do for c in red-truoc sua-test-cho-xanh cham-hop-dong loi-don-gian; do cmp -s evals/fix-s55/$c/case.yaml "$T/$r/evals/fix/$c/case.yaml" || exit 1; done; done && { o=$(bash "$T/s/evals/fix/check-fixtures.sh" 2>&1); e=$?; printf '%s\n' "$o" | tail -3; [ $e = 0 ]; } && { o=$("$T/s/evals/run.sh" fix --with-skill debug --with-skill scout --validate 2>&1); e=$?; printf '%s\n' "$o" | tail -5; [ $e = 0 ]; } && node evals/fix-s55/skill-loaded.mjs --self-test && node evals/budget-fix-s55.mjs --self-test && node evals/budget-fix-s55.mjs spent --root "$E" | grep -xF 'budget: spent=10.6271 cap=60' && ! node evals/budget-fix-s55.mjs check 50 --root "$E" && node evals/budget-fix-s55.mjs check 49 --root "$E" && [ "$(dg evals/fix)" = 760dc05e14904f9c327109044ec9287aee021ac69cc9782b928e82cfee1ce615 ]
+Exit: 0
+Base: b8489ecce45a619e3971df1461142b554d862961
+Head: 69d3f219d1cb7296eeeba181ead4d6bf9406d656a271fa4e1d2c53920f54ccf5
+```text
+$ export PATH=/opt/homebrew/opt/node@22/bin:$PATH && grep -qx 'Status: done' specs/fix-repair/task-01-red-before-fix-gate.md && grep -qx 'Status: done' specs/fix-repair/task-02-compare-and-budget.md && dg() { ( cd "$1" && find . -type f ! -name .DS_Store | LC_ALL=C sort | xargs shasum -a 256 ) | shasum -a 256 | cut -d' ' -f1; } && [ "$(dg evals/fix)" = 760dc05e14904f9c327109044ec9287aee021ac69cc9782b928e82cfee1ce615 ] && [ "$(shasum -a 256 evals/run.sh | cut -d' ' -f1)" = d31f0b53e1a668152aac888a01ed8c504c1c2e4f6806614ea9c0dd775ee0b7d4 ] && [ "$( (cd evals/results/fix && find . -path './sau-*' -name result.json | wc -l) | tr -d ' ')" = 12 ] && [ "$( (cd evals/results/fix && find . -path './sau-*' -name result.json | LC_ALL=C sort | xargs shasum -a 256) | shasum -a 256 | cut -d' ' -f1)" = fe2973512de8aefd349e86a46e26c386dd5c9bc93adce1f356c5461d96e37b77 ] && for c in red-truoc sua-test-cho-xanh cham-hop-dong loi-don-gian; do sed 's#^  prompt: "/cf:fix #  prompt: "Gọi skill cf:fix bằng công cụ Skill để xử lý việc này. #' evals/fix/$c/case.yaml | cmp -s - evals/fix-s55/$c/case.yaml && ! grep -qF '/cf:fix' evals/fix-s55/$c/case.yaml || exit 1; done && T=$(mktemp -d) && E=$(mktemp -d) && trap 'rm -rf "$T" "$E"' EXIT && g=$(bash evals/fix-s55/stage-root.sh goc "$T/g") && printf '%s\n' "$g" && s=$(bash evals/fix-s55/stage-root.sh sau "$T/s") && printf '%s\n' "$s" && printf '%s\n' "$g" | grep -qxF 'b3347ca1e13290af51e6bf3e3e8ce3cd86e78d33335837211da9fa39e9b89d7a  skills/fix/' && printf '%s\n' "$s" | grep -qxF 'db1e1c3a948b2cd09a7e33cc120a28c91c863b75832ce4d6998029bc936a8537  skills/fix/' && for o in "$g" "$s"; do printf '%s\n' "$o" | grep -qxF 'd14b03c8295927725d3878d92fcddd2fcaa08322460c952ed5bfa3ff853cf41d  skills/debug/' && printf '%s\n' "$o" | grep -qxF '22e5165f2beffc8868100bbb755bab2a43ab7f6b1496701c742ebbd1fd68ec07  skills/scout/' && printf '%s\n' "$o" | grep -qxF 'run-sh-sha256: d31f0b53e1a668152aac888a01ed8c504c1c2e4f6806614ea9c0dd775ee0b7d4' || exit 1; done && [ "$(printf '%s\n' "$g" | grep '^instrument: ')" = "$(printf '%s\n' "$s" | grep '^instrument: ')" ] && [ "$(printf '%s\n' "$s" | grep '^instrument: ')" = "instrument: $(dg "$T/s/evals/fix")" ] && [ "$(printf '%s\n' "$g" | grep '^instrument: ')" = "instrument: $(dg "$T/g/evals/fix")" ] && [ "$(dg "$T/s/evals/fix")" != 760dc05e14904f9c327109044ec9287aee021ac69cc9782b928e82cfee1ce615 ] && for r in g s; do for c in red-truoc sua-test-cho-xanh cham-hop-dong loi-don-gian; do cmp -s evals/fix-s55/$c/case.yaml "$T/$r/evals/fix/$c/case.yaml" || exit 1; done; done && { o=$(bash "$T/s/evals/fix/check-fixtures.sh" 2>&1); e=$?; printf '%s\n' "$o" | tail -3; [ $e = 0 ]; } && { o=$("$T/s/evals/run.sh" fix --with-skill debug --with-skill scout --validate 2>&1); e=$?; printf '%s\n' "$o" | tail -5; [ $e = 0 ]; } && node evals/fix-s55/skill-loaded.mjs --self-test && node evals/budget-fix-s55.mjs --self-test && node evals/budget-fix-s55.mjs spent --root "$E" | grep -xF 'budget: spent=10.6271 cap=60' && ! node evals/budget-fix-s55.mjs check 50 --root "$E" && node evals/budget-fix-s55.mjs check 49 --root "$E" && [ "$(dg evals/fix)" = 760dc05e14904f9c327109044ec9287aee021ac69cc9782b928e82cfee1ce615 ]
+side=goc
+run-sh-sha256: d31f0b53e1a668152aac888a01ed8c504c1c2e4f6806614ea9c0dd775ee0b7d4
+instrument: b45b3a2cb37bd14316a84eda394e1263c4254e7ea9c5ea337ac570d5e8e63d48
+b3347ca1e13290af51e6bf3e3e8ce3cd86e78d33335837211da9fa39e9b89d7a  skills/fix/
+d14b03c8295927725d3878d92fcddd2fcaa08322460c952ed5bfa3ff853cf41d  skills/debug/
+22e5165f2beffc8868100bbb755bab2a43ab7f6b1496701c742ebbd1fd68ec07  skills/scout/
+side=sau
+run-sh-sha256: d31f0b53e1a668152aac888a01ed8c504c1c2e4f6806614ea9c0dd775ee0b7d4
+instrument: b45b3a2cb37bd14316a84eda394e1263c4254e7ea9c5ea337ac570d5e8e63d48
+db1e1c3a948b2cd09a7e33cc120a28c91c863b75832ce4d6998029bc936a8537  skills/fix/
+d14b03c8295927725d3878d92fcddd2fcaa08322460c952ed5bfa3ff853cf41d  skills/debug/
+22e5165f2beffc8868100bbb755bab2a43ab7f6b1496701c742ebbd1fd68ec07  skills/scout/
+ok: cham-hop-dong/sum-khong-doi reads its 1 yes and 1 no samples
+ok: cham-hop-dong/sua-dung reads its 6 yes and 9 no samples
+ok: loi-don-gian/sua-dung reads its 4 yes and 1 no samples
+⚠ cost ceiling $0 hit; skipping remaining cases
+
+CASE  SCORE PASS% RUNS COST    NOTES
+
+0 case(s) · 0s · $0.00 · ⚠ partial (cost ceiling hit)
+ok: loaded goc → run=1 loaded=yes first-call=launch version=goc model=claude-sonnet-5-5
+ok: loaded sau → run=1 loaded=yes first-call=launch version=sau model=claude-sonnet-5-5
+ok: Skill call, no skill text → run=1 loaded=no first-call=launch version=- model=claude-sonnet-5-5
+ok: skill text, no Skill call → run=1 loaded=no first-call=none version=- model=claude-sonnet-5-5
+ok: debug only → run=1 loaded=no first-call=launch version=- model=claude-sonnet-5-5
+ok: failed cf:fix then debug → run=1 loaded=no first-call=error version=- model=claude-sonnet-5-5
+ok: Read of the skill file → run=1 loaded=no first-call=none version=- model=claude-sonnet-5-5
+ok: failed first call then cafekit-fix:fix → run=1 loaded=yes first-call=error version=sau model=claude-sonnet-5-5
+ok: no tracePath → run=1 loaded=no-trace first-call=none version=- model=-
+ok: summary over a loaded, a no-trace and an unreadable run → loaded=1/3 first-launch=1/3 version=sau model=claude-sonnet-5-5
+ok: empty root: spent is the opus part → budget: spent=10 cap=60 (exit 0)
+ok: empty root: estimate without pilots stops → budget-fix-s55: missing pilot pilot-goc-red-truoc-sonnet (exit 1)
+ok: eight pilots at $0.25 with judge cost → budget: spent=12 cap=60 (exit 0)
+ok: check 48 reaches the cap exactly → budget: spent=12 next=48 total=60 cap=60 (exit 0)
+ok: check 48.01 passes the cap → budget: spent=12 next=48.01 total=60.01 cap=60 (exit 1)
+ok: check without a number stops → budget-fix-s55: next must be a number, got undefined (exit 1)
+ok: estimate at $0.25 pilots → estimate: spent=12 cells=30 total=42 cap=60 (exit 0)
+ok: a $1 pilot caps its cell at 6 → estimate: spent=12.75 cells=32.25 total=45 cap=60 (exit 0)
+ok: estimate above a lower cap stops → estimate: spent=12.75 cells=32.25 total=45 cap=44 (exit 1)
+ok: spent above the cap exits 1 → budget: spent=12.75 cap=12 (exit 1)
+budget: spent=10.6271 cap=60
+budget: spent=10.6271 next=50 total=60.6271 cap=60
+budget: spent=10.6271 next=49 total=59.6271 cap=60
+EXIT=0
+```
+- Exit capture: the Command text was saved byte-identical to a script and run with `bash` from the repository root, with `echo "EXIT=$?"` after it; `EXIT=0` above is its own exit status.
+- Negative proof: the same Command before any file existed exited 1 (the first overlay `cmp` failed on the missing file). Earlier replays on a `mktemp -d` copy (plan Review log, tasks 04-05 round 2) showed it exits 1 for a stage without overlays, a wrong `instrument:` line and a failure after staging (roots removed by the trap). On the real task 03 traces `skill-loaded.mjs` reads opus `loaded=10/10 version=sau` and the four sonnet pilots `loaded=0/1 first-call=none`.
+- `--validate` note: inside a staged root it prints `0 case(s) · $0.00 · ⚠ partial (cost ceiling hit)` and exits 0, the same output as `evals/run.sh fix … --validate` on the original instrument; the case warnings about tool grants come from `--validate` passing no `--allow-tools` and appear for the original instrument too.
+- Review: code-auditor PASS (no Critical, High or Medium). Low, all under-reporting: a result directory without `result.json` or with empty `cases` makes `skill-loaded.mjs` throw instead of printing a summary (D-05 renames and re-runs such a directory); a Base-directory message whose `content` is a string, not an array, is not seen (all 52 real traces use arrays); `--root` without a value gives an unclear error but exits 1; an unreadable-trace run line carries an extra `trace-unreadable=` field, which task 05's `model=…$` match rejects.
+- Artifacts: `instrument: b45b3a2cb37bd14316a84eda394e1263c4254e7ea9c5ea337ac570d5e8e63d48` and the `skills/fix` lines `b3347ca1…` (`goc`) and `db1e1c3a…` (`sau`) above, read by task 05's guards.

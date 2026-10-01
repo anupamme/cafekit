@@ -55,8 +55,8 @@ Specs-Contract: process-first-ready-v1
 | 01 | The skill requires red on the unchanged code before the first source change | P1 | AC-01, AC-02 | `packages/spec/src/claude/skills/fix/SKILL.md`, `packages/spec/src/claude/skills/fix/references/prevention-gate.md:15-16`, `packages/spec/scripts/run-skill-self-tests.mjs` | - | done |
 | 02 | The comparison and budget helper exist | P1 | AC-03 | `evals/compare-fix.mjs`, `evals/budget-fix-sau.mjs` | - | done |
 | 03 | The changed skill is piloted, measured and compared with the baseline | P1 | AC-04 | `evals/results/fix/sau-pilot-*`, `evals/results/fix/sau-*` | task-01, task-02 | done |
-| 04 | A separate sonnet instrument and run root exist | P1 | AC-05 | `evals/fix-s55/`, `evals/budget-fix-s55.mjs` | task-01, task-02 | pending |
-| 05 | Both skill versions are measured on `claude-sonnet-5-5` and compared | P1 | AC-06 | `evals/results/fix-s55/root/evals/results/fix/*-sonnet` | task-04 | pending |
+| 04 | A separate sonnet instrument and run root exist | P1 | AC-05 | `evals/fix-s55/`, `evals/budget-fix-s55.mjs` | task-01, task-02 | done |
+| 05 | Both skill versions are measured on `claude-sonnet-5-5` and compared | P1 | AC-06 | `evals/results/fix-s55/root/evals/results/fix/*-sonnet` | task-04 | in_progress |
 
 ## Cost
 Estimate, not a ceiling: eight one-run pilots about $2 (observed $1.2852); four opus cells of ten runs about $9–12 after the GATE-SCOPE amendment (the original eight cells were about $17–25 (baseline cells $1.52–2.80 each; a test written first may add a few tool calls). ). Total about $11–14 against the $60 cap. Each invocation is also bounded by `--max-cost-usd` equal to its `check` ($2 per pilot, $6 per cell). Sonnet expansion (tasks 04-05): task 04 is free; task 05's eight pilots about $1–2 and eight cells about $14–22 (the old sonnet baseline cells cost $1.52–2.80 each), so the packet total is about $26–35 against the $60 cap. About $49.37 remains while eight pilots and eight cells could cost up to $64 at their ceilings, so `estimate` projects the eight cells from the pilots before any cell runs, and stops for the user when the projection passes the cap.

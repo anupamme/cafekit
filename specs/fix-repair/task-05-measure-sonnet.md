@@ -1,6 +1,6 @@
 # Task 05 — Both skill versions are measured on `claude-sonnet-5-5` and compared
 
-Status: pending
+Status: in_progress
 
 ## Outcome
 Four pilots and four ten-run cells exist for each skill version on `claude-sonnet-5-5` with the new call, on one `claude` and one `node` version; every run's skill loading and loaded version is read from its trace; every after-cell is compared with its baseline cell.
