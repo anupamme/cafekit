@@ -53,6 +53,7 @@ Use delegated researchers only as optional acceleration when two or more
 independent evidence tracks can be bounded. The controller owns the question,
 source reconciliation, and final recommendation. If delegation is unavailable,
 unauthorized, or not useful, research sequentially with the same evidence bar.
+When a researcher's report feeds the answer, keep its `Depth:` line, its status labels and its `path:line` anchors, reconciled with your own evidence.
 
 ## 4. Synthesize
 
@@ -77,6 +78,7 @@ Do not create a Spec or `_shared` archive merely to save an answer. The
 controller performs any authorized write after reviewing and redacting the
 output; delegated researchers never write reports or task state. Always state
 depth used, decisive evidence, recommendation, limitations, and unresolved gaps.
+Give every material claim in the answer its status in parentheses — `(confirmed)`, `(inferred)` or `(unresolved)` — in English whatever the answer's language.
 
 ## Handoff boundary
 

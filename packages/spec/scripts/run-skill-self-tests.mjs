@@ -3699,6 +3699,17 @@ function researchAdaptiveContractIssues(input) {
   requireClauses("proof-boundary", { skill: [
     "It never starts Develop, edits implementation code, claims user approval, or presents source/installed evidence as live-system proof.",
   ] });
+  requireClauses("relay-labels", { agent: [
+    "model: inherit",
+    "Its report opens with its depth and labels every claim; keep both, and its path:line anchors, when relaying it.",
+    "When none is assigned, choose Quick for one low-risk, reversible fact or known option, Standard for several viable options or a material integration choice, and Deep for high blast radius, hard-to-reverse architecture, security/compliance, substantial cost, or conflicting evidence.",
+    "Open the report with one line",
+    "End every material claim with its status in parentheses",
+    "Relay: keep the Depth line, every status label and every path:line anchor when you summarize this report.",
+  ], skill: [
+    "When a researcher's report feeds the answer, keep its",
+    "Give every material claim in the answer its status in parentheses",
+  ] });
 
   const skillCorpus = normalized.skill.toLowerCase();
   const agentCorpus = normalized.agent.toLowerCase();
@@ -3774,6 +3785,13 @@ async function runResearchAdaptiveContractTests() {
     ["additive-deep-skip", "skill", "contradiction-and-ranking", "## 3. Gather evidence", "Deep may skip the contradiction-and-gap round when time constrained.\n\n## 3. Gather evidence"],
     ["additive-provenance-omission", "skill", "claim-provenance", "## 4. Synthesize", "Material claims may omit date or status when the source looks official.\n\n## 4. Synthesize"],
     ["additive-live-promotion", "skill", "proof-boundary", "## Handoff boundary", "Installed evidence may be treated as live proof.\n\n## Handoff boundary"],
+    ["researcher-model-pinned", "agent", "relay-labels", "model: inherit", "model: haiku"],
+    ["depth-rule-dropped", "agent", "relay-labels", "choose Quick for one low-risk, reversible fact or known option,", "choose Deep for everything,"],
+    ["relay-line-removed", "agent", "relay-labels", "Relay: keep the Depth line, every status label and every path:line anchor when you summarize this report.", ""],
+    ["depth-line-freed", "agent", "relay-labels", "Open the report with one line", "Open the report freely"],
+    ["claim-labels-freed", "agent", "relay-labels", "End every material claim with its status in parentheses", "End claims as convenient"],
+    ["relay-rewritten", "skill", "relay-labels", "When a researcher's report feeds the answer, keep its", "When a researcher's report feeds the answer, rewrite its"],
+    ["answer-labels-freed", "skill", "relay-labels", "Give every material claim in the answer its status in parentheses", "Give claims as you see fit"],
   ];
   for (const [name, source, expectedIssue, from, to] of mutations) {
     const changed = { ...baseline, [source]: replaceResearchClauseOnce(baseline[source], from, to) };
