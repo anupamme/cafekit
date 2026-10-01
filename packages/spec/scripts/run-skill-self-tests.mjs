@@ -3451,6 +3451,25 @@ function hotfixAdaptiveContractIssues(input) {
     || parallelContract.includes("You don't need to wait for scouting")) {
     issues.add("scout-before-diagnosis");
   }
+  if (!skill.includes("<HARD-GATE-RED-BEFORE-FIX>")
+    || !skill.includes("Before the first change to any non-test file (an edit, a file write, or a shell command that rewrites it)")
+    || !skill.includes("fails on the unchanged code for the diagnosed reason")
+    || !skill.includes("For a lint, type, syntax, or build failure, the exact failing check run on the unchanged code stands in for the test.")
+    || !skill.includes("write or update the regression test first, then run it and see it fail")
+    || !skill.includes("Red shown after the fact does not count")
+    || !skill.includes("If no automated test or check can reproduce the failure, say so")
+    || !skill.includes("This applies at every depth.")
+    || !skill.includes("regression test seen failing on the unchanged code before the fix (`HARD-GATE-RED-BEFORE-FIX`)")
+    || !skill.includes("otherwise the regression test is written and seen failing at the start of Step 4 under `HARD-GATE-RED-BEFORE-FIX`")
+    || !skill.includes("with the pre-fix failure observed under `HARD-GATE-RED-BEFORE-FIX`, apply the minimal fix")
+    || !skill.includes("run it to see it fail on the unchanged code")
+    || !skill.includes("the failing run kept under `HARD-GATE-RED-BEFORE-FIX`")
+    || !prevention.includes("seen failing on the unchanged code before the fix (`HARD-GATE-RED-BEFORE-FIX` in `../SKILL.md`) counts as this guard")
+    || !prevention.includes("Red produced afterwards by undoing the fix does not count")
+    || skill.includes("regression test that fails without the fix and passes with it")
+    || prevention.includes("The test MUST fail without the fix and pass with it")) {
+    issues.add("red-before-fix");
+  }
   return [...issues].sort();
 }
 
@@ -3503,6 +3522,22 @@ async function runHotfixAdaptiveContractTests() {
     ["overlays-load-everything", "specialized", "specialized-proof-overlays", "Load only the matching section", "Load every section"],
     ["diagnosis-starts-before-scout", "parallel", "scout-before-diagnosis", "Diagnosis still starts only", "Diagnosis may start"],
     ["research-starts-before-diagnosis", "parallel", "scout-before-diagnosis", "Research begins only after Step 2 diagnosis", "Research may begin before Step 2 diagnosis"],
+    ["red-gate-renamed", "skill", "red-before-fix", "<HARD-GATE-RED-BEFORE-FIX>", "<NOTE-RED>"],
+    ["red-gate-moves-to-finalize", "skill", "red-before-fix", "Before the first change to any non-test file", "Before finalizing the fix"],
+    ["red-gate-drops-file-write", "skill", "red-before-fix", "(an edit, a file write, or a shell command that rewrites it)", "(an edit)"],
+    ["red-gate-drops-unchanged-code", "skill", "red-before-fix", "fails on the unchanged code for the diagnosed reason", "fails for the diagnosed reason"],
+    ["red-gate-check-after-fix", "skill", "red-before-fix", "the exact failing check run on the unchanged code stands in for the test", "a passing check after the fix stands in for the test"],
+    ["red-gate-accepts-after-fact", "skill", "red-before-fix", "Red shown after the fact does not count", "Red shown after the fact also counts"],
+    ["red-gate-skips-manual-repro", "skill", "red-before-fix", "If no automated test or check can reproduce the failure, say so", "If no automated test or check can reproduce the failure, skip it"],
+    ["red-gate-readds-old-phrase", "skill", "red-before-fix", "This applies at every depth.", "This applies at every depth. A regression test that fails without the fix and passes with it also satisfies it."],
+    ["red-depth-reverts", "skill", "red-before-fix", "regression test seen failing on the unchanged code before the fix (`HARD-GATE-RED-BEFORE-FIX`) and passing after it.", "regression test that fails without the fix and passes with it."],
+    ["red-step2-test-after-fix", "skill", "red-before-fix", "otherwise the regression test is written and seen failing at the start of Step 4", "otherwise the regression test is written after the fix"],
+    ["red-quick-drops-gate", "skill", "red-before-fix", "with the pre-fix failure observed under `HARD-GATE-RED-BEFORE-FIX`, apply the minimal fix", "apply the minimal fix"],
+    ["red-standard-reverts", "skill", "red-before-fix", "- **Standard:** write or update the regression test and run it to see it fail on the unchanged code (`HARD-GATE-RED-BEFORE-FIX`), then implement the fix, rerun the same test to see it pass, and run the relevant suite.", "- **Standard:** implement the fix, add or update a regression test that fails without the fix and passes with it, run the relevant suite."],
+    ["red-step5-any-run", "skill", "red-before-fix", "the failing run kept under `HARD-GATE-RED-BEFORE-FIX`", "a run"],
+    ["red-prevention-any-time", "prevention", "red-before-fix", "seen failing on the unchanged code before the fix", "seen failing at some point"],
+    ["red-prevention-accepts-undo", "prevention", "red-before-fix", "Red produced afterwards by undoing the fix does not count", "Red produced afterwards by undoing the fix also counts"],
+    ["red-prevention-readds-old-line", "prevention", "red-before-fix", "- Place it near related existing tests for discoverability", "- The test MUST fail without the fix and pass with it\n- Place it near related existing tests for discoverability"],
   ];
   for (const [name, source, expectedIssue, from, to] of mutations) {
     const changed = { ...baseline, [source]: replaceHotfixClauseOnce(baseline[source], from, to) };

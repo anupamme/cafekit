@@ -31,7 +31,7 @@ follows `cf:debug`:
 - **Quick/local:** one deterministic syntax, lint, type, or isolated-test failure
   with obvious local scope. Quick mode only reduces depth; it never skips scout, pre-fix evidence, diagnosis, or before/after verification.
 - **Standard:** a diagnosed root cause inside one bounded area. Fix plus a
-  regression test that fails without the fix and passes with it.
+  regression test seen failing on the unchanged code before the fix (`HARD-GATE-RED-BEFORE-FIX`) and passing after it.
 - **Incident/deep:** production impact, multiple components, intermittent
   behavior, data/security risk, or concurrency. Consume the full Incident/deep
   debug handoff (timeline, elimination path, recurrence candidates), implement in
@@ -76,6 +76,15 @@ Collect these scout outputs first:
 Then state a concise 3-6 bullet codebase-context summary before Step 2.
 Do not ask generic questions before this step unless there is no repo, no error text, and no observable artifact to inspect.
 </HARD-GATE-SCOUT-FIRST>
+
+<HARD-GATE-RED-BEFORE-FIX>
+Before the first change to any non-test file (an edit, a file write, or a shell command that rewrites it), run a test that fails on the unchanged code for the diagnosed reason, and keep its exact command and failing output for Step 5.
+For a lint, type, syntax, or build failure, the exact failing check run on the unchanged code stands in for the test.
+When no existing test fails for that reason, write or update the regression test first, then run it and see it fail.
+Red shown after the fact does not count: stashing, checking out, reverting, or editing the fix away to make the test fail is not pre-fix evidence.
+If no automated test or check can reproduce the failure, say so and keep the exact manual reproduction and its observed output instead.
+This applies at every depth.
+</HARD-GATE-RED-BEFORE-FIX>
 
 <HARD-GATE-NO-SIDE-EFFECTS>
 The fix is not done until Step 5 proves:
@@ -151,7 +160,7 @@ an existing debug report when `--from-debug` is provided. See
 
 Diagnosis chain:
 
-1. **Capture pre-fix state:** exact error messages, failing test output, stack traces. This is the baseline for Step 5.
+1. **Capture pre-fix state:** exact error messages, failing test output, stack traces. This is the baseline for Step 5. When an existing test already fails for the diagnosed reason, its run belongs to this baseline; otherwise the regression test is written and seen failing at the start of Step 4 under `HARD-GATE-RED-BEFORE-FIX`.
 2. **Observe:** read the actual error; locate where it occurs and when it started (`git log -p`).
 3. **Hypothesize:** form 2-3 hypotheses, each with confirm/refute evidence and a quick test.
 4. **Test:** validate each hypothesis against codebase evidence with focused local reads; test hypotheses in parallel only through the Delegation Gate.
@@ -209,8 +218,8 @@ Rules:
 - One logical change per commit boundary.
 
 Workflows by depth:
-- **Quick:** apply the minimal fix from completed scout + diagnosis, run the exact pre-fix command plus typecheck/lint immediately, report before/after proof.
-- **Standard:** implement the fix, add or update a regression test that fails without the fix and passes with it, run the relevant suite.
+- **Quick:** with the pre-fix failure observed under `HARD-GATE-RED-BEFORE-FIX`, apply the minimal fix from completed scout + diagnosis, run the exact pre-fix command plus typecheck/lint immediately, report before/after proof.
+- **Standard:** write or update the regression test and run it to see it fail on the unchanged code (`HARD-GATE-RED-BEFORE-FIX`), then implement the fix, rerun the same test to see it pass, and run the relevant suite.
 - **Incident/deep:** after diagnosis, research only unresolved external facts. If
   multiple cause-aligned remedies or an architecture decision remain, use
   `cf:brainstorm` to compare 2-3 options against the bounded repair frame, then
@@ -228,7 +237,7 @@ Workflows by depth:
 ## Step 5: Verify + Prevent
 
 1. **Iron-law verification:** run the exact commands from the pre-fix state capture and compare output. No claims without fresh command output from the current run.
-2. **Regression test:** must fail without the fix and pass with it.
+2. **Regression test:** the failing run kept under `HARD-GATE-RED-BEFORE-FIX` and a passing run of the same test after the fix.
 3. **Full check:** typecheck + lint + build + test (see `references/parallel-patterns.md` Pattern C).
 4. **Prevention guard (Standard+):** see `references/prevention-gate.md`; consume the debug report's recurrence candidates when present.
 5. **Side-effect gate:** sweep the full blast radius from Step 2 against the five checks in the gate above.

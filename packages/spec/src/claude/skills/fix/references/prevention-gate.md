@@ -12,8 +12,8 @@ of inventing new ones.
 For every fix (Standard+ complexity), evaluate and apply at least ONE:
 
 ### 1. Regression Test Guard
-- Write a test that specifically covers the fixed issue
-- The test MUST fail without the fix and pass with it
+- A test that specifically covers the fixed issue and was seen failing on the unchanged code before the fix (`HARD-GATE-RED-BEFORE-FIX` in `../SKILL.md`) counts as this guard
+- Red produced afterwards by undoing the fix does not count; the test MUST pass with the fix
 - Place it near related existing tests for discoverability
 
 ### 2. Input Validation Guard
