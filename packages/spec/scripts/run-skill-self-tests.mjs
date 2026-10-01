@@ -5006,6 +5006,27 @@ async function runStaticSemanticTests() {
       assert: (content) => !content.includes("references/debugger/"),
     },
     {
+      label: "cf:git worktree branches from the current branch and hydrates ignored runtime folders",
+      files: [
+        "src/claude/skills/git/SKILL.md",
+        "src/claude/skills/git/references/worktree-blueprint.md",
+      ],
+      assertParts: (parts) => parts.every((content) =>
+        content.includes("from the current branch") &&
+        content.includes("`.claude/`, `.codex/`, `.agents/`")),
+    },
+    {
+      label: "cf:git worktree blueprint never hard-codes main as the base",
+      file: "src/claude/skills/git/references/worktree-blueprint.md",
+      assert: (content) =>
+        content.includes('"$TARGET_DIR" "$BASE_BRANCH"') &&
+        !content.includes('"$TARGET_DIR" main') &&
+        content.includes("for dir in .claude .codex .agents; do") &&
+        content.includes('[ ! -e "$TARGET_DIR/$dir" ]') &&
+        content.includes("--exclude 'session-state/'") &&
+        content.includes("--exclude 'worktrees/'"),
+    },
+    {
       label: "cf:fix prevention gate points back to side-effect sweep",
       file: "src/claude/skills/fix/references/prevention-gate.md",
       assert: (content) =>

@@ -10,7 +10,7 @@ Kêu gọi lệnh Bash để kiểm tra thư mục gốc:
 git rev-parse --show-toplevel
 git branch --show-current
 ```
-*-> Giả sử top-level path là `/path/to/project` và current là `main`.*
+*-> Giả sử top-level path là `/path/to/project` và current là `dev`.* Worktree mới tạo nhánh from the current branch, trừ khi User chỉ định nhánh gốc khác. Nếu `git branch --show-current` rỗng (detached HEAD), dừng lại và hỏi User nhánh gốc.
 
 ### Bước 2: Nhận Diện & Định Tên Nhánh (Slugifier)
 Tuỳ theo `<feature-description>`, hãy sinh ra một cái tên nhánh dạng Kebab-case.
@@ -26,17 +26,27 @@ Cấu trúc lệnh Bash thực thi:
 ```bash
 export REPO_HOME=$(git rev-parse --show-toplevel)
 export REPO_NAME=$(basename $REPO_HOME)
+export BASE_BRANCH="${BASE_BRANCH:-$(git branch --show-current)}"
 export BRANCH_NAME="feat/add-auth"
 
 # Sanitize folder path (thay / thành - để tránh lỗi subfolder nếu k cần thiết)
 export SAFE_FOLDER_NAME="${REPO_NAME}-${BRANCH_NAME//\//-}"
 export TARGET_DIR="$REPO_HOME/../$SAFE_FOLDER_NAME"
 
-git worktree add -b "$BRANCH_NAME" "$TARGET_DIR" main || git worktree add "$TARGET_DIR" "$BRANCH_NAME"
+git worktree add -b "$BRANCH_NAME" "$TARGET_DIR" "$BASE_BRANCH" || git worktree add "$TARGET_DIR" "$BRANCH_NAME"
 ```
 
 ### Bước 4: Tự Động Hóa Môi Trường (Hydration)
-Tại `$TARGET_DIR` mới, bạn phải tự scan (bằng `ls` hoặc `find`) để tìm file cấu trúc và cài đặt:
+Bộ cài CafeKit thêm `.claude/`, `.codex/`, `.agents/` vào `.gitignore`, nên `git worktree add` không mang theo hook, skill và rule. Chép những thư mục đang có ở repo gốc mà worktree mới còn thiếu, bỏ log, session state, worktree lồng của agent và môi trường cài cục bộ:
+```bash
+for dir in .claude .codex .agents; do
+  if [ -d "$REPO_HOME/$dir" ] && [ ! -e "$TARGET_DIR/$dir" ]; then
+    rsync -a --exclude 'session-state/' --exclude 'worktrees/' --exclude '.logs/' --exclude 'node_modules/' --exclude '.venv/' "$REPO_HOME/$dir/" "$TARGET_DIR/$dir/"
+    echo "hydrated $dir"
+  fi
+done
+```
+Sau đó, tại `$TARGET_DIR` mới, bạn phải tự scan (bằng `ls` hoặc `find`) để tìm file cấu trúc và cài đặt:
 - Nếu tìm thấy `.env.example`, tự chạy `cp .env.example .env`.
 - Nếu tìm thấy `bun.lockb` / `bun.lock`: Chạy `bun install`.
 - Nếu tìm thấy `pnpm-lock.yaml`: Chạy `pnpm install`.
@@ -45,4 +55,4 @@ Tại `$TARGET_DIR` mới, bạn phải tự scan (bằng `ls` hoặc `find`) đ
 ### Bước 5: Báo Cáo Chuyển Giao
 Sau khi chạy hoàn thiện qua Native Bash, xuất báo cáo cho Tướng Lĩnh.
 Nội dung thông báo (Mẫu):
-> "✅ Worktree được khởi tạo thành công tại thư mục Sibling: `/path/to/.../project-feat-auth`. Môi trường npm và .env đã được setup. Để bắt đầu code, vui lòng mở cửa sổ Terminal/IDE mới tại đường dẫn đó."
+> "✅ Worktree được khởi tạo thành công tại thư mục Sibling: `/path/to/.../project-feat-auth`, nhánh `feat/auth` tạo từ `dev`. Đã chép `.claude/` (các dòng `hydrated`). Môi trường npm và .env đã được setup. Để bắt đầu code, vui lòng mở một phiên agent mới tại đường dẫn đó, để hook của worktree này chỉ canh gói specs của chính nó."
