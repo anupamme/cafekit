@@ -55,9 +55,9 @@ function val(l,   n, lo, r, q, v, i, w) {
   split(r, w, " "); v = w[1]
   return (v ~ /^[A-Za-z0-9+\/_=-]+$/ && length(v) >= 16)
 }
-/^[+][+][+] /  { f = ($0 ~ /^[+][+][+] b\//) ? substr($0, 7) : ""; sub(/\t.*$/, "", f); next }
-/^@@/          { split($3, a, ","); n = substr(a[1], 2) - 1; next }
-/^[+]/         { n++; if (f == "") next; l = substr($0, 2); c = ""
+/^[+][+][+] /  { f = ($(0) ~ /^[+][+][+] b\//) ? substr($(0), 7) : ""; sub(/\t.*$/, "", f); next }
+/^@@/          { split($(3), a, ","); n = substr(a[1], 2) - 1; next }
+/^[+]/         { n++; if (f == "") next; l = substr($(0), 2); c = ""
   if (val(l)) c = "assignment"
   if (match(l, /sk-[A-Za-z0-9_-]+/) && RLENGTH >= 20) c = "sk-prefix"
   if (match(l, /gh[pousr]_[A-Za-z0-9]+/) && RLENGTH >= 20) c = "gh-prefix"

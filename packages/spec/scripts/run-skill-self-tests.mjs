@@ -4586,6 +4586,82 @@ const GIT_SKILL_PINS = [
     "excludes": [
       "|| { echo \"Thư mục"
     ]
+  },
+  {
+    "label": "cf:git SKILL.md holds no dollar-digit or $ARGUMENTS (Claude Code substitutes them with the invocation arguments)",
+    "file": "src/claude/skills/git/SKILL.md",
+    "includes": [],
+    "forbid": [
+      {
+        "re": "\\$[0-9]",
+        "plant": "$1"
+      },
+      {
+        "re": "\\$\\{[0-9]",
+        "plant": "${2}"
+      },
+      {
+        "re": "\\$ARGUMENTS",
+        "plant": "$ARGUMENTS"
+      }
+    ]
+  },
+  {
+    "label": "cf:git references/commit-protocols.md holds no dollar-digit or $ARGUMENTS (Claude Code substitutes them with the invocation arguments)",
+    "file": "src/claude/skills/git/references/commit-protocols.md",
+    "includes": [],
+    "forbid": [
+      {
+        "re": "\\$[0-9]",
+        "plant": "$1"
+      },
+      {
+        "re": "\\$\\{[0-9]",
+        "plant": "${2}"
+      },
+      {
+        "re": "\\$ARGUMENTS",
+        "plant": "$ARGUMENTS"
+      }
+    ]
+  },
+  {
+    "label": "cf:git references/finish-branch.md holds no dollar-digit or $ARGUMENTS (Claude Code substitutes them with the invocation arguments)",
+    "file": "src/claude/skills/git/references/finish-branch.md",
+    "includes": [],
+    "forbid": [
+      {
+        "re": "\\$[0-9]",
+        "plant": "$1"
+      },
+      {
+        "re": "\\$\\{[0-9]",
+        "plant": "${2}"
+      },
+      {
+        "re": "\\$ARGUMENTS",
+        "plant": "$ARGUMENTS"
+      }
+    ]
+  },
+  {
+    "label": "cf:git references/worktree-blueprint.md holds no dollar-digit or $ARGUMENTS (Claude Code substitutes them with the invocation arguments)",
+    "file": "src/claude/skills/git/references/worktree-blueprint.md",
+    "includes": [],
+    "forbid": [
+      {
+        "re": "\\$[0-9]",
+        "plant": "$1"
+      },
+      {
+        "re": "\\$\\{[0-9]",
+        "plant": "${2}"
+      },
+      {
+        "re": "\\$ARGUMENTS",
+        "plant": "$ARGUMENTS"
+      }
+    ]
   }
 ];
 // git-skill-pins:end
@@ -5200,7 +5276,7 @@ async function runStaticSemanticTests() {
     ...GIT_SKILL_PINS.map((pin) => ({
       label: pin.label,
       file: pin.file,
-      assert: (content) => pin.includes.every((text) => content.includes(text)) && (pin.excludes ?? []).every((text) => !content.includes(text)),
+      assert: (content) => pin.includes.every((text) => content.includes(text)) && (pin.excludes ?? []).every((text) => !content.includes(text)) && (pin.forbid ?? []).every((f) => !new RegExp(f.re).test(content)),
     })),
     {
       label: "cf:fix prevention gate points back to side-effect sweep",

@@ -29,11 +29,12 @@ total=0; caught=0
 n="$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).length)' "$pins")"
 i=0
 while [ "$i" -lt "$n" ]; do
-  # one mutation per line: <weaken|plant>\t<file>\t<index in the list>
+  # one mutation per line: <weaken|plant|forbid>\t<file>\t<index in the list>
   mutations="$(node -e '
     const p = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))[Number(process.argv[2])];
     p.includes.forEach((_, k) => console.log(["weaken", p.file, k].join("\t")));
     (p.excludes || []).forEach((_, k) => console.log(["plant", p.file, k].join("\t")));
+    (p.forbid || []).forEach((_, k) => console.log(["forbid", p.file, k].join("\t")));
   ' "$pins" "$i")"
   while IFS=$'\t' read -r kind file idx; do
     [ -n "$kind" ] || continue
@@ -47,6 +48,8 @@ if (kind === "weaken") {
   const needle = pin.includes[Number(idx)];
   if (!text.includes(needle)) { console.error(`FAIL: sentence not in the copy: ${needle}`); process.exit(2); }
   text = text.replace(needle, "");
+} else if (kind === "forbid") {
+  text += "\n" + pin.forbid[Number(idx)].plant + "\n";
 } else {
   text += "\n" + pin.excludes[Number(idx)] + "\n";
 }
