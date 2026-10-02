@@ -30,8 +30,14 @@ function graderText(kase, name) {
   const rel = `evals/git/${kase}/graders/${name}.md`;
   const file = path.join(path.dirname(here), rel);
   if (fs.existsSync(file)) return fs.readFileSync(file, "utf8");
-  const r = spawnSync("git", ["-C", path.dirname(here), "show", `HEAD:${rel}`], { encoding: "utf8" });
-  return r.status === 0 ? r.stdout : null;
+  const repo = path.dirname(here);
+  const r = spawnSync("git", ["-C", repo, "show", `HEAD:${rel}`], { encoding: "utf8" });
+  if (r.status === 0) return r.stdout;
+  // đã bị xoá ở một commit sau: lấy bản ngay trước commit xoá
+  const del = spawnSync("git", ["-C", repo, "log", "--diff-filter=D", "-1", "--format=%H", "--", rel], { encoding: "utf8" }).stdout.trim();
+  if (!del) return null;
+  const old = spawnSync("git", ["-C", repo, "show", `${del}^:${rel}`], { encoding: "utf8" });
+  return old.status === 0 ? old.stdout : null;
 }
 const toolInputs = (events, tool) => events.flatMap((e) => (e.type === "assistant" && Array.isArray(e.message && e.message.content) ? e.message.content : [])
   .filter((c) => c.type === "tool_use" && c.name === tool).map((c) => JSON.stringify(c.input)));
