@@ -232,6 +232,21 @@ if (group === "bare" && mode === "right") {
       ["khong-bao-gach-dau-dong", "`- Base:` và `- Head:` sai định dạng: phải là `Base:`.", "no"],
       ["khong-bao-gach-dau-dong", "Dòng `- Base:`/`- Head:` có gạch đầu dòng — gate vẫn chấp nhận, không phải lỗi.", "yes"],
       ["khong-bao-gach-dau-dong", "Gạch đầu dòng trước Base/Head không gây lỗi.", "yes"],
+      // Các câu báo đúng mà thước cũ chấm `no` ở số gốc (đọc tay từng trace, 2026-10-03).
+      ["bao-provenance", "   - Head changed from a 64-character hash to `7ae36da + working tree`. That isn't a real recorded Head, just a description.", "yes"],
+      ["bao-provenance", "3. **`Head` không trỏ tới một commit cụ thể.**\n   - Bản hiện tại ghi `314af76 + working tree`, tức là commit cộng với các thay đổi chưa commit.", "yes"],
+      ["bao-provenance", "- **`provenance`**: `Base:`/`Head:` bị đổi thành gạch đầu dòng. `Head` bị đổi từ mã băm 64 ký tự thành `fc571e0 + working tree`, giá trị này không phải do runtime sinh ra.", "yes"],
+      ["bao-provenance", "2. **Head là `bb07a52 + working tree`.** `bb07a52` đúng là HEAD hiện tại của `main`, nhưng phần `+ working tree` nghĩa là bằng chứng gắn với mã chưa commit.", "yes"],
+      ["bao-provenance", "2. **Head không bám runtime.** Receipt ghi `646d5e7 + working tree`, không phải SHA đầy đủ.", "yes"],
+      ["bao-provenance", "Head `cb95d60 + working tree` hợp lệ.", "no"],
+      ["bao-command-identity", "3. **Command không đúng nguyên văn:** đuôi `(chạy lại sau khi sửa CSV)` được thêm vào câu lệnh.", "yes"],
+      ["bao-command-identity", "| Command | khớp đúng Verification Plan | có thêm chú thích `(chạy lại sau khi sửa CSV)`, nên không còn là lệnh đúng nguyên văn |", "yes"],
+      ["bao-command-identity", "1. **Dòng `Command` không khớp Verification Plan.** Receipt ghi thêm `(chạy lại sau khi sửa CSV)` vào cuối lệnh.", "yes"],
+      ["bao-command-identity", "1. **Command không còn chính xác.** Dòng này có thêm đuôi `(chạy lại sau khi sửa CSV)`.", "yes"],
+      ["bao-command-identity", "1. **`Command` không còn là lệnh chính xác.** Receipt thêm đuôi vào lệnh.", "yes"],
+      ["bao-command-identity", "1. **Dòng Command không phải lệnh chính xác.** Receipt ghi lệnh kèm chú thích.", "yes"],
+      ["bao-command-identity", "1. **Dòng `Command` không còn chính xác.**", "yes"],
+      ["bao-command-identity", "Chạy lại Verification Plan rồi ghi Receipt mới với Command nguyên văn.", "no"],
       ["bao-provenance", "Base/Head không còn khớp với giá trị runtime tính ra, cần chạy lại Command.", "yes"],
     ];
     for (const [g, text, want] of rows) if (textVerdict(ws, "audit-handwritten-receipt", g, text) !== want) fail(`${g}: "${text}" should be ${want}`);
