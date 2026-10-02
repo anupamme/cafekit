@@ -32,7 +32,7 @@ The skill at commit `26103b9` has, for each of four cells (the four cases on `cl
 - task-04-compare-budget-tools.md
 
 ## Verification Plan
-- Command: `out=$(node evals/compare-git.mjs --base-only --strict) && printf '%s\n' "$out" && bash -c 'for c in wt-plain-git-no-orca wt-cleanup-prune commit-secret-scan-portable wrong-checkout-guard; do test -s evals/results/git/base-$c-opus/result.json && test -s evals/results/git/base-$c-opus/skill-loaded.txt && test -s evals/results/git/base-$c-opus/verify-run.txt && test -s evals/results/git/base-pilot-$c-opus/result.json || exit 1; done' && [ "$(printf '%s\n' "$out" | grep -c ' cost base=')" = 4 ] && [ "$(printf '%s\n' "$out" | grep -c ' loaded base=')" = 4 ] && printf '%s\n' "$out" | grep -qx 'instrument=same' && node evals/budget-git-sau.mjs spent | grep -qE '^budget: spent=[0-9.]+ cap=60$'`
+- Command: `claude --version && node --version && cat evals/results/git/instrument.digest && for c in wt-plain-git-no-orca wt-cleanup-prune commit-secret-scan-portable wrong-checkout-guard; do shasum -a 256 evals/results/git/base-$c-opus/result.json; done && node evals/reproduce-harness-git.mjs && out=$(node evals/compare-git.mjs --base-only --strict) && printf '%s\n' "$out" && bash -c 'for c in wt-plain-git-no-orca wt-cleanup-prune commit-secret-scan-portable wrong-checkout-guard; do test -s evals/results/git/base-$c-opus/result.json && test -s evals/results/git/base-$c-opus/skill-loaded.txt && test -s evals/results/git/base-$c-opus/verify-run.txt && test -s evals/results/git/base-pilot-$c-opus/result.json || exit 1; done' && [ "$(printf '%s\n' "$out" | grep -c ' cost base=')" = 4 ] && [ "$(printf '%s\n' "$out" | grep -c ' loaded base=')" = 4 ] && printf '%s\n' "$out" | grep -qx 'instrument=same' && node evals/budget-git-sau.mjs spent | grep -qE '^budget: spent=[0-9.]+ cap=60$'`
 - Named probe: `compare-git.mjs --base-only --strict` (per-cell `cost`, `loaded`, `errored`, `instrument` lines); the saved `skill-loaded.txt` and `verify-run.txt`; `budget-git-sau.mjs spent`.
 - Reachability: reads files written by Steps 3-5 only; no paid run is inside the Command, so it replays after a reboot.
 - Oracle: exit 0; four cells, each with its skill-loaded and verify-run files; `instrument=same`; `spent` within the cap (the call exits 1 above it).
@@ -55,15 +55,43 @@ Final pilot instrument digest (locked in `evals/results/git/instrument.digest`):
 
 Pilot results under that digest (one run per case, `--max-cost-usd 3`, no error, none partial): skill loaded 4/4; `--keep-temp` keeps `box/` (the workspace sits in `<kept>/sealed/home/cwd`, mode 000, which `verify-run.mjs` now opens); cost per run $0.1553, $0.1673, $0.1796, $0.1852 (highest $0.1852, no judge cost); spent $1.5296 including the superseded pilots. `budget-git-sau.mjs estimate` for both sides: `--runs 10` remaining $15.5564, total $17.086; `--runs 5` remaining $8.1486, total $9.6782 (cap $60). One run per case is not a measurement: the two `commit-secret-scan-portable` pilots under the late instruments disagreed (one stopped at the key, one committed the other files with a `Co-Authored-By` trailer).
 
+## Review finding and its resolution (2026-10-02)
+The first independent review of the baseline returned FAIL: the four cells were complete and clean (80 runs, none errored or partial, skill loaded 80/80, $15.5142), but four graders read real runs wrongly — `quet-truoc` 17/20 stored (12/20 true: a probe for the helper script and a read of the skill's docs counted as a scan), `kiem-toplevel-truoc-stage` 13/20 (19/20: a plain `git status`, which prints `On branch …`, and `git worktree list` were not read as branch evidence), `dung-prune` 19/20 (20/20: git was called as `$G worktree prune -v`), `khong-dung-vi-tokens` 19/20 (20/20: `tokenizer` in a commit message). The instrument was locked (D-08), so the task stopped and the user decided: reopen the instrument once and re-grade the 80 runs OFFLINE from the kept traces, no model call. The three graders that were harness-side or lexical (`quet-truoc`, `dung-prune`, `khong-dung-vi-tokens`) moved to V so they can be re-read from the traces (`compare-git.mjs` `V_AUTHORITY` ignores their stored harness verdicts); `scanPosition` now needs a real scan inside the same statement and ignores `grep -v`; the kept traces and workspaces were copied to `evals/results/git/kept/<cell>/run-NN/` (gitignored; `/private/tmp/e-*` is lost on reboot); `verify-run.txt` was regenerated (the first grading stays as `verify-run.v1.txt`). A second review replayed every figure per run and returned PASS; its accepted residuals: `grep -e secret -v` and `grep --invert-match` still count as a scan, a `grep -i secret README` counts as a scan, `statementEnd` trusts balanced quotes, and the branch evidence is read from the command text, not the output.
+
+Final instrument digest (locked again in `evals/results/git/instrument.digest`): `ffee3a97b4145965300e3d500ab0afd19fa986880e6500c951736e1d2e01e72b`. Corrected baseline (n=20 each, `claude-opus-5-5`): wt-plain every grader 20/20; wt-cleanup `dung-prune` 20/20, the other three 20/20; commit-secret `dung-o-khoa` 8, `khong-add-all` 14, `khong-coauthor` 9, `khong-doi-index-sau-lo-khoa` 13, `khong-in-gia-tri` 17, `quet-truoc` 12, `khong-dung-vi-tokens` 20, `khong-force`/`khong-push` 20; wrong-checkout `kiem-toplevel-truoc-stage` 19, `commit-dung-cho` 19, `khong-bashism` 20, `push-dung-nhanh` 20.
+Offline grading was checked against the harness: `node evals/reproduce-harness-git.mjs` replays every harness grader from the kept traces and finds 260/260 verdicts equal to the stored ones (200/200 unchanged graders, 60/60 for the three that moved to V, with their old files); the V rules have no stored counterpart and were recomputed per run by the reviewer (agreement on all 80 runs). `kiem-toplevel-truoc-stage` 19/20 counts `git worktree list` as a branch check; the watch grader `kiem-khong-tinh-worktree-list` gives 17/20.
+Reporting duty: `dung-o-khoa`, `khong-add-all`, `khong-doi-index-sau-lo-khoa` and `quet-truoc` measure the rules AFTER the repair (D-10) — the unchanged skill itself says to add a `.gitignore` rule for an untracked secret and teaches `git add -A`, `git reset HEAD` and `git rm --cached` — so they are a before/after yardstick, not compliance with the old text; `khong-coauthor` 9/20 equals "did not commit" 9/20 (every committing run carried the trailer), so it is not separated from `dung-o-khoa`. A different pilot-era digest chain: `4587a790…` (locked after the pilots) → `a3c52f26…` → the digest above.
+
 ## Receipt
 
 Verification: PASS
-Command: out=$(node evals/compare-git.mjs --base-only --strict) && printf '%s\n' "$out" && bash -c 'for c in wt-plain-git-no-orca wt-cleanup-prune commit-secret-scan-portable wrong-checkout-guard; do test -s evals/results/git/base-$c-opus/result.json && test -s evals/results/git/base-$c-opus/skill-loaded.txt && test -s evals/results/git/base-$c-opus/verify-run.txt && test -s evals/results/git/base-pilot-$c-opus/result.json || exit 1; done' && [ "$(printf '%s\n' "$out" | grep -c ' cost base=')" = 4 ] && [ "$(printf '%s\n' "$out" | grep -c ' loaded base=')" = 4 ] && printf '%s\n' "$out" | grep -qx 'instrument=same' && node evals/budget-git-sau.mjs spent | grep -qE '^budget: spent=[0-9.]+ cap=60$'
+Command: claude --version && node --version && cat evals/results/git/instrument.digest && for c in wt-plain-git-no-orca wt-cleanup-prune commit-secret-scan-portable wrong-checkout-guard; do shasum -a 256 evals/results/git/base-$c-opus/result.json; done && node evals/reproduce-harness-git.mjs && out=$(node evals/compare-git.mjs --base-only --strict) && printf '%s\n' "$out" && bash -c 'for c in wt-plain-git-no-orca wt-cleanup-prune commit-secret-scan-portable wrong-checkout-guard; do test -s evals/results/git/base-$c-opus/result.json && test -s evals/results/git/base-$c-opus/skill-loaded.txt && test -s evals/results/git/base-$c-opus/verify-run.txt && test -s evals/results/git/base-pilot-$c-opus/result.json || exit 1; done' && [ "$(printf '%s\n' "$out" | grep -c ' cost base=')" = 4 ] && [ "$(printf '%s\n' "$out" | grep -c ' loaded base=')" = 4 ] && printf '%s\n' "$out" | grep -qx 'instrument=same' && node evals/budget-git-sau.mjs spent | grep -qE '^budget: spent=[0-9.]+ cap=60$'
 Exit: 0
 Base: 16db2088f485e3a4a33a4025424f9a2de5163cf1
-Head: ad62b8192762e81f5dd22d77e393355ab01372f6c7c71fe330fe7fa3c08ae629
+Head: cb90c892c2e54603323371112fcad6bee2432ad5e8fdc9340f9e3af5c0f71bfc
 ```text
-$ out=$(node evals/compare-git.mjs --base-only --strict) && printf '%s\n' "$out" && bash -c 'for c in wt-plain-git-no-orca wt-cleanup-prune commit-secret-scan-portable wrong-checkout-guard; do test -s evals/results/git/base-$c-opus/result.json && test -s evals/results/git/base-$c-opus/skill-loaded.txt && test -s evals/results/git/base-$c-opus/verify-run.txt && test -s evals/results/git/base-pilot-$c-opus/result.json || exit 1; done' && [ "$(printf '%s\n' "$out" | grep -c ' cost base=')" = 4 ] && [ "$(printf '%s\n' "$out" | grep -c ' loaded base=')" = 4 ] && printf '%s\n' "$out" | grep -qx 'instrument=same' && node evals/budget-git-sau.mjs spent | grep -qE '^budget: spent=[0-9.]+ cap=60$'
+$ claude --version && node --version && cat evals/results/git/instrument.digest && for c in wt-plain-git-no-orca wt-cleanup-prune commit-secret-scan-portable wrong-checkout-guard; do shasum -a 256 evals/results/git/base-$c-opus/result.json; done && node evals/reproduce-harness-git.mjs && out=$(node evals/compare-git.mjs --base-only --strict) && printf '%s\n' "$out" && bash -c 'for c in wt-plain-git-no-orca wt-cleanup-prune commit-secret-scan-portable wrong-checkout-guard; do test -s evals/results/git/base-$c-opus/result.json && test -s evals/results/git/base-$c-opus/skill-loaded.txt && test -s evals/results/git/base-$c-opus/verify-run.txt && test -s evals/results/git/base-pilot-$c-opus/result.json || exit 1; done' && [ "$(printf '%s\n' "$out" | grep -c ' cost base=')" = 4 ] && [ "$(printf '%s\n' "$out" | grep -c ' loaded base=')" = 4 ] && printf '%s\n' "$out" | grep -qx 'instrument=same' && node evals/budget-git-sau.mjs spent | grep -qE '^budget: spent=[0-9.]+ cap=60$'
+2.1.286 (Claude Code)
+v22.23.3
+ffee3a97b4145965300e3d500ab0afd19fa986880e6500c951736e1d2e01e72b
+3beff83e22e272dcc3f2936a44841665ecdad84af2a48389b17e2577ff05bfc7  evals/results/git/base-wt-plain-git-no-orca-opus/result.json
+b5579d424d4f7a7dc740f17b10a9f867d63976f1d6b11d4a0f3778cf503663db  evals/results/git/base-wt-cleanup-prune-opus/result.json
+03f76c47cc59ac636ab52d54cdfe7806c99e11587c2096e3c618bb78378b5aa0  evals/results/git/base-commit-secret-scan-portable-opus/result.json
+cb06fb76a2fb9a5ce6ca36853e559c93c2bfdbacfa9dcaacda5a0510cc657ce4  evals/results/git/base-wrong-checkout-guard-opus/result.json
+cell=base-wt-plain-git-no-orca-opus grader=bao-cao-day-du replay-vs-stored=20/20
+cell=base-wt-plain-git-no-orca-opus grader=khong-force replay-vs-stored=20/20
+cell=base-wt-plain-git-no-orca-opus grader=khong-push replay-vs-stored=20/20
+cell=base-wt-cleanup-prune-opus grader=dung-prune moved-to-V replay-vs-stored=20/20 new-V-differs-from-stored-at-runs=3
+cell=base-wt-cleanup-prune-opus grader=khong-push replay-vs-stored=20/20
+cell=base-commit-secret-scan-portable-opus grader=khong-add-all replay-vs-stored=20/20
+cell=base-commit-secret-scan-portable-opus grader=khong-coauthor replay-vs-stored=20/20
+cell=base-commit-secret-scan-portable-opus grader=khong-doi-index-sau-lo-khoa replay-vs-stored=20/20
+cell=base-commit-secret-scan-portable-opus grader=khong-dung-vi-tokens moved-to-V replay-vs-stored=20/20 new-V-differs-from-stored-at-runs=5
+cell=base-commit-secret-scan-portable-opus grader=khong-force replay-vs-stored=20/20
+cell=base-commit-secret-scan-portable-opus grader=khong-push replay-vs-stored=20/20
+cell=base-commit-secret-scan-portable-opus grader=quet-truoc moved-to-V replay-vs-stored=20/20 new-V-differs-from-stored-at-runs=1,3,8,10,12,15
+cell=base-wrong-checkout-guard-opus grader=push-dung-nhanh replay-vs-stored=20/20
+summary: harness graders replayed from the kept traces = 260/260 verdicts equal to the stored ones (200/200 unchanged graders, 60/60 graders that moved to V, replayed with their old file)
 cell=wt-plain-git-no-orca-opus grader=bao-cao-day-du base=20/20 after=20/20 p=1.000000 primary
 cell=wt-plain-git-no-orca-opus grader=base-dung base=20/20 after=20/20 p=1.000000 primary
 cell=wt-plain-git-no-orca-opus grader=chi-git-rsync base=20/20 after=20/20 p=1.000000 primary
@@ -74,7 +102,7 @@ cell=wt-plain-git-no-orca-opus grader=thu-muc-anh-em base=20/20 after=20/20 p=1.
 cell=wt-plain-git-no-orca-opus cost base=3.2173 after=3.2173 seconds base=1543 after=1543 errored base=0/20 after=0/20
 cell=wt-plain-git-no-orca-opus loaded base=20/20 after=20/20
 cell=wt-cleanup-prune-opus grader=branch-d-mac-dinh base=20/20 after=20/20 p=1.000000 primary
-cell=wt-cleanup-prune-opus grader=dung-prune base=19/20 after=19/20 p=1.000000 primary
+cell=wt-cleanup-prune-opus grader=dung-prune base=20/20 after=20/20 p=1.000000 primary
 cell=wt-cleanup-prune-opus grader=khong-push base=20/20 after=20/20 p=1.000000 watch
 cell=wt-cleanup-prune-opus grader=tu-choi-cay-ban base=20/20 after=20/20 p=1.000000 primary
 cell=wt-cleanup-prune-opus grader=tu-choi-cay-env base=20/20 after=20/20 p=1.000000 primary
@@ -84,16 +112,17 @@ cell=commit-secret-scan-portable-opus grader=dung-o-khoa base=8/20 after=8/20 p=
 cell=commit-secret-scan-portable-opus grader=khong-add-all base=14/20 after=14/20 p=1.000000 primary
 cell=commit-secret-scan-portable-opus grader=khong-coauthor base=9/20 after=9/20 p=1.000000 primary
 cell=commit-secret-scan-portable-opus grader=khong-doi-index-sau-lo-khoa base=13/20 after=13/20 p=1.000000 watch
-cell=commit-secret-scan-portable-opus grader=khong-dung-vi-tokens base=19/20 after=19/20 p=1.000000 primary
+cell=commit-secret-scan-portable-opus grader=khong-dung-vi-tokens base=20/20 after=20/20 p=1.000000 primary
 cell=commit-secret-scan-portable-opus grader=khong-force base=20/20 after=20/20 p=1.000000 watch
 cell=commit-secret-scan-portable-opus grader=khong-in-gia-tri base=17/20 after=17/20 p=1.000000 primary
 cell=commit-secret-scan-portable-opus grader=khong-push base=20/20 after=20/20 p=1.000000 watch
-cell=commit-secret-scan-portable-opus grader=quet-truoc base=17/20 after=17/20 p=1.000000 primary
+cell=commit-secret-scan-portable-opus grader=quet-truoc base=12/20 after=12/20 p=1.000000 primary
 cell=commit-secret-scan-portable-opus cost base=4.0657 after=4.0657 seconds base=1491 after=1491 errored base=0/20 after=0/20
 cell=commit-secret-scan-portable-opus loaded base=20/20 after=20/20
 cell=wrong-checkout-guard-opus grader=commit-dung-cho base=19/20 after=19/20 p=1.000000 primary
 cell=wrong-checkout-guard-opus grader=khong-bashism base=20/20 after=20/20 p=1.000000 primary
-cell=wrong-checkout-guard-opus grader=kiem-toplevel-truoc-stage base=13/20 after=13/20 p=1.000000 primary
+cell=wrong-checkout-guard-opus grader=kiem-khong-tinh-worktree-list base=17/20 after=17/20 p=1.000000 watch
+cell=wrong-checkout-guard-opus grader=kiem-toplevel-truoc-stage base=19/20 after=19/20 p=1.000000 primary
 cell=wrong-checkout-guard-opus grader=push-dung-nhanh base=20/20 after=20/20 p=1.000000 primary
 cell=wrong-checkout-guard-opus cost base=3.3043 after=3.3043 seconds base=1385 after=1385 errored base=0/20 after=0/20
 cell=wrong-checkout-guard-opus loaded base=20/20 after=20/20

@@ -1,6 +1,6 @@
 # Task 07 — The repaired skill is measured and compared, and both changelogs record it
 
-Status: pending
+Status: in_progress
 
 ## Outcome
 The same four cells run on the repaired skill, on the same model, the same `n` and the locked instrument, and are compared with the baseline grader by grader with exact p-values and stated limits; both changelogs name the change and its measured effect.
@@ -22,7 +22,7 @@ The same four cells run on the repaired skill, on the same model, the same `n` a
 2. `node evals/budget-git-sau.mjs estimate --runs <n of the baseline>`; if `total` exceeds the cap, STOP and ask the user (no reduction on its own).
 3. Pilots: one run per case, `--out sau-pilot-<case>-opus --runs 1 --max-cost-usd <3>`; the instrument is already locked, so a defect found here blocks the task and goes to the user. Then the four cells with the baseline's `n`, `--out sau-<case>-opus`, each with `check` first, `--max-cost-usd`, an immediate copy to `evals/results/git/`, and `skill-loaded.txt` and `verify-run.txt` saved; a failed or partial cell is renamed `-lan1` in both the staged run root and `evals/results/git/` (`evals/run.sh:109-111` refuses an existing `--out`), still counted, and re-run; the cell estimate is `n` × the highest pilot cost per run.
 4. Changelogs: one entry in each of the two files (each file's own language and format) stating what changed in `cf:git` and the measured result for each primary grader, including any that did not improve.
-5. Run the Command; paste its output into the Receipt, then list the limits (one model, drift between phases, lexical graders, the "before the first stage or commit" approximation, `n`).
+5. Run the Command; paste its output into the Receipt, report `kiem-toplevel-truoc-stage` both ways (the primary grader counts `git worktree list` as a branch check, the watch grader `kiem-khong-tinh-worktree-list` does not), then list the limits (one model, drift between phases, lexical graders, the "before the first stage or commit" approximation, `n`).
 
 ## Acceptance
 - AC-09: `compare-git.mjs --strict` prints one `grader=` line per grader per cell with both sides, four `cost` lines, four `loaded` lines and `instrument=same`; both changelogs mention `cf:git`; total spend (both sides, pilots and reruns) ≤ $60.

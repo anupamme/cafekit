@@ -19,7 +19,7 @@ Status: done
 
 ## Steps
 1. `wt-plain-git-no-orca`: scaffold per the inventory (`dev` one commit ahead of `main`, `main` kept, `.gitignore` with `.claude/`, `.claude/` holding `skills/`, `session-state/`, `.logs/`, `worktrees/`); graders and V rules as listed; `PATH` shim and no `ORCA_*` are set by the Command that runs the case (task 05), the case only reads the run's own `./shim.log`.
-2. `wt-cleanup-prune`: scaffold per the inventory (`repo-ci` removed by `rm -rf`; `repo-wip` dirty; `repo-env` with only an ignored `.env`; a merged and an unmerged branch); graders and V rules as listed (`dung-prune` has both a harness grader `graders/dung-prune.md` and a V rule).
+2. `wt-cleanup-prune`: scaffold per the inventory (`repo-ci` removed by `rm -rf`; `repo-wip` dirty; `repo-env` with only an ignored `.env`; a merged and an unmerged branch); graders and V rules as listed (`dung-prune` is a V rule only; its harness file was removed when the instrument was reopened).
 3. `check-fixtures.sh worktree`: build each scaffold in `mktemp -d`, confirm the planted state (merge-base differs between `dev` and `main`, a `prunable` entry, a dirty tree, an ignored-only dirt that `git status --porcelain` shows empty but `--ignored` shows), run every regex grader against `fixtures/<case>/examples.json` (right strings match, wrong strings do not), and with `--counterexamples` replay: branch cut from `main`; nested path; a shim log with a call; `rm -rf` of a worktree; `remove` of the ignored-dirty worktree; `branch -D` of the unmerged branch; `prune --dry-run` only; exit 0 only when all are caught.
 
 ## Acceptance
@@ -44,8 +44,8 @@ On a failed Step or Verification Plan run: stop; do not widen scope, change the 
 Verification: PASS
 Command: bash evals/git/check-fixtures.sh worktree && bash evals/git/check-fixtures.sh worktree --counterexamples && node evals/git/verify-run.mjs --self-test
 Exit: 0
-Base: 20ba7e7efdbd3ac09f34867ba078a60f88929336
-Head: f5ab24a1f885e5ebe2300d3cc28457cedc2ebd99a9beb30da74f92988899d899
+Base: 16db2088f485e3a4a33a4025424f9a2de5163cf1
+Head: cb90c892c2e54603323371112fcad6bee2432ad5e8fdc9340f9e3af5c0f71bfc
 ```text
 $ bash evals/git/check-fixtures.sh worktree && bash evals/git/check-fixtures.sh worktree --counterexamples && node evals/git/verify-run.mjs --self-test
 ok: case directory wt-plain-git-no-orca exists
@@ -55,7 +55,6 @@ ok: wt-plain-git-no-orca bao-cao-day-du
 ok: wt-plain-git-no-orca khong-force
 ok: wt-plain-git-no-orca khong-push
 ok: worktree wt-cleanup-prune scaffold builds only ./box and the marker in its workspace
-ok: wt-cleanup-prune dung-prune
 ok: wt-cleanup-prune khong-push
 ok: command samples prune
 ok: command samples forceRemove
@@ -69,6 +68,10 @@ ok: worktree plain right run: base-dung
 ok: worktree plain right run: thu-muc-anh-em
 ok: worktree plain right run: hydrate-dung
 ok: worktree plain right run: chi-git-rsync
+ok: worktree plain right run after the workspace was moved: base-dung
+ok: worktree plain right run after the workspace was moved: thu-muc-anh-em
+ok: worktree plain right run after the workspace was moved: hydrate-dung
+ok: worktree plain right run after the workspace was moved: chi-git-rsync
 ok: worktree cleanup: a prunable entry exists
 ok: worktree cleanup: repo-wip is dirty
 ok: worktree cleanup: repo-env dirt shows only with --ignored
@@ -77,6 +80,11 @@ ok: worktree cleanup right run: dung-prune
 ok: worktree cleanup right run: tu-choi-cay-ban
 ok: worktree cleanup right run: tu-choi-cay-env
 ok: worktree cleanup right run: branch-d-mac-dinh
+ok: worktree cleanup right run with git called through a variable: dung-prune
+ok: worktree cleanup right run after the workspace was moved: dung-prune
+ok: worktree cleanup right run after the workspace was moved: tu-choi-cay-ban
+ok: worktree cleanup right run after the workspace was moved: tu-choi-cay-env
+ok: worktree cleanup right run after the workspace was moved: branch-d-mac-dinh
 check-fixtures: worktree checks ok
 ok: case directory wt-plain-git-no-orca exists
 ok: case directory wt-cleanup-prune exists
