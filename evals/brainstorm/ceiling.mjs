@@ -2,7 +2,8 @@
 // Trần chi phí một ô số gốc brainstorm (plan D-03): max(4, ⌈k × costUsd cao nhất⌉) trên các pilot của một model và một
 // đường, k là 12 ở đường skill (ba ca) và 15 ở đường agent (một ca). Mỗi pilot đọc dưới tên của nó (là lượt chạy lại khi
 // có -lan1) và đọc cả -lan1 của nó. costUsd đã gồm phần judge. Không có trần trên.
-//   node evals/brainstorm/ceiling.mjs <sonnet|opus> <skill|agent> [results dir]
+//   node evals/brainstorm/ceiling.mjs <sonnet|opus> <skill|agent> [results dir] [--prefix <p>]   (default pilot-; the
+//   repair packet's after-pilots use sau-pilot-)
 //   node evals/brainstorm/ceiling.mjs --self-test
 // Thoát 1, nêu lý do trên stderr, khi thiếu pilot, hay pilot partial hoặc không đúng một lượt.
 import fs from "fs";
@@ -16,11 +17,11 @@ export const K = { skill: 12, agent: 15 };
 const MODELS = ["sonnet", "opus"];
 
 // Returns { ceiling } or { error }; never exits.
-export function ceilingOf(model, route, dir = path.join(here, "..", "results", "brainstorm")) {
+export function ceilingOf(model, route, dir = path.join(here, "..", "results", "brainstorm"), prefix = "pilot-") {
   if (!MODELS.includes(model) || !(route in ROUTES)) return { error: "usage: <sonnet|opus> <skill|agent> [results dir]" };
   let highest = 0;
   for (const c of ROUTES[route]) {
-    const name = `pilot-${c}-${model}`;
+    const name = `${prefix}${c}-${model}`;
     let r;
     try { r = JSON.parse(fs.readFileSync(path.join(dir, name, "result.json"), "utf8")); } catch { return { error: `missing pilot ${name}` }; }
     const runs = (r.cases && r.cases[0] && r.cases[0].arms && r.cases[0].arms.with) || [];
@@ -52,14 +53,21 @@ function selfTest() {
     pilot("pilot-mot-duong-agent-sonnet", [0.2], true);
     check("a partial pilot is an error", !!ceilingOf("sonnet", "agent", root).error);
     check("a wrong route is a usage error", !!ceilingOf("sonnet", "both", root).error);
+    pilot("sau-pilot-mot-duong-agent-opus", [0.4]);
+    check("--prefix sau-pilot- reads the after-pilots: agent opus at $0.40 → ⌈6⌉ = 6", ceilingOf("opus", "agent", root, "sau-pilot-").ceiling === 6);
+    check("--prefix sau-pilot- with a missing after-pilot is an error", !!ceilingOf("sonnet", "agent", root, "sau-pilot-").error);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
   return failed ? 1 : 0;
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const [model, route, dir] = process.argv.slice(2);
-  if (model === "--self-test") process.exit(selfTest());
-  const r = ceilingOf(model, route, dir);
+  const args = process.argv.slice(2);
+  if (args[0] === "--self-test") process.exit(selfTest());
+  let prefix = "pilot-";
+  const k = args.indexOf("--prefix");
+  if (k >= 0) { prefix = args[k + 1]; args.splice(k, 2); }
+  const [model, route, dir] = args;
+  const r = prefix ? ceilingOf(model, route, dir, prefix) : { error: "usage: --prefix <p>" };
   if (r.error) { console.error(`ceiling: ${r.error}`); process.exit(1); }
   console.log(r.ceiling);
 }

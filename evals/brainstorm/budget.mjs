@@ -4,7 +4,9 @@
 // _pilot-lan*). Tự đọc con số đã tiêu, không dựa vào mã thoát của script khác.
 //   node evals/brainstorm/budget.mjs spent [--root <results root>]          in spent=; thoát 1 khi đã vượt 100
 //   node evals/brainstorm/budget.mjs check <next> [--root <results root>]   thoát 1 khi spent + next vượt 100
-//   node evals/brainstorm/budget.mjs worst-case [--root <results root>]     spent cộng trần của các ô base-* chưa có;
+//   node evals/brainstorm/budget.mjs worst-case [--root <results root>] [--prefix <p>]
+//                                                                             spent cộng trần của các ô chưa có (base-*;
+//                                                                             với --prefix sau-pilot- là các ô sau-*);
 //                                                                             thoát 1 chỉ khi một trần không tính được
 //   node evals/brainstorm/budget.mjs --self-test
 import fs from "fs";
@@ -40,6 +42,11 @@ function main(args) {
   const r = args.indexOf("--root");
   if (r >= 0) { root = args[r + 1]; args.splice(r, 2); }
   if (!root) { console.error("usage: --root <results root>"); return 2; }
+  let prefix = "pilot-";
+  const pr = args.indexOf("--prefix");
+  if (pr >= 0) { prefix = args[pr + 1]; args.splice(pr, 2); }
+  if (!prefix) { console.error("usage: --prefix <p>"); return 2; }
+  const cellPrefix = prefix === "pilot-" ? "base-" : prefix.replace(/pilot-$/, "");
   const x = spent(root);
   if (args[0] === "spent" && args.length === 1) { console.log(`spent=${x} cap=${CAP}`); return x > CAP ? 1 : 0; }
   if (args[0] === "check" && args.length === 2 && args[1].trim() !== "" && Number.isFinite(Number(args[1])) && Number(args[1]) >= 0) {
@@ -50,8 +57,8 @@ function main(args) {
   if (args[0] === "worst-case" && args.length === 1) {
     let y = 0;
     for (const [route, cases] of Object.entries(ROUTES)) for (const c of cases) for (const model of ["sonnet", "opus"]) {
-      if (fs.existsSync(path.join(root, "brainstorm", `base-${c}-${model}`))) continue;
-      const k = ceilingOf(model, route, path.join(root, "brainstorm"));
+      if (fs.existsSync(path.join(root, "brainstorm", `${cellPrefix}${c}-${model}`))) continue;
+      const k = ceilingOf(model, route, path.join(root, "brainstorm"), prefix);
       if (k.error) { console.log(`worst-case: ${k.error}`); return 1; }
       y += k.ceiling;
     }
@@ -84,6 +91,12 @@ function selfTest() {
     check("worst-case skips the finished base cell → spent=5.5 remaining-ceilings=36 total=41.5", r.status === 0 && r.stdout.trim() === "worst-case: spent=5.5 remaining-ceilings=36 total=41.5 cap=100 over-cap=no", r.stdout);
     res("brainstorm/base-ne-cau-hoi-opus", 99, [99]);
     r = me(["spent"]); check("spent above the cap → exit 1", r.status === 1 && r.stdout.startsWith("spent=104.5 "), r.stdout);
+    for (const c of ROUTES.skill) for (const m of ["sonnet", "opus"]) res(`brainstorm/sau-pilot-${c}-${m}`, 0.25);
+    for (const m of ["sonnet", "opus"]) res(`brainstorm/sau-pilot-mot-duong-agent-${m}`, 0.5);
+    res("brainstorm/sau-ne-cau-hoi-sonnet", 1, [0.1]);
+    r = me(["worst-case", "--prefix", "sau-pilot-"]);
+    // spent = 104.5 + 6 × 0.25 + 2 × 0.5 + 1 = 108; after-ceilings: skill 4 each for 5 cells left, agent 8 twice
+    check("worst-case --prefix sau-pilot- skips the finished sau- cell → remaining-ceilings=36", r.status === 0 && r.stdout.includes("remaining-ceilings=36 ") && r.stdout.includes("over-cap=yes"), r.stdout);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
   return failed ? 1 : 0;
 }

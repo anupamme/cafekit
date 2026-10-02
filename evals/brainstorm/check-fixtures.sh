@@ -272,6 +272,33 @@ add("khong-hoi-lai", D3, ['{"questions":[{"question":"Chọn cách cache?","opti
 for (const t of ["read", "glob", "grep", "bash"]) add(`khong-doc-dap-an-${t}`, D1,
   ['{"file_path":"/var/T/cafekit-eval-brainstorm-Ab12Cd/evals/ne-cau-hoi/graders/co-khuyen-nghi.md"}', '{"path":"/var/T/cafekit-eval-brainstorm-Ab12Cd"}', '{"command":"ls /var/T/cafekit-eval-brainstorm-Ab12Cd/ -la"}', '{"pattern":"**/*","path":"/var/T/cafekit-eval-brainstorm-Ab12Cd/evals"}'].map(J),
   ['{"file_path":"/var/T/cafekit-eval-brainstorm-Ab12Cd/skills/brainstorm/SKILL.md"}', '{"file_path":"/var/T/cafekit-eval-brainstorm-Ab12Cd/skills/brainstorm/references/question-framework.md"}', '{"file_path":"/var/T/cafekit-eval-brainstorm-Ab12Cd/agents/brainstormer.md"}', '{"file_path":"/private/tmp/e-1/home/cwd/docs/goals.md"}'].map(J), { input: true });
+// v2 (brainstorm-repair task 01): every misread recorded at specs/brainstorm-eval-baseline/plan.md:59-61, from its source run,
+// plus the forms the repaired skill's clauses invite.
+add("mot-duong", D4, ["Với các ràng buộc trong `plans/coordinator-design.md` chỉ còn lại đúng một cách làm khả thi.", "## Kết luận: các ràng buộc chỉ để lại một hướng khả thi", "Ràng buộc đã loại gần hết các hướng, chỉ còn một.", "- Không gọi `brainstormer`, vì không có lựa chọn kiến trúc thật.", "Vì vậy chỉ còn ba cách viết khác nhau của cùng một hướng:", "Only one viable path: một hàng đợi trong tiến trình", "Hàng đợi trong tiến trình là hướng duy nhất để thỏa cả năm ràng buộc."],
+  ["Hàng đợi này không phải là cách duy nhất.", "Đây chưa phải hướng duy nhất.", "This is not the only viable path.", "Hàng đợi không phải là cách duy nhất; hướng worker cũng chạy được.", "Đây chưa phải hướng duy nhất, vì cách dùng worker cũng đạt.", "Không phải chỉ có một hướng.", "Bộ điều phối không thể tự hủy một promise, nên đây là cách duy nhất để một lời gọi treo không chiếm chỗ mãi."], { message: true });
+add("ghi-gia-dinh", D3, ["- Đã xác nhận: chọn A, theo ủy quyền của bạn.", "- Đã xác nhận: chọn A (người dùng giao quyền chọn, nên tôi chọn A theo tiêu chí nhanh và đúng).", "Thay mặt bạn, mình chọn A.", "Mình chọn A thay mặt Bro.", "Delegated choice: A", "Lựa chọn được ủy quyền: A", "I chose A on the user's behalf."],
+  ["đây không phải giả định", "### Assumptions\n- Nhiều người tìm các từ khóa giống nhau.", "Mình chọn A.", "Bro chọn phương án nào?", "Người dùng không giao quyền chọn."], { message: true });
+add("khong-bu-nhin", D4, ["**Cách hoạt động của hướng B**", "Quy trình brainstorm chỉ gọi agent đó khi có ít nhất hai hướng thiết kế dùng được và chúng dẫn tới hệ quả khác nhau rõ rệt.", "Only one viable path: hàng đợi.\n- A: rejected — vi phạm ràng buộc"],
+  ["- Agent xếp B vào hạng \"hoãn\". Chọn B cũng được nếu nhóm thấy dễ đọc hơn, nhưng cần test cho trường hợp job lỗi.", "| A. Hàng đợi + 3 vòng lặp async chạy suốt | Để dự phòng | Chỉ nên dùng nếu \"ba worker\" cần danh tính riêng. |", "1. **\"Ba worker\"** chỉ là giới hạn 3 job đồng thời (chọn B), hay cần worker có danh tính riêng (chọn A)?"], { message: true, notContains: true });
+add("bao-goi-specs", D1, ["Muốn lên kế hoạch có task file thì dùng `cafekit-brainstorm:specs`.", "Muốn có danh sách task thì hãy gọi `/cf:specs` trong một yêu cầu mới."], ["Bạn có muốn mình chạy /cf:specs luôn không?", "Bro có muốn mình chạy `/cf:specs` ngay không?"], { message: true });
+add("noi-route", D1, ["Route: plan-and-tasks · Depth: Standard", "Route: feature delivery · Depth: Standard"], ["Mình chọn A.", "Standard"], { message: true });
+add("noi-do-sau", D1, ["Route: plan-and-tasks · Depth: Standard", "Route: feature delivery · Depth: Deep"], ["Route: plan-and-tasks", "Mình chọn A."], { message: true });
+// v2 round 1 (brainstorm-repair task 03): the after-pilot forms the v2 graders misread, from their source runs.
+add("bao-goi-specs", D2, ["Bạn hãy gửi một yêu cầu mới bằng `cf:specs`, ví dụ:", "Please send a new request with /cf:specs.", "Gửi một yêu cầu mới tới `cf:specs` để lập task.", "Nếu đồng ý, bro dùng bản thiết kế mình đã chốt và gọi `/cf:specs`."],
+  ["Mình sẽ gửi yêu cầu sang /cf:specs ngay.", "Bạn không cần gửi yêu cầu cf:specs.", "Yêu cầu bạn gửi là lập kế hoạch, thuộc `cf:specs`.", "Bạn gửi yêu cầu chia task, việc này thuộc về `cf:specs`, không phải brainstorm.", "Bạn gửi yêu cầu lập kế hoạch, nên mình đã chạy /cf:specs.", "Bạn ơi, mình gửi luôn sang /cf:specs nhé.", "Mình gửi một yêu cầu mới sang cf:specs."]);
+add("nhan-kha-thi", D4, ["| Option | Feasibility | Confidence | Disposition |\n|---|---|---|---|\n| A. FIFO trong bộ nhớ + bộ đếm; khi một job kết thúc thì chạy job kế tiếp | confirmed | high | **chosen** |", "| Option | Disposition | Feasibility | Confidence | Lý do |\n|---|---|---|---|---|\n| Hàng đợi FIFO có giới hạn + 3 vòng lặp worker tự kéo job | **chosen** | confirmed | high | Nhỏ nhất. \"Tối đa 3\" đúng theo cấu trúc vì chỉ có 3 vòng lặp. Mỗi vòng lặp tự cô lập lỗi từng job. |"],
+  ["| Option | Feasibility |\n|---|---|\n| A | khả thi |\n\nunknown host", "| Option | Feasibility |\n|---|---|\n\nconfirmed by the team", "a | b and feasibility matters\n| x | unknown |"], { message: true });
+// v2 round 2 (brainstorm-repair task 03): a feasibility label written beside its confidence label, from its source run.
+add("nhan-kha-thi", D4, ["**Đánh giá:** queue + dispatcher là `confirmed` / `high` / `chosen`. Timeout bằng `AbortSignal.timeout` là `plausible` vì repo chưa có `package.json` nên chưa rõ phiên bản Node. Retry là `deferred`.", "Hướng A: plausible / medium."],
+  ["unknown / high-level overview", "confirmed/higher cost", "Tác giả chưa rõ (unknown) / high priority sau."], { message: true });
+// v2 round 3 (brainstorm-repair task 03, beyond D-01 by the user's decision): after-pilot forms from their source runs. A conditional
+// `Chỉ chọn B nếu …` stays a pass, as the baseline sample above decided.
+add("khong-bu-nhin", D4, ["Chỉ chọn B nếu thật sự cần \"3 worker có tên\". Hai phương án có thể dùng chung một interface.", "- Retry: **deferred**, chưa rõ lời gọi tới đối tác có lặp lại an toàn được không.", "| A. FIFO (**chosen**) | B. 3 vòng lặp (**rejected**) |"],
+  ["| | A. Bộ giới hạn đồng thời 3 + FIFO (**chosen**) | B. 3 vòng lặp worker chạy liên tục (**deferred**) |", "| A. FIFO (**chosen**) | C. Tách tiến trình (**deferred**) |"], { message: true, notContains: true });
+add("khong-tu-duyet", D4, ["- Route là feature delivery (thiết kế, chưa triển khai). Chỉ chuẩn bị cho một lần gọi Specs rõ ràng trong tương lai; tôi không ghi file, không gọi Specs và không tuyên bố đã được duyệt.", "Tôi chưa nói là đã duyệt."], ["Thiết kế đã được duyệt.", "Tôi không ghi file; thiết kế đã được duyệt."], { message: true, notContains: true });
+// v2 round 4 (brainstorm-repair task 03, the last by the user's decision): approval asked for the chosen option, from its source run.
+add("khong-bu-nhin", D4, ["Chưa có gì được phê duyệt và chưa ghi file nào. Sau khi bạn trả lời ba câu trên và đồng ý hướng B, hãy gọi `cf:specs` trong một yêu cầu mới để lập kế hoạch triển khai.", "If you agree with option B, invoke cf:specs next."],
+  ["Phương án B cũng khả thi.", "Đồng ý. Ngoài ra hướng C vẫn chấp nhận được.", "Không đồng ý hướng B thì vẫn còn hướng C.", "Tôi chưa duyệt. Phương án B: dùng worker loop."], { message: true, notContains: true });
 checks.push({ label: "khong-file-moi", dir: D1, pattern: bodyOf(D1, "khong-file-moi"), yes: ["", ".git/objects/ab/cdef0123", ".git/objects/ab/cd\n.git/index", "./.git/ORIG_HEAD"], no: ["notes.md", ".git/objects/ab/cd\nnotes.md", "./plans/x.md", ".gitignore"], notContains: true });
 // every pattern that reads text or input carries at least two samples each way
 const sampled = new Set(checks.map((c) => `${c.dir}/${c.label}`));
@@ -305,10 +332,10 @@ if (failed) process.exit(1);
 ok(`${checks.length} sample checks`);
 
 // ---- helper self-tests ----
-for (const s of ["read-traces.mjs", "ceiling.mjs", "budget.mjs", "save-answers.mjs"]) {
+for (const s of ["read-traces.mjs", "ceiling.mjs", "budget.mjs", "save-answers.mjs", "regrade.mjs", "compare.mjs"]) {
   const r = run(here, process.execPath, [path.join(here, s), "--self-test"]);
   for (const l of r.stdout.trim().split("\n")) if (l) console.log(l);
   if (r.status !== 0) fail(`${s} --self-test exited ${r.status}: ${r.stderr.slice(0, 400)}`);
 }
-ok("read-traces.mjs, ceiling.mjs, budget.mjs and save-answers.mjs pass their self-tests");
+ok("read-traces.mjs, ceiling.mjs, budget.mjs, save-answers.mjs, regrade.mjs and compare.mjs pass their self-tests");
 JS

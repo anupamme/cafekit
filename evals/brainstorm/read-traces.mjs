@@ -30,9 +30,10 @@ import { fileURLToPath } from "url";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const SELF = fileURLToPath(import.meta.url);
 export const PRIMARY = {
-  "duyet-khong-trien-khai": ["khong-bash-ghi", "khong-goi-quy-trinh", "khong-agent-thuc-thi", "bao-goi-specs", "co-hop-dong"],
-  "can-plan-sang-specs": ["co-goi-skill", "bao-goi-specs", "khong-goi-specs-ngam", "khong-phuong-an", "ngan-gon"],
-  "ne-cau-hoi": ["khong-hoi-ky-thuat", "co-khuyen-nghi", "dua-muc-tieu", "ghi-gia-dinh"],
+  // noi-route and noi-do-sau became primary on the skill path at brainstorm-repair GATE-SCOPE (route and depth line).
+  "duyet-khong-trien-khai": ["khong-bash-ghi", "khong-goi-quy-trinh", "khong-agent-thuc-thi", "bao-goi-specs", "co-hop-dong", "noi-route", "noi-do-sau"],
+  "can-plan-sang-specs": ["co-goi-skill", "bao-goi-specs", "khong-goi-specs-ngam", "khong-phuong-an", "ngan-gon", "noi-route", "noi-do-sau"],
+  "ne-cau-hoi": ["khong-hoi-ky-thuat", "co-khuyen-nghi", "dua-muc-tieu", "ghi-gia-dinh", "noi-route", "noi-do-sau"],
   "mot-duong-agent": ["co-goi-agent", "mot-duong", "khong-bu-nhin", "nhan-kha-thi", "khong-tu-duyet"],
   "tham-do-nap-skill": ["trich-hard-gate"],
 };
@@ -84,6 +85,9 @@ function unframe(text) {
   }
   return out.join("\n").replace(/\n+$/, "");
 }
+// The agent ends every report with a `Relay:` line asking to keep the single-path line; that instruction quotes the words
+// the report graders look for, so it is dropped before a report is graded (brainstorm-repair task 03, grader round 3).
+export const withoutRelay = (text) => text.replace(/^[ \t>*_-]*Relay:[^\n]*$/gm, "");
 // Brainstormer reports, classified as evals/research/read-traces.mjs:65-91 classifies researcher reports.
 export function brainstormerReports(events, uses, results) {
   const out = [];
@@ -162,7 +166,8 @@ function readRun(run, kase, info) {
     const out = !res ? "(no result)" : `${res.is_error === true ? "error: " : ""}${flat(textOf(res.content), 80)}`;
     return { questions: Array.isArray(u.input?.questions) ? u.input.questions.length : 0, result: out };
   });
-  const chatQuestions = answer.split("\n").filter((l) => /\?[*_`)\s]*$/.test(l.trim())).length;
+  // Every question mark that ends a sentence counts, wherever it sits in its line.
+  const chatQuestions = (answer.match(/\?(?=[\s*_`)"”\]]|$)/g) || []).length;
   const skills = uses.filter((u) => u.name === "Skill").map((u) => u.input?.skill || "?");
   const skillLoaded = info.agentPath ? "n/a" : info.historySkill ? "history" : uses.some((u) => u.name === "Skill" && SKILL_CALL.test(JSON.stringify(u.input))) ? "call" : "none";
   const agents = uses.filter((u) => u.name === "Agent").map((u) => `${u.input?.subagent_type || "none"}:${ROUTE.test(String(u.input?.prompt || "")) ? "route" : "no-route"}`);
@@ -180,7 +185,7 @@ function readRun(run, kase, info) {
     mutations = [...newFiles.map((f) => `+${f}`), ...changed.map((f) => `~${f}`), ...gone.map((f) => `-${f}`)];
   }
   const lastMessage = kase.graders.filter((g) => g.type === "regex" && g.config.target === "last_message");
-  const reportTokens = withReport.length ? lastMessage.filter((g) => g.name !== "do-dai-gon").map((g) => `${g.name}:${withReport.some((x) => passesOn(g, x.report)) ? "y" : "n"}`) : [];
+  const reportTokens = withReport.length ? lastMessage.filter((g) => g.name !== "do-dai-gon").map((g) => `${g.name}:${withReport.some((x) => passesOn(g, withoutRelay(x.report))) ? "y" : "n"}`) : [];
   const fmt = (o) => `{${Object.entries(o).map(([k, v]) => `${k}:${v}`).join(",")}}`;
   const common = `init=${missing.length ? `incomplete(missing:${missing.join(",")})` : "ok"} askuser-offered=${init && (init.tools || []).includes("AskUserQuestion") ? "yes" : "no"} `
     + `tools=parent${fmt(parent)} sub${fmt(sub)} askuser=${asks.length} chat-questions=${chatQuestions} skill-calls=${skills.length}${skills.length ? `(${skills.join(",")})` : ""} `
@@ -426,6 +431,9 @@ function selfTest() {
     const none = synthDir("pilot-none-can-plan-sang-specs-sonnet", "can-plan-sang-specs", "sonnet", [synthRun("can-plan-sang-specs", [init(), say("Ok.")])]);
     r = me([none]);
     check("a one-turn run without a Skill call → skill-loaded=none and stays in the counts (co-goi-skill:0/1*)", r.status === 0 && r.stdout.includes("skill-loaded=none") && r.stdout.includes("co-goi-skill:0/1*") && r.stdout.includes("skill-loaded=history:0,call:0,none:1"), r.stdout.slice(0, 600));
+    const mid = synthDir("pilot-mid-ne-cau-hoi-sonnet", "ne-cau-hoi", "sonnet", [synthRun("ne-cau-hoi", [init(), say("Bro đồng ý không? Nếu đồng ý, gọi `/cf:specs`.\nCòn timeout bao nhiêu ms?")])]);
+    r = me([mid]);
+    check("a question in mid-line and one at a line end → chat-questions=2", r.status === 0 && r.stdout.includes("chat-questions=2"), r.stdout.slice(0, 400));
     const agentEvents = [init(), use("a1", "Agent", { subagent_type: "cafekit-brainstorm:brainstormer", prompt: "feature delivery: thiết kế bộ điều phối" }),
       result("a1", [{ type: "text", text: "Async agent launched successfully.\nagentId: ag-7 (internal ID)" }]),
       { type: "user", message: { content: "<task-notification><task-id>ag-7</task-id><status>completed</status><result>Chỉ có một hướng khả thi: hàng đợi async. Feasibility: confirmed.</result></task-notification>" } },
