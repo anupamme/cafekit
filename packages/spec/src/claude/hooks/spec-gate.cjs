@@ -93,6 +93,8 @@ try {
   let FINAL_STATE;
   try {
     POLICY = require(policyPath);
+    // One gate run checks every done receipt against the same checkout; capture it once.
+    require(path.join(__dirname, '..', 'scripts', 'provenance.cjs')).enableSnapshotMemo();
     RESOLVER = require(path.join(__dirname, '..', 'scripts', 'spec-resolver.cjs'));
     RECEIPT = require(path.join(__dirname, '..', 'scripts', 'spec-receipt.cjs'));
     FINAL_STATE = require('./completion-authority-check.cjs');

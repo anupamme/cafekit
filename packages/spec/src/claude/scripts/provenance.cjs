@@ -228,13 +228,30 @@ function identity(input) {
   return { root, specsRoot, specFile, feature, session, mode };
 }
 
+// A Stop hook checks every done receipt against one checkout. Without a memo each
+// receipt re-read the whole repository twice, so the gate grew with the number of
+// done tasks (minutes on a large specs root). The memo is opt-in and lives only in
+// the enabling process; every other caller still captures a fresh snapshot.
+const snapshotMemo = new Map();
+let snapshotMemoEnabled = false;
+function enableSnapshotMemo() { snapshotMemoEnabled = true; }
+
+function captureSnapshot(root, specsRoot) {
+  const key = `${root}\0${specsRoot}`;
+  if (snapshotMemoEnabled && snapshotMemo.has(key)) return snapshotMemo.get(key);
+  const base = gitBase(root, specsRoot);
+  const first = manifest(root, specsRoot);
+  const head = manifestDigest(first);
+  const second = manifest(root, specsRoot);
+  if (JSON.stringify(first) !== JSON.stringify(second) || gitBase(root, specsRoot) !== base) fail('worktree_race', 'checkout changed during provenance capture');
+  const snapshot = { base, head };
+  if (snapshotMemoEnabled) snapshotMemo.set(key, snapshot);
+  return snapshot;
+}
+
 function deriveRuntimeProvenance(input) {
   const current = identity(input);
-  const base = gitBase(current.root, current.specsRoot);
-  const first = manifest(current.root, current.specsRoot);
-  const head = manifestDigest(first);
-  const second = manifest(current.root, current.specsRoot);
-  if (JSON.stringify(first) !== JSON.stringify(second) || gitBase(current.root, current.specsRoot) !== base) fail('worktree_race', 'checkout changed during provenance capture');
+  const { base, head } = captureSnapshot(current.root, current.specsRoot);
   const stable = {
     schema_version: CONTEXT_SCHEMA_VERSION,
     project_root: current.root,
@@ -328,6 +345,7 @@ module.exports = {
   createReceiptBinding,
   deriveRuntimeContext: deriveRuntimeProvenance,
   deriveRuntimeProvenance,
+  enableSnapshotMemo,
   isTrustedRuntimeContext,
   recomputeRuntimeContext: recomputeRuntimeProvenance,
   recomputeRuntimeProvenance,
