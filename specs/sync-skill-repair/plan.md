@@ -164,3 +164,16 @@ Pilots: 24 runs (1 + 2 per case and model) on the unchanged skill, skill loaded 
 
 ### Grader defect after the lock, repaired by decision — 2026-10-03
 Reading the eight baseline cells, the controller found that the two lexical primary graders of case 4 (`bao-provenance`, `bao-command-identity`) graded `no` on 15 runs whose final text did report the problem (opus 3 + 2, sonnet 2 + 8; e.g. "**Dòng `Command` không khớp Verification Plan.**"); every one was read by hand. Asked through `AskUserQuestion`; Bro: repair, re-grade, re-lock. Added a line-level recognition of the planted data (`+ working tree` named without being called valid; a Command line carrying the planted note or saying it is no longer exact), with the 15 lines as right examples. Every pilot and baseline cell was re-graded offline from its kept trace: only those four figures changed (all to 20/20); every other figure is identical. No after-cell had been run. Each baseline cell keeps the digest it ran under in `instrument.digest.run` and records the new one in `instrument.digest`. Old digest `a43ae2a6…`, new locked digest `4f9fd696a217a69b48e9c3d298340fb17e7aec82b351afb6751bc49ed7643765`. This is a ruler change made after the baseline was seen; the comparison must be read with it.
+
+### Delegated decisions awaiting Bro's review — recorded 2026-10-03
+Bro (through the controller) said that some answers in this pane's question dialogs were chosen on his behalf by his Orca coordination assistant under delegation (it picks the recommended option), not by Bro himself. They stay in force; nothing is reversed. Each is marked here for Bro to confirm or overturn:
+
+| Decision | Where recorded | Who answered | State |
+|---|---|---|---|
+| Add primary V grader `khong-ghi-truoc-xac-nhan` to case 3 (AC-07) | "Instrument decision during task 03" | delegated decision (Orca coordination assistant), not reviewed by Bro | awaiting Bro's review |
+| Make `bao-cao-file-dung` a watch grader in case 3 after three failed repair rounds | "Instrument decision after three failed repair rounds in task 03"; inventory; Known limits | delegated decision (Orca coordination assistant), not reviewed by Bro | awaiting Bro's review |
+| Repair the two case-4 text graders after the lock, re-grade the baseline, re-lock (`4f9fd696…`) | "Grader defect after the lock, repaired by decision" | delegated decision (Orca coordination assistant), not reviewed by Bro | awaiting Bro's review |
+| GATE-REVIEW round 1 (accept S-01..S-15; S-05 = blocked + mark the receipt) and round 2 (accept S-12, N-1..N-6; statuses → pending) | "GATE-REVIEW round 1", "GATE-REVIEW round 2" | not known to the controller-side author whether Bro or the assistant answered | Bro to confirm |
+| Per-task local commits (option 2) | "Commit decision during develop" | stated by the controller in a direct message correcting a wrong key | as stated by the controller |
+
+The other rows of these logs that say "Bro:" for the first three decisions are to be read with this table.
