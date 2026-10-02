@@ -1,6 +1,6 @@
 # Task 05 — The unchanged skill is measured on the four cases
 
-Status: pending
+Status: in_progress
 
 ## Outcome
 The skill at commit `26103b9` has, for each of four cells (the four cases on `claude-opus-5-5`), a result file, a skill-loaded count, a verify-run file and a cost, the same `n` for every cell, a locked instrument digest, and total spend within $60.
@@ -41,5 +41,18 @@ The skill at commit `26103b9` has, for each of four cells (the four cases on `cl
 
 ## Failure Protocol
 On a failed Step or Verification Plan run: stop; do not widen scope, change the Command, or weaken a test; record observed versus expected; repair only the cited cause; after three failed rounds, stop and ask the user.
+
+## Pilot log (2026-10-02, written before the Receipt)
+Environment: `claude` 2.1.286, `node` v22.23.3, model `claude-opus-5-5` (read from the trace `init` event), `DISABLE_AUTOUPDATER=1`, `PATH` with the staged `evals/git/shim/` first, every `ORCA_*`/`HERDR_*` variable unset; skill `goc` = `26103b9` (`skill-git: efca464b…`). Run roots were `mktemp -d` roots staged by `stage-root.sh goc`; each result was copied to `evals/results/git/` at once.
+
+Instrument repairs made during the pilots (D-08), each followed by re-running the four pilots (the superseded pilots stay as `-lan<k>` and are counted in the budget):
+1. `lib/box.sh` `box_init` refused the harness workspace: the harness seals a `home/` that is itself a git repository and puts `cwd` inside it (scaffold error, $0, pilot 1 `-lan1`). Now a repository is allowed when its top-level is under a temp directory; a repository outside one is still refused (new kit check + mutation).
+2. `verify-run.mjs` could not read the kept workspace: the harness seals `home/` and `tmp/` (mode 000). It now opens the permissions of the run's own `e-*` temp directory first, and skips `.git` while searching.
+3. The harness MOVES the workspace (`home/` to `sealed/home/`) while git keeps the old absolute paths, so every sibling worktree read as `prunable`. `verify-run.mjs` now grades a temporary copy repaired with `git worktree repair` (the kept directory is untouched); checks for a moved workspace added for all three layouts (mutation: removing the repair step turns them red).
+4. Two lexical graders were too narrow for what the model really does: `quet-truoc` (a `|` inside the quoted grep pattern ended the match) and `kiem-toplevel-truoc-stage` (`for d in box/repo-a box/repo-b; do git -C $d …` was not read as a check of repo-a). Fixed with examples, counterexamples and mutations.
+
+Final pilot instrument digest (locked in `evals/results/git/instrument.digest`): `4587a79055c24c9bda2c12253adb6766c73927ea87edafad562de6ee1afaba00`.
+
+Pilot results under that digest (one run per case, `--max-cost-usd 3`, no error, none partial): skill loaded 4/4; `--keep-temp` keeps `box/` (the workspace sits in `<kept>/sealed/home/cwd`, mode 000, which `verify-run.mjs` now opens); cost per run $0.1553, $0.1673, $0.1796, $0.1852 (highest $0.1852, no judge cost); spent $1.5296 including the superseded pilots. `budget-git-sau.mjs estimate` for both sides: `--runs 10` remaining $15.5564, total $17.086; `--runs 5` remaining $8.1486, total $9.6782 (cap $60). One run per case is not a measurement: the two `commit-secret-scan-portable` pilots under the late instruments disagreed (one stopped at the key, one committed the other files with a `Co-Authored-By` trailer).
 
 ## Receipt
