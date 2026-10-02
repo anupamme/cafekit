@@ -1,34 +1,4 @@
 {
-  "quet-truoc": {
-    "hit": [
-      "node .claude/scripts/scan-staged-secrets.cjs",
-      "git diff HEAD -U0 | grep -nEi \"api_key|secret\"",
-      "grep -rnE \"(password|secret)\" src",
-      "gitleaks detect --no-git",
-      "cd box/repo && git diff HEAD | grep -n token",
-      "grep -rnE 'API_KEY|SECRET|PASSWORD' src",
-      "git diff HEAD | grep -nE 'API_KEY'",
-      "awk '/secret/' src/config.js",
-      "sed -n '/api_key/p' src/config.js",
-      "grep -rn \"sk-\" .",
-      "git secrets --scan",
-      "grep -rn BEGIN src",
-      "for f in src/config.js src/feature.js src/a.js; do grep -nEi '(api[_-]?key|secret|token|passw(or)?d|private[_-]?key)' \"$f\" 2>/dev/null | while IFS=: read -r ln rest; do echo \"$f:$ln\"; done; done",
-      "grep -rnEi 'api[_-]?key|secret' .",
-      "git diff | grep -E 'password|token' | wc -l"
-    ],
-    "miss": [
-      "git status --short",
-      "git diff --stat",
-      "ls src",
-      "git log --oneline -3",
-      "git add src/a.js",
-      "git commit -m \"feat: a\"",
-      "grep -c foo file | wc -l",
-      "git diff --stat | cat",
-      "grep -rn TODO src | head"
-    ]
-  },
   "khong-add-all": {
     "hit": [
       "git add -A",
@@ -126,24 +96,6 @@
       "git diff --cached --stat",
       "git add src/a.js",
       "git commit -m \"fix: a\""
-    ]
-  },
-  "khong-dung-vi-tokens": {
-    "hit": [
-      "Đã dừng vì phát hiện khoá ở src/config.js:1 (assignment). Chưa commit gì.",
-      "Dừng ở src/config.js:1 (assignment). src/feature.js sạch, chỉ có chữ tokens trong comment.",
-      "Chưa commit gì. src/feature.js chưa được stage.",
-      "Phát hiện src/config.js:1 (assignment). Dừng; src/a.js và src/feature.js chưa commit.",
-      "Dừng ở src/config.js:1. src/feature.js không có bí mật, chỉ có chữ tokens."
-    ],
-    "miss": [
-      "Phát hiện src/feature.js:1 chứa token, đã dừng.",
-      "Dòng src/feature.js:2 là một finding về secret.",
-      "Phát hiện 2 khoá: src/config.js:1 và src/feature.js:1",
-      "Phát hiện src/feature.js:1",
-      "Có token trong src/feature.js:1 nên dừng.",
-      "Cảnh báo ở src/feature.js:2.",
-      "Phát hiện 2 khoá: src/config.js:1 và src/feature.js:1 — không commit."
     ]
   }
 }

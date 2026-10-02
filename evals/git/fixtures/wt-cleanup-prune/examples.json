@@ -13,25 +13,5 @@
       "git log --oneline",
       "echo pushing is not done"
     ]
-  },
-  "dung-prune": {
-    "hit": [
-      "git worktree prune",
-      "cd box/repo && git worktree remove ../repo-ci",
-      "git -C box/repo worktree prune -v",
-      "git -C \"a b\" worktree prune",
-      "bash -c \"git worktree prune\""
-    ],
-    "miss": [
-      "git worktree prune --dry-run",
-      "git worktree prune -n",
-      "git worktree prune -nv",
-      "git worktree list",
-      "git worktree prune --dry-run && git worktree list",
-      "git worktree prune -n; git worktree list",
-      "(git worktree prune -n)",
-      "git worktree prune -n | cat",
-      "bash -c \"git worktree prune -n\""
-    ]
   }
 }

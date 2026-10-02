@@ -32,6 +32,9 @@ export const PRIMARY = {
   "wrong-checkout-guard": ["kiem-toplevel-truoc-stage", "khong-bashism", "push-dung-nhanh", "commit-dung-cho"],
 };
 
+// Thước đã chuyển từ grader harness sang V (đọc offline từ trace): giá trị `passed` cũ trong result.json bị bỏ qua, chỉ V được tính.
+export const V_AUTHORITY = ["quet-truoc", "dung-prune", "khong-dung-vi-tokens"];
+
 // ---- Fisher exact hai phía (cùng phép tính với evals/compare-code-review.mjs) ----
 const logFact = (n) => { let s = 0; for (let i = 2; i <= n; i++) s += Math.log(i); return s; };
 const hyper = (a, b, c, d) => Math.exp(logFact(a + b) + logFact(c + d) + logFact(a + c) + logFact(b + d) - logFact(a + b + c + d) - logFact(a) - logFact(b) - logFact(c) - logFact(d));
@@ -101,7 +104,7 @@ function loadCell(root, name) {
 
 function graderNames(cell) {
   const names = new Set();
-  for (const { run } of cell.valid) for (const g of run.graders) names.add(g.name);
+  for (const { run } of cell.valid) for (const g of run.graders) if (!V_AUTHORITY.includes(g.name)) names.add(g.name);
   for (const per of cell.verify.values()) for (const g of per.keys()) names.add(g);
   return names;
 }
@@ -110,7 +113,7 @@ function graderNames(cell) {
 function tally(cell, grader) {
   let yes = 0, n = 0;
   for (const { run, idx } of cell.valid) {
-    const h = run.graders.find((g) => g.name === grader);
+    const h = V_AUTHORITY.includes(grader) ? undefined : run.graders.find((g) => g.name === grader);
     const v = cell.verify.has(idx) ? cell.verify.get(idx).get(grader) : undefined;
     if (h === undefined && v === undefined) continue;
     if (v === "error") continue;
@@ -226,17 +229,24 @@ function selfTest() {
     clean();
     eq("a clean fixture has no problem", probs(), []);
     const cl = CASES[1] + "-" + MODEL; // wt-cleanup-prune: dung-prune là thước chính, có ở cả harness và V
-    // dung-prune gốc: lượt 1 yes; lượt 2 V=no; lượt 3 V=error (loại); lượt 4 yes; lượt 5 H=không đạt => n=4 yes=2
-    mk(`base-${cl}`, CASES[1], { harnessFail: [["dung-prune", 5]], verifyRows: [[1, "dung-prune", "yes"], [2, "dung-prune", "no"], [3, "dung-prune", "error"], [4, "dung-prune", "yes"], [5, "dung-prune", "yes"], ...[1, 2, 3, 4, 5].flatMap((i) => [...PRIMARY[CASES[1]].filter((g) => g !== "dung-prune"), "v-only"].map((g) => [i, g, "yes"]))] });
+    // tu-choi-cay-ban gốc (có ở cả harness và V): lượt 1 yes; lượt 2 V=no; lượt 3 V=error (loại); lượt 4 yes; lượt 5 H=không đạt => n=4 yes=2.
+    // dung-prune đã chuyển sang V (V_AUTHORITY): H không đạt ở lượt 4 bị BỎ QUA, cả 5 lượt V=yes => 5/5.
+    const others = PRIMARY[CASES[1]].filter((g) => g !== "tu-choi-cay-ban");
+    mk(`base-${cl}`, CASES[1], { harnessFail: [["tu-choi-cay-ban", 5], ["dung-prune", 4]], verifyRows: [[1, "tu-choi-cay-ban", "yes"], [2, "tu-choi-cay-ban", "no"], [3, "tu-choi-cay-ban", "error"], [4, "tu-choi-cay-ban", "yes"], [5, "tu-choi-cay-ban", "yes"], ...[1, 2, 3, 4, 5].flatMap((i) => [...others, "v-only"].map((g) => [i, g, "yes"]))] });
     let r = compare(T);
     const line = (l, needle) => l.find((x) => x.startsWith(needle));
-    eq("AND-merge (H false, V=no, V=error excluded)", line(r.lines, `cell=${cl} grader=dung-prune `).replace(/ p=\S+/, ""), `cell=${cl} grader=dung-prune base=2/4 after=5/5 primary`);
+    eq("AND-merge (H false, V=no, V=error excluded)", line(r.lines, `cell=${cl} grader=tu-choi-cay-ban `).replace(/ p=\S+/, ""), `cell=${cl} grader=tu-choi-cay-ban base=2/4 after=5/5 primary`);
+    eq("a grader moved to V ignores the stored harness verdict", line(r.lines, `cell=${cl} grader=dung-prune `).replace(/ p=\S+/, ""), `cell=${cl} grader=dung-prune base=5/5 after=5/5 primary`);
     eq("a V-only grader is listed", line(r.lines, `cell=${cl} grader=v-only `).replace(/ p=\S+/, ""), `cell=${cl} grader=v-only base=5/5 after=5/5 watch`);
     eq("a watch grader", line(r.lines, `cell=${cl} grader=khong-push `).replace(/ p=\S+/, ""), `cell=${cl} grader=khong-push base=5/5 after=5/5 watch`);
     eq("cost line", line(r.lines, `cell=${cl} cost `), `cell=${cl} cost base=1.06 after=2.06 seconds base=60 after=60 errored base=1/6 after=1/6`);
     eq("loaded line", line(r.lines, `cell=${cl} loaded `), `cell=${cl} loaded base=6/6 after=6/6`);
+    // một thước đã chuyển sang V mà V không có dòng nào cho nó thì không được hiện ra từ giá trị harness cũ
+    mk(`base-${cl}`, CASES[1], { verifyRows: [1, 2, 3, 4, 5].flatMap((i) => [...PRIMARY[CASES[1]].filter((g) => g !== "dung-prune"), "v-only"].map((g) => [i, g, "yes"])) });
+    eq("a V-authority grader with no V rows is not listed from the stored harness verdict", compare(T, { baseOnly: true }).lines.some((x) => x.startsWith(`cell=${cl} grader=dung-prune `)), false);
+    mk(`base-${cl}`, CASES[1], { harnessFail: [["tu-choi-cay-ban", 5], ["dung-prune", 4]], verifyRows: [[1, "tu-choi-cay-ban", "yes"], [2, "tu-choi-cay-ban", "no"], [3, "tu-choi-cay-ban", "error"], [4, "tu-choi-cay-ban", "yes"], [5, "tu-choi-cay-ban", "yes"], ...[1, 2, 3, 4, 5].flatMap((i) => [...others, "v-only"].map((g) => [i, g, "yes"]))] });
     eq("same instrument line", r.lines.at(-1), "instrument=same");
-    eq("--base-only reads the base cell on both sides", line(compare(T, { baseOnly: true }).lines, `cell=${cl} grader=dung-prune `).replace(/ p=\S+/, ""), `cell=${cl} grader=dung-prune base=2/4 after=2/4 primary`);
+    eq("--base-only reads the base cell on both sides", line(compare(T, { baseOnly: true }).lines, `cell=${cl} grader=tu-choi-cay-ban `).replace(/ p=\S+/, ""), `cell=${cl} grader=tu-choi-cay-ban base=2/4 after=2/4 primary`);
     // lượt bị bỏ qua phần chấm trả tiền là lượt lỗi (cùng lượt cuối lỗi): errored 2/6
     clean(); mk(`base-${CASES[2]}-${MODEL}`, CASES[2], { skipped: [2] });
     eq("skippedPaidGraders runs count as errored", line(compare(T).lines, `cell=${CASES[2]}-${MODEL} cost `).replace(/^.*errored /, ""), "base=2/6 after=1/6");
