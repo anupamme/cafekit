@@ -1,0 +1,34 @@
+{
+  "$schema": "./runtime.schema.json",
+  "privacyBlock": true,
+  "inspect": {
+    "enabled": true
+  },
+  "statusline": "full",
+  "statuslineColors": true,
+  "docs": {
+    "maxLoc": 800
+  },
+  "paths": {
+    "docs": "docs",
+    "specs": "specs",
+    "plans": "plans"
+  },
+  "spec": {
+    "scaffold_guard": true,
+    "completion_gate": true,
+    "tollgate": true
+  },
+  "develop": {
+    "parallel": true
+  },
+  "locale": {
+    "thinkingLanguage": null,
+    "responseLanguage": null
+  },
+  "usage": {
+    "enabled": true
+  },
+  "hooks": {},
+  "assertions": []
+}
