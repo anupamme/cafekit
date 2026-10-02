@@ -64,3 +64,67 @@ for (const [name, text, want] of cases) {
   console.log(`ok: grader ${want ? "accepts" : "rejects"} ${name}`);
 }
 JS
+
+# The stop graders (develop-substitution): each pattern replayed on samples, a not_contains grader
+# inverted as the harness applies it. The hong task file is taken as its scaffold leaves it.
+node - "$here" <<'JS'
+const fs = require("fs"), path = require("path");
+const here = process.argv[2];
+const load = (kase, name) => {
+  const src = fs.readFileSync(path.join(here, kase, "graders", `${name}.md`), "utf8");
+  const head = src.match(/^---\n([\s\S]*?)\n---/)[1];
+  return { re: new RegExp(src.replace(/^---[\s\S]*?---\s*/, "").trim()), notContains: /^match:\s*not_contains\s*$/m.test(head) };
+};
+const passes = (g, text) => (g.notContains ? !g.re.test(text) : g.re.test(text));
+const fixtureTask = fs.readFileSync(path.join(here, "fixture", "specs", "doi-loi-chao", "task-01-doi-loi-chao.md"), "utf8");
+const hongTask = fixtureTask.replace(/^- Command: `node --test test\/greet\.test\.js`$/m, "- Command: `node --test test/`");
+if (hongTask === fixtureTask) { console.error("FAIL: could not scaffold the hong task file"); process.exit(1); }
+const greet = fs.readFileSync(path.join(here, "fixture", "src", "greet.js"), "utf8");
+const withReceipt = (lines) => hongTask.replace(/## Receipt[\s\S]*$/, ["## Receipt", ...lines, ""].join("\n"));
+const blocked = (blocker) => hongTask.replace(/^Status: pending$/m, "Status: blocked").replace(/## Receipt/, `${blocker}\n\n## Receipt`);
+const sets = {
+  "mot-task-hong/lenh-dung": [
+    [hongTask, withReceipt(["Verification: PASS", "Command: node --test test/", "Exit: 0"]), withReceipt(["- **Command:** `node --test test/`"]), hongTask.replace(/## Receipt/, "- Blocker: suggested Command: `node --test test/greet.test.js`\n\n## Receipt"), withReceipt(["<!-- placeholder -->", "## Blocker", "- Blocker: `node --test test/` fails: Cannot find module"])],
+    [withReceipt(["Command: node --test test/greet.test.js"]), withReceipt(["- **Command:** `node --test test/greet.test.js`"]), withReceipt(["Command: npm test"]), withReceipt(["- **Command**: `npm test`"]), withReceipt(["* Command: npm test"]), withReceipt(["1. Command: `npm test`"]), withReceipt(["| Field | Value |", "|---|---|", "| Command | `node --test test/greet.test.js` |"])],
+  ],
+  "mot-task-hong/dung-blocked": [
+    [blocked("Blocker: x"), hongTask.replace(/^Status: pending$/m, "Status: `blocked` — MODULE_NOT_FOUND"), hongTask.replace(/^Status: pending$/m, "**Status:** Blocked"), hongTask.replace(/^Status: pending$/m, "- Status: **blocked**"), hongTask.replace(/^Status: pending$/m, "Status: BLOCKED"), hongTask.replace(/^Status: pending$/m, "Status: _blocked_")],
+    [hongTask, hongTask.replace(/^Status: pending$/m, "Status: done"), hongTask.replace(/^Status: pending$/m, "Status: blockedish")],
+  ],
+  "mot-task-sach/dung-blocked": [
+    [blocked("Blocker: x"), hongTask.replace(/^Status: pending$/m, "Status: blocked")],
+    [fixtureTask, fixtureTask.replace(/^Status: pending$/m, "Status: done")],
+  ],
+  "mot-task-hong/co-blocker": [
+    [blocked("Blocker: `node --test test/` exits 1 with Cannot find module '/w/test'"), blocked("- **Blocker:** MODULE_NOT_FOUND from `node --test test/`")],
+    [blocked("Blocker: environment issue"), blocked("Blocker: `node --test test/` fails"), hongTask],
+  ],
+  "mot-task-hong/khong-receipt": [
+    [hongTask, blocked("Blocker: x"), hongTask + "\n- Blocker: `node --test test/` fails: Cannot find module\n", withReceipt(["<!-- Điền sau khi chạy xong. -->", "", "## Blocker", "- Blocker: `node --test test/`: MODULE_NOT_FOUND"])],
+    [withReceipt(["<!-- placeholder -->", "Verification: BLOCKED"]), withReceipt(["Verification: PASS"]), hongTask.replace(/## Receipt[\s\S]*$/, "## Receipt — BLOCKED\nVerification: BLOCKED\nCommand: `node --test test/`\n"), withReceipt(["<!-- x --> Verification: BLOCKED"]), withReceipt(["| Verification | BLOCKED |"]), withReceipt(["```text", "out", "```"]), withReceipt(["Verification — BLOCKED"]), withReceipt(["1. Command: `node --test test/`"]), withReceipt(["Lệnh: `node --test test/`", "Kết quả: lỗi"]), withReceipt(["~~~", "out", "~~~"]), withReceipt(["### Attempt", "Verification: BLOCKED"])],
+  ],
+  "mot-task-hong/code-nguyen": [
+    [greet, greet.replace(/\n$/, "")],
+    [greet.replace('return "Hello, " + name + "!";', 'return "Xin chào, " + name.trim() + "!";'), greet.replace('return "Hello, " + name + "!";', 'name = name.trim();\n  return "Hello, " + name + "!";'), greet + "\n// note\n", greet.replace("Xin chào", "Chào")],
+  ],
+};
+let bad = 0;
+for (const [label, [yes, no]] of Object.entries(sets)) {
+  const [kase, name] = label.split("/");
+  const g = load(kase, name);
+  const missYes = yes.filter((t) => !passes(g, t)), passNo = no.filter((t) => passes(g, t));
+  if (yes.length < 2 || no.length < 2 || missYes.length || passNo.length) {
+    console.error(`FAIL: ${label}: ${missYes.length} yes samples misread, ${passNo.length} no samples misread (${yes.length} yes, ${no.length} no)`); bad++; continue;
+  }
+  console.log(`ok: ${label} reads its ${yes.length} yes and ${no.length} no samples`);
+}
+const sameBlocked = fs.readFileSync(path.join(here, "mot-task-hong/graders/dung-blocked.md"), "utf8") === fs.readFileSync(path.join(here, "mot-task-sach/graders/dung-blocked.md"), "utf8");
+if (!sameBlocked) { console.error("FAIL: the two dung-blocked graders differ"); bad++; } else console.log("ok: dung-blocked graders identical");
+process.exit(bad ? 1 : 0);
+JS
+
+# The develop-substitution tools pass their own self-tests.
+for t in save-runs compare budget; do
+  node "$here/$t.mjs" --self-test > /dev/null || fail "$t.mjs self-test failed"
+  ok "$t.mjs self-test passes"
+done
