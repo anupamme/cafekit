@@ -5,6 +5,7 @@ description: >-
   Pressure-test a material software architecture choice after the Brainstorm
   controller has scouted the repository and bounded the user contract. Its
   report states a single-path conclusion in one line and English labels; keep both when relaying it.
+  Tell it which route applies; the routes are feature delivery; an explicitly authorized fix; diagnosis-only bug work; non-bug exploration.
 ---
 
 # Brainstormer — advisory solution architect

@@ -1366,6 +1366,7 @@ const BRAINSTORM_CONTRACT_CLAUSES = {
   agentSinglePath: "State a single-path conclusion in one line",
   agentEnglishLabels: "Write these labels in English exactly as listed, whatever language the report uses.",
   agentRelay: "End the report with `Relay: keep the single-path line and every English label when you summarize this report.`",
+  agentRouteAsk: "Tell it which route applies; the routes are feature delivery; an explicitly authorized fix; diagnosis-only bug work; non-bug exploration.",
 };
 
 const BRAINSTORM_DECISION_HEADINGS = [
@@ -1827,7 +1828,7 @@ function brainstormContractIssues(input) {
     issues.add("adviser-adaptive");
   }
 
-  const repairClauses = {"planTasksRoute": "skill", "planTasksLine": "skill", "routeDepthLine": "skill", "delegatedChoice": "skill", "namedBrainstormer": "skill", "agentSinglePath": "agent", "agentEnglishLabels": "agent", "agentRelay": "agent"};
+  const repairClauses = {"planTasksRoute": "skill", "planTasksLine": "skill", "routeDepthLine": "skill", "delegatedChoice": "skill", "namedBrainstormer": "skill", "agentSinglePath": "agent", "agentEnglishLabels": "agent", "agentRelay": "agent", "agentRouteAsk": "agent"};
   if (Object.entries(repairClauses).some(([key, source]) => !normalized[source].includes(normalizeMarkdownWhitespace(BRAINSTORM_CONTRACT_CLAUSES[key])))) {
     issues.add("repair-clauses");
   }
@@ -1938,6 +1939,7 @@ async function runBrainstormContractTests() {
     { name: "repair-clause-agentSinglePath-removed", source: "agent", from: BRAINSTORM_CONTRACT_CLAUSES.agentSinglePath, to: "", expected: ["repair-clauses"] },
     { name: "repair-clause-agentEnglishLabels-removed", source: "agent", from: BRAINSTORM_CONTRACT_CLAUSES.agentEnglishLabels, to: "", expected: ["repair-clauses"] },
     { name: "repair-clause-agentRelay-removed", source: "agent", from: BRAINSTORM_CONTRACT_CLAUSES.agentRelay, to: "", expected: ["repair-clauses"] },
+    { name: "repair-clause-agentRouteAsk-removed", source: "agent", from: BRAINSTORM_CONTRACT_CLAUSES.agentRouteAsk, to: "", expected: ["repair-clauses"] },
     { name: "decision-brief-stale", group: "decision-brief", source: "skill", from: BRAINSTORM_CONTRACT_CLAUSES.decisionFreshness, to: "The first section may omit revision, freshness, and invalidation.", expected: ["decision-brief"] },
     { name: "decision-brief-additive-stale", group: "decision-brief", source: "skill", from: BRAINSTORM_CONTRACT_CLAUSES.decisionFreshness, to: `${BRAINSTORM_CONTRACT_CLAUSES.decisionFreshness} A revision change does not invalidate an existing brief.`, expected: ["decision-brief"] },
     { name: "decision-brief-after-head-change", group: "decision-brief", source: "skill", from: BRAINSTORM_CONTRACT_CLAUSES.decisionFreshness, to: `${BRAINSTORM_CONTRACT_CLAUSES.decisionFreshness} Continue using the brief after HEAD changes.`, expected: ["decision-brief"] },
