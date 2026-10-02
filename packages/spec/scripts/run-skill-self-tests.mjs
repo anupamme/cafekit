@@ -2440,6 +2440,15 @@ function developPlanNativeContractIssues(input) {
     "Read the test or probe that will judge this task before implementing against it.",
   ] });
 
+  requireClauses("environment-blocker", { skill: [
+    "A failure from the command itself — a wrong path, a missing tool or module, the environment — is BLOCKED, not FAIL,",
+    "even when the runner reports `not ok` and even when the Acceptance or a test file shows the right command:",
+    "set the task's single `Status:` to `blocked` with a `Blocker:` line naming the command and its error,",
+    "write no Receipt, revert any edit made in this run, and report;",
+    "you may suggest a corrected command for the plan, but never run it as proof.",
+    "Remediate an observed failure (a blocked Command is not a failure to remediate), then rerun only",
+  ] });
+
   requireClauses("current-byte-selection", { skill: [
     "More than one `in_progress` | Fail-stop; name every active task.",
     "Exactly one `in_progress` | Resume exactly that task.",
@@ -2625,6 +2634,18 @@ async function runDevelopPlanNativeContractTests() {
     mutateClause("drops scouting the judge", "skill", "verify-first-and-round",
       "Read the test or probe that will judge this task before implementing against it.",
       "Read whatever seems relevant."),
+    mutateClause("treats a failure of the command as FAIL", "skill", "environment-blocker",
+      "is BLOCKED, not FAIL,", "is a FAIL to repair,"),
+    mutateClause("closes a blocked task as done", "skill", "environment-blocker",
+      "to `blocked` with a `Blocker:` line", "to `done` with a `Blocker:` line"),
+    mutateClause("writes a Receipt for a blocked task", "skill", "environment-blocker",
+      "write no Receipt, revert", "write the Receipt, revert"),
+    mutateClause("keeps this run's edits of a blocked task", "skill", "environment-blocker",
+      "revert any edit made in this run, and report;", "keep the edits made in this run, and report;"),
+    mutateClause("runs the corrected command as proof", "skill", "environment-blocker",
+      "but never run it as proof.", "and may run it as proof."),
+    mutateClause("remediates a blocked Command", "skill", "environment-blocker",
+      "(a blocked Command is not a failure to remediate)", "(a blocked Command is a failure to remediate)"),
   ];
   const baseline = Object.fromEntries(await Promise.all(
     Object.entries(DEVELOP_PLAN_NATIVE_PATHS).map(async ([key, relativePath]) => [

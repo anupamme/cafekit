@@ -120,7 +120,7 @@ mutation. Resume only unmet work, then run fresh verification.
 ### 2. Implement
 
 Unless under `--flash` or the command costs money or writes artifacts, run the task's exact Verification Plan command once before changing anything and expect it to fail; this pre-change run is not a repair round.
-Passing before any change, outside a resumed task, means the plan cannot judge the work and is a blocker; so is a failure naming something other than the unmet Acceptance, which is a blocker to raise, not a defect to work around while implementing.
+Passing before any change, outside a resumed task, means the plan cannot judge the work and is a blocker; so is a failure naming something other than the unmet Acceptance, which is a blocker to raise, not a defect to work around while implementing. A failure from the command itself — a wrong path, a missing tool or module, the environment — is BLOCKED, not FAIL, even when the runner reports `not ok` and even when the Acceptance or a test file shows the right command: set the task's single `Status:` to `blocked` with a `Blocker:` line naming the command and its error, write no Receipt, revert any edit made in this run, and report; you may suggest a corrected command for the plan, but never run it as proof.
 
 Honor Scope, Ownership, Acceptance, and Dependencies. Do not silently replace named contracts;
 scope expansion requires evidence and a return to GATE-SCOPE, not implementation convenience.
@@ -132,7 +132,7 @@ The test owner executes each exact Verification Plan and records real output. Th
 review owner evaluates correctness, security, scope, and reachability without
 manufacturing proof. Use `PASS | PASS_WITH_WARNINGS | FAIL | BLOCKED`; only literal PASS can close.
 
-Load `references/quality-gate.md`. Remediate an observed failure, then rerun only
+Load `references/quality-gate.md`. Remediate an observed failure (a blocked Command is not a failure to remediate), then rerun only
 affected proof/review. Do not blind-retry a blocked environment. One repair round is one
 observed failure plus its repair and rerun, from proof or from review alike. After three
 failed repair rounds, stop and ask the user.
