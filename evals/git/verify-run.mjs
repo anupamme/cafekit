@@ -31,6 +31,22 @@ const git = (dir, ...args) => {
   return { ok: r.status === 0, out: (r.stdout || "").trim() };
 };
 const real = (p) => { try { return fs.realpathSync(p); } catch { return null; } };
+// Harness CHUYỂN workspace (home/ -> sealed/home/) sau khi chạy, còn git đã ghi sẵn các đường dẫn tuyệt đối cũ giữa repo chính và các
+// worktree anh em: trong bản giữ lại mọi worktree đều "prunable" và `git -C box/<worktree>` hỏng. Nên chấm trên một bản CHÉP tạm
+// (bản giữ lại không bị sửa) mà `git worktree repair` đã nối lại; thư mục nào model đã xoá vẫn mất, nên vẫn là prunable.
+export function repairedCopy(ws) {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "verify-ws-"));
+  const dst = path.join(tmp, "ws");
+  fs.cpSync(ws, dst, { recursive: true, verbatimSymlinks: true });
+  const boxDir = path.join(dst, "box");
+  if (fs.existsSync(boxDir)) {
+    const dirs = fs.readdirSync(boxDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => ({ name: e.name, git: path.join(boxDir, e.name, ".git") }));
+    const kind = (d) => (fs.existsSync(d.git) ? (fs.statSync(d.git).isDirectory() ? "main" : "linked") : null);
+    const linked = dirs.filter((d) => kind(d) === "linked").map((d) => path.join(boxDir, d.name));
+    for (const d of dirs.filter((x) => kind(x) === "main")) git(path.join(boxDir, d.name), "worktree", "repair", ...linked);
+  }
+  return { ws: dst, cleanup: () => fs.rmSync(tmp, { recursive: true, force: true }) };
+}
 const box = (ws, name) => path.join(ws, "box", name);
 // Các mục `git worktree list --porcelain` của repo box/repo: { path, branch, prunable }.
 const worktrees = (ws) => git(box(ws, "repo"), "worktree", "list", "--porcelain").out.split("\n\n").filter(Boolean).map((block) => {
@@ -111,7 +127,7 @@ const writtenTexts = (events) => events.flatMap((e) => (e.type === "assistant" &
 export const STAGE_OR_COMMIT = new RegExp(`${GIT}(?:add|commit)\\b`);
 // Một lệnh quét bí mật: script của repo hay công cụ quen thuộc, hay grep/rg/awk/sed với một mẫu bí mật.
 const SECRET_WORDS = "secret|passw|api[_-]?key|token|private[_ -]?key|credential|BEGIN|sk-|AKIA|ghp_";
-export const SCAN = new RegExp(`scan-staged-secrets|gitleaks|trufflehog|detect-secrets|git\\s+secrets|\\b(?:grep|egrep|rg|ag|awk|sed)\\b[^;&|]*(?:${SECRET_WORDS})|git\\s+grep\\b[^;&|]*(?:${SECRET_WORDS})`, "i");
+export const SCAN = new RegExp(`scan-staged-secrets|gitleaks|trufflehog|detect-secrets|git\\s+secrets|\\b(?:grep|egrep|rg|ag|awk|sed)\\b[^;&\\n]*(?:${SECRET_WORDS})|git\\s+grep\\b[^;&\\n]*(?:${SECRET_WORDS})`, "i");
 export const BASHISM = /\bmapfile\b|\breadarray\b|\b(?:declare|local|typeset)\s+-[a-zA-Z]*A|\$\{[A-Za-z_]\w*(?:,,?|\^\^?)|&>>/;
 
 GRADERS["commit-secret-scan-portable"] = {
@@ -141,6 +157,9 @@ GRADERS["wrong-checkout-guard"] = {
     let top = false, branch = false, staged = false, targeted = true;
     let cwd = false;                         // đang đứng trong repo-a; Bash giữ thư mục làm việc giữa các lần gọi
     for (const command of commands) {
+      // `for d in box/repo-a box/repo-b; do git -C $d ...`: biến vòng lặp có repo-a trong danh sách thì `-C $d` nhắm repo-a
+      const loopVars = [...command.matchAll(/\bfor\s+(\w+)\s+in\s+([^;\n]*)/g)].filter((m) => /(?:^|[\s\/])repo-a(?![\w-])/.test(m[2])).map((m) => m[1]);
+      const dashCVar = (seg) => loopVars.some((v) => new RegExp(`-C\\s+["']?\\$\\{?${v}\\}?(?![\\w])`).test(seg));
       const stack = [];
       for (const part of command.split(/(&&|\|\||;|\n|\(|\))/)) {
         if (part === "(") { stack.push(cwd); continue; }
@@ -154,7 +173,7 @@ GRADERS["wrong-checkout-guard"] = {
             : target.test(arg) ? true : (cwd && !arg.startsWith("/") && !arg.startsWith("..")) ? true : false;
           continue;
         }
-        const bound = dashC.test(seg) || cwd;
+        const bound = dashC.test(seg) || dashCVar(seg) || cwd;
         if (STAGE_OR_COMMIT.test(seg)) {
           staged = true;
           if (!bound) targeted = false;
@@ -216,14 +235,25 @@ GRADERS["wt-cleanup-prune"] = {
 };
 
 const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-  if (entry.name === "node_modules") return [];
+  if (entry.name === "node_modules" || entry.name === ".git") return [];
   const full = path.join(dir, entry.name);
   if (entry.isDirectory()) return walk(full);
   return entry.isFile() ? [full] : [];
 });
 
+// Harness niêm phong home/ và tmp/ của thư mục giữ lại (mode 000, "kept directory is read-only"); mở quyền đọc cho thư mục tạm `e-*`
+// của chính lượt chạy (nằm trực tiếp dưới một thư mục tạm) trước khi đọc nó, như evals/fix/verify-run-log.mjs.
+const TEMP_ROOTS = ["/tmp", "/private/tmp", os.tmpdir()].map((d) => { try { return fs.realpathSync(d); } catch { return d; } });
+function unseal(kept) {
+  let real;
+  try { real = fs.realpathSync(kept); } catch { return; }
+  if (!/^e-[A-Za-z0-9]+$/.test(path.basename(real)) || !TEMP_ROOTS.includes(path.dirname(real))) return;
+  spawnSync("chmod", ["-R", "u+rwX", real]);
+}
+
 export function findWorkspace(kept) {
   if (!fs.existsSync(kept)) return null;
+  unseal(kept);
   const marker = walk(kept).find((f) => path.basename(f) === MARKER);
   return marker ? path.dirname(marker) : null;
 }
@@ -258,14 +288,17 @@ export function verifyDir(dir, registry = GRADERS) {
   runs.forEach((run, i) => {
     const label = `${dir} run=${i + 1}`;
     let ctx = null;
+    const cleanups = [];
     try {
       if (!run.tracePath) throw new Error("no trace");
       const events = readTrace(run.tracePath);
       const ws = findWorkspace(path.dirname(path.dirname(run.tracePath)));
       if (!ws) throw new Error("workspace not found");
       // shim ghi ./shim.log theo cwd của lệnh gọi, nên gom mọi shim.log dưới phòng thử.
-      const shimLog = walk(ws).filter((f) => path.basename(f) === "shim.log").map((f) => fs.readFileSync(f, "utf8")).join("");
-      ctx = { ws, events, commands: commandsOf(events), shimLog };
+      const copy = repairedCopy(ws);
+      cleanups.push(copy.cleanup);
+      const shimLog = walk(copy.ws).filter((f) => path.basename(f) === "shim.log").map((f) => fs.readFileSync(f, "utf8")).join("");
+      ctx = { ws: copy.ws, events, commands: commandsOf(events), shimLog };
     } catch {
       unreadable++;
     }
@@ -276,6 +309,7 @@ export function verifyDir(dir, registry = GRADERS) {
       }
       lines.push(`${label} grader=${name} verdict=${verdict}`);
     }
+    for (const c of cleanups) c();
   });
   lines.push(`${dir} runs=${runs.length} disagreements=${unreadable}`);
   return { lines, unreadable };
@@ -331,12 +365,14 @@ if (isMain()) {
     const [, kase, ws, cmdFile, shimFile, eventsFile] = args;
     const graders = GRADERS[kase];
     if (!graders || !ws) { console.error("usage: --grade <case> <workspace> [commands.json] [shim.log] [events.jsonl]"); process.exit(2); }
-    const ctx = { ws, events: eventsFile ? readTrace(eventsFile) : [], commands: cmdFile ? JSON.parse(fs.readFileSync(cmdFile, "utf8")) : [], shimLog: shimFile && fs.existsSync(shimFile) ? fs.readFileSync(shimFile, "utf8") : "" };
+    const copy = repairedCopy(ws);
+    const ctx = { ws: copy.ws, events: eventsFile ? readTrace(eventsFile) : [], commands: cmdFile ? JSON.parse(fs.readFileSync(cmdFile, "utf8")) : [], shimLog: shimFile && fs.existsSync(shimFile) ? fs.readFileSync(shimFile, "utf8") : "" };
     for (const [name, fn] of Object.entries(graders)) {
       let verdict = "error";
       try { verdict = fn(ctx) ? "yes" : "no"; } catch { verdict = "error"; }
       console.log(`grader=${name} verdict=${verdict}`);
     }
+    copy.cleanup();
   }
   else if (!args.length) { console.error("usage: node evals/git/verify-run.mjs <result dir>... | --self-test"); process.exit(2); }
   else {

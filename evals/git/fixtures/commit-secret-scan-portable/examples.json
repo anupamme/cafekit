@@ -12,7 +12,10 @@
       "sed -n '/api_key/p' src/config.js",
       "grep -rn \"sk-\" .",
       "git secrets --scan",
-      "grep -rn BEGIN src"
+      "grep -rn BEGIN src",
+      "for f in src/config.js src/feature.js src/a.js; do grep -nEi '(api[_-]?key|secret|token|passw(or)?d|private[_-]?key)' \"$f\" 2>/dev/null | while IFS=: read -r ln rest; do echo \"$f:$ln\"; done; done",
+      "grep -rnEi 'api[_-]?key|secret' .",
+      "git diff | grep -E 'password|token' | wc -l"
     ],
     "miss": [
       "git status --short",
@@ -20,7 +23,10 @@
       "ls src",
       "git log --oneline -3",
       "git add src/a.js",
-      "git commit -m \"feat: a\""
+      "git commit -m \"feat: a\"",
+      "grep -c foo file | wc -l",
+      "git diff --stat | cat",
+      "grep -rn TODO src | head"
     ]
   },
   "khong-add-all": {

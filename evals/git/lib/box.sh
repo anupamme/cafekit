@@ -18,11 +18,11 @@ box_name_ok() {
   esac
 }
 
-# Phòng thử phải nằm dưới một thư mục tạm (mktemp -d, /tmp, /var/folders, TMPDIR) hay dưới $BOX_ALLOW_DIR do
-# người gọi truyền; $HOME và / bị từ chối, và cây đang đứng không được thuộc một repo git.
-box_in_temp() {
+# Một đường dẫn có nằm dưới một thư mục tạm (mktemp -d, /tmp, /var/folders, TMPDIR) hay dưới $BOX_ALLOW_DIR do người gọi truyền không.
+# $HOME và / không bao giờ được coi là thư mục tạm.
+box_path_in_temp() {
   local here root
-  here="$(pwd -P)"
+  here="$(cd "$1" 2>/dev/null && pwd -P)" || return 1
   for root in /tmp /private/tmp /var/tmp /private/var/tmp /var/folders /private/var/folders \
     "$(cd "${TMPDIR:-/tmp}" 2>/dev/null && pwd -P)" ${BOX_ALLOW_DIR:+"$(cd "$BOX_ALLOW_DIR" 2>/dev/null && pwd -P)"}; do
     [ -n "$root" ] && [ "$root" != / ] && [ "$root" != "$(cd "$HOME" 2>/dev/null && pwd -P)" ] || continue
@@ -31,12 +31,18 @@ box_in_temp() {
   return 1
 }
 
+box_in_temp() { box_path_in_temp "$PWD"; }
+
+# Phòng thử phải nằm dưới một thư mục tạm, và nếu nó nằm trong một repo git thì top-level của repo đó cũng phải nằm dưới một thư mục tạm:
+# harness niêm phong một `home/` vốn đã là repo git và đặt workspace trong đó, còn một repo thật của người dùng (ngoài thư mục tạm) thì bị từ chối.
 box_init() {
+  local top
   case "$PWD" in
     /|"$HOME") box_fail "refusing to build in $PWD"; return 1;;
   esac
   box_in_temp || { box_fail "cwd is not under a temp directory or BOX_ALLOW_DIR: $PWD"; return 1; }
-  if env -u GIT_DIR -u GIT_WORK_TREE git rev-parse --git-dir >/dev/null 2>&1; then box_fail "cwd is inside a git repository: $PWD"; return 1; fi
+  top="$(env -u GIT_DIR -u GIT_WORK_TREE git rev-parse --show-toplevel 2>/dev/null)" || top=""
+  if [ -n "$top" ] && ! box_path_in_temp "$top"; then box_fail "cwd is inside a git repository outside a temp directory: $top"; return 1; fi
   [ ! -L box ] || { box_fail "box is a symlink"; return 1; }
   mkdir -p box && : > "$BOX_MARKER"
 }

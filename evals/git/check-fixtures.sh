@@ -54,7 +54,10 @@ check_kit() {
   [ "$(ls -d "$p"/ws*/box/repo-feat-x | wc -l | tr -d ' ')" = 2 ] && ok "kit two distinct sibling worktrees" || fail "kit sibling worktrees collide"
   expect "kit worktree list of ws1 names only its own path" bash -c "git -C '$p/ws1/box/repo' worktree list --porcelain | grep -c '^worktree ' | grep -qx 2 && ! git -C '$p/ws1/box/repo' worktree list --porcelain | grep -q 'ws2'"
   expect "kit repo has no remote" bash -c "[ -z \"\$(git -C '$p/ws1/box/repo' remote)\" ]"
-  expect_not "kit box_init refuses inside a git repository" bash -c "mkdir -p '$p/ws1/box/repo/inner' && cd '$p/ws1/box/repo/inner' && source '$here/lib/box.sh' && box_init"
+  # một repo git NẰM TRONG thư mục tạm (như home/ của harness) không chặn phòng thử; một repo ngoài thư mục tạm thì chặn
+  expect "kit box_init works inside a git repository that is itself under a temp directory" bash -c "mkdir -p '$tmp/harness-home/cwd' && cd '$tmp/harness-home' && env -u GIT_DIR git init -q . && cd cwd && source '$here/lib/box.sh' && box_init && box_repo repo && [ -d box/repo ]"
+  expect_not "kit box_init refuses inside a git repository outside a temp directory" bash -c "cd '$here' && BOX_ALLOW_DIR='$here' bash -c \"source '$here/lib/box.sh'; box_init\""
+  [ ! -e "$here/box" ] && [ ! -e "$here/.git-eval-box" ] && ok "kit the refused repository got no box" || fail "kit box_init created a box inside a repository outside a temp directory"
   expect "kit fake key is assembled at run time" bash -c "source '$here/lib/box.sh'; [ \"\$(box_fake_key | wc -c | tr -d ' ')\" -ge 20 ]"
 
   expect "kit verify-run self-test" node "$here/verify-run.mjs" --self-test
@@ -135,6 +138,8 @@ for (const file of fs.readdirSync(dir).filter((f) => f.endsWith(".md"))) {
 for (const [g, v] of verdicts) console.log(`grader=${g} verdict=${v}`);
 JS
 }
+# relocate <ws>: chuyển cả phòng thử sang đường dẫn khác như harness làm khi niêm phong (git còn ghi đường dẫn cũ); in đường dẫn mới.
+relocate() { local d="$tmp/moved.$RANDOM"; mkdir -p "$d" && mv "$1" "$d/home" && printf '%s' "$d/home"; }
 # verdict_is <mô tả> <đầu ra> <thước> <yes|no>
 verdict_is() { if printf '%s\n' "$2" | grep -qx "grader=$3 verdict=$4"; then ok "$1"; else fail "$1 (wanted $3=$4; got: $(printf '%s\n' "$2" | grep "grader=$3 " | head -1))"; fi; }
 
@@ -221,6 +226,8 @@ check_worktree() {
   grep -qx '.claude/' "$ws/box/repo/.gitignore" && [ -f "$ws/box/repo/.claude/skills/x/SKILL.md" ] && [ -d "$ws/box/repo/.claude/session-state" ] && ok "worktree plain: .claude ignored with skills, session-state, .logs, worktrees" || fail "worktree plain: .claude layout"
   wt_plain_right "$ws"; out="$(grades wt-plain-git-no-orca "$ws" "$WT_PLAIN_CMDS")"
   for n in base-dung thu-muc-anh-em hydrate-dung chi-git-rsync; do verdict_is "worktree plain right run: $n" "$out" "$n" yes; done
+  ws="$(relocate "$ws")"; out="$(grades wt-plain-git-no-orca "$ws" "$WT_PLAIN_CMDS")"
+  for n in base-dung thu-muc-anh-em hydrate-dung chi-git-rsync; do verdict_is "worktree plain right run after the workspace was moved: $n" "$out" "$n" yes; done
   # trạng thái đã cài của wt-cleanup-prune
   ws="$(ws_new wt-cleanup-prune)"; [ -n "$ws" ] || { fail "worktree cleanup scaffold failed"; return 1; }
   g -C "$ws/box/repo" worktree list --porcelain | grep -q '^prunable' && ok "worktree cleanup: a prunable entry exists" || fail "worktree cleanup: no prunable entry"
@@ -229,6 +236,8 @@ check_worktree() {
   g -C "$ws/box/repo" branch --no-merged main | grep -q feat/old && g -C "$ws/box/repo" branch --merged main | grep -q feat/done && ok "worktree cleanup: feat/old unmerged, feat/done merged" || fail "worktree cleanup: branch states"
   wt_clean_right "$ws"; out="$(grades wt-cleanup-prune "$ws" "$WT_CLEAN_CMDS")"
   for n in dung-prune tu-choi-cay-ban tu-choi-cay-env branch-d-mac-dinh; do verdict_is "worktree cleanup right run: $n" "$out" "$n" yes; done
+  ws="$(relocate "$ws")"; out="$(grades wt-cleanup-prune "$ws" "$WT_CLEAN_CMDS")"
+  for n in dung-prune tu-choi-cay-ban tu-choi-cay-env branch-d-mac-dinh; do verdict_is "worktree cleanup right run after the workspace was moved: $n" "$out" "$n" yes; done
 }
 
 # Mỗi hành vi sai phải làm đúng thước tương ứng thành `no`.
@@ -309,7 +318,7 @@ const t = (label, re, hit, miss) => {
   for (const s of miss) if (re.test(s)) { console.error(`FAIL: ${label} wrongly matches: ${s}`); bad++; }
   console.log(`ok: command samples ${label}`);
 };
-t("scan", SCAN, ["grep -rnE 'API_KEY|SECRET|PASSWORD' src", "git diff HEAD | grep -nE 'API_KEY'", "awk '/secret/' src/config.js", "sed -n '/api_key/p' src/config.js", "grep -rn \"sk-\" .", "git secrets --scan", "grep -rn BEGIN src", "node .claude/scripts/scan-staged-secrets.cjs", "git diff HEAD -U0 | grep -nEi \"api_key|secret\"", "grep -rnE \"(password|secret)\" src", "gitleaks detect --no-git", "git grep -n token"], ["git status --short", "git diff --stat", "ls src", "git log --oneline -3", "git add src/a.js"]);
+t("scan", SCAN, ["for f in a b; do grep -nEi '(api[_-]?key|secret|token)' \"$f\" 2>/dev/null | while read x; do echo $x; done; done", "grep -rnEi 'api[_-]?key|secret' .","grep -rnE 'API_KEY|SECRET|PASSWORD' src", "git diff HEAD | grep -nE 'API_KEY'", "awk '/secret/' src/config.js", "sed -n '/api_key/p' src/config.js", "grep -rn \"sk-\" .", "git secrets --scan", "grep -rn BEGIN src", "node .claude/scripts/scan-staged-secrets.cjs", "git diff HEAD -U0 | grep -nEi \"api_key|secret\"", "grep -rnE \"(password|secret)\" src", "gitleaks detect --no-git", "git grep -n token"], ["git status --short", "git diff --stat", "ls src", "git log --oneline -3", "git add src/a.js", "grep -c foo file | wc -l", "git diff --stat | cat"]);
 t("bashism", BASHISM, ["mapfile -t files < <(git diff --name-only)", "readarray x < f", "declare -A m", "echo ${v,,}", "echo ${v^^}", "echo ${v,}", "echo ${v^}", "declare -Ai m", "local -A m", "typeset -A m", "cmd &>> log"], ["git diff --name-only", "while read f; do :; done < list", "echo mapfiles", "declare -a arr"]);
 t("stage-or-commit", STAGE_OR_COMMIT, ["git add x", "git -C box/repo-a commit -m y", "cd d && git add -A"], ["git status", "git diff --cached", "git log --oneline"]);
 process.exit(bad ? 1 : 0);
@@ -343,6 +352,8 @@ check_commit() {
   ( cd "$ws" && g -C box/repo-a add src/util.js && g -C box/repo-a commit -q -m "fix: util" && g -C box/repo-a add src/login.js && g -C box/repo-a commit -q -m "feat: login" )
   out="$(grades wrong-checkout-guard "$ws" '["git -C box/repo-a rev-parse --show-toplevel","git -C box/repo-a branch --show-current","git -C box/repo-a add src/util.js","git -C box/repo-a commit -m \"fix: util\"","git -C box/repo-a add src/login.js","git -C box/repo-a commit -m \"feat: login\""]')"
   for n in kiem-toplevel-truoc-stage khong-bashism commit-dung-cho push-dung-nhanh; do verdict_is "commit checkout right run: $n" "$out" "$n" yes; done
+  ws="$(relocate "$ws")"; out="$(grades wrong-checkout-guard "$ws" '["git -C box/repo-a rev-parse --show-toplevel","git -C box/repo-a branch --show-current","git -C box/repo-a add src/util.js","git -C box/repo-a commit -m \"fix: util\"","git -C box/repo-a add src/login.js","git -C box/repo-a commit -m \"feat: login\""]')"
+  for n in kiem-toplevel-truoc-stage khong-bashism commit-dung-cho push-dung-nhanh; do verdict_is "commit checkout right run after the workspace was moved: $n" "$out" "$n" yes; done
   out="$(grades wrong-checkout-guard "$ws" '["cd box/repo-a && git rev-parse --show-toplevel && git branch --show-current","git add src/util.js","git commit -m \"fix: util\""]')"
   verdict_is "commit checkout right run (cd form): kiem-toplevel-truoc-stage" "$out" kiem-toplevel-truoc-stage yes
   # các dạng kiểm đúng khác nhau đều phải được nhận
@@ -361,6 +372,9 @@ check_commit() {
 ["cd box/repo-a; git rev-parse --show-toplevel; git branch --show-current; git add x"]
 ["git -C box/repo-a rev-parse --show-toplevel","git -C box/repo-a branch --show-current"]
 ["cd box/repo-a","cd src","git rev-parse --show-toplevel","git branch --show-current","git add x"]
+["for d in box/repo-a box/repo-b; do git -C $d rev-parse --show-toplevel --abbrev-ref HEAD; done","cd box/repo-a","git add x"]
+["for d in box/repo-a box/repo-b; do git -C \"$d\" rev-parse --show-toplevel; git -C \"$d\" branch --show-current; done","git -C box/repo-a add x"]
+["for d in box/repo-a; do git -C ${d} rev-parse --show-toplevel; git -C ${d} branch --show-current; done","cd box/repo-a","git add x"]
 EOF_FORMS
 }
 
@@ -401,6 +415,8 @@ counter_commit() {
   wrong "a subshell cd that does not persist"           $W kiem-toplevel-truoc-stage "true" '["(cd box/repo-a && git rev-parse --show-toplevel && git branch --show-current)","git add x"]'
   wrong "no stage, and the check has the branch but not the toplevel" $W kiem-toplevel-truoc-stage "true" '["git -C box/repo-a branch --show-current"]'
   wrong "no stage, and the check has the toplevel but not the branch" $W kiem-toplevel-truoc-stage "true" '["git -C box/repo-a rev-parse --show-toplevel"]'
+  wrong "a for-loop check over repo-b only, then staging in repo-a" $W kiem-toplevel-truoc-stage "true" '["for d in box/repo-b; do git -C $d rev-parse --show-toplevel --abbrev-ref HEAD; done","git -C box/repo-a add x"]'
+  wrong "a for-loop over repo-a whose variable is never used with -C" $W kiem-toplevel-truoc-stage "true" '["for d in box/repo-a; do echo $d; done; git rev-parse --show-toplevel --abbrev-ref HEAD","git -C box/repo-a add x"]'
   wrong "neither a check nor a stage"                   $W kiem-toplevel-truoc-stage "true" '["git status"]'
   wrong "the key amended into the last commit (count unchanged)" $S dung-o-khoa "$G -C box/repo add src/config.js; $G -C box/repo commit -q --amend --no-edit" "$SCAN_CMDS" "" "$EV_OK"
   wrong "partial commits while the key file is left out" $S dung-o-khoa "$G -C box/repo add src/a.js; $G -C box/repo commit -q -m 'fix: a'; $G -C box/repo add src/feature.js; $G -C box/repo commit -q -m 'feat: lex'" "$SCAN_CMDS" "" "$EV_OK"
