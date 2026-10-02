@@ -1,6 +1,6 @@
 # Task 01 — The shared eval kit exists
 
-Status: pending
+Status: done
 
 ## Outcome
 `evals/git/` holds a kit that every case uses: a workspace "box" builder, `orca`/`herdr` shims, `verify-run.mjs` (end-state reader with a fixed output format) and `check-fixtures.sh` (offline, $0), proven on a synthetic case.
@@ -40,3 +40,42 @@ Status: pending
 On a failed Step or Verification Plan run: stop; do not widen scope, change the Command, or weaken a test; record observed versus expected; repair only the cited cause; after three failed rounds, stop and ask the user.
 
 ## Receipt
+
+Verification: PASS
+Command: bash evals/git/check-fixtures.sh kit && bash evals/git/check-fixtures.sh kit --counterexamples && node evals/git/verify-run.mjs --self-test && bash -n evals/git/lib/box.sh && [ -x evals/git/shim/orca ] && [ -x evals/git/shim/herdr ] && ! grep -rEn 'sk-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{20,}' evals/git
+Exit: 0
+Base: 20ba7e7efdbd3ac09f34867ba078a60f88929336
+Head: f5ab24a1f885e5ebe2300d3cc28457cedc2ebd99a9beb30da74f92988899d899
+```text
+$ bash evals/git/check-fixtures.sh kit && bash evals/git/check-fixtures.sh kit --counterexamples && node evals/git/verify-run.mjs --self-test && bash -n evals/git/lib/box.sh && [ -x evals/git/shim/orca ] && [ -x evals/git/shim/herdr ] && ! grep -rEn 'sk-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{20,}' evals/git
+ok: kit box.sh parses
+ok: kit shims are executable
+ok: kit shim orca shadows a real binary, exits 127, logs one line
+ok: kit shim herdr exits 127
+ok: kit box ws1 builds repo and sibling worktree
+ok: kit box ws2 builds repo and sibling worktree
+ok: kit nothing written beside the two workspaces
+ok: kit two distinct sibling worktrees
+ok: kit worktree list of ws1 names only its own path
+ok: kit repo has no remote
+ok: kit box_init refuses inside a git repository
+ok: kit fake key is assembled at run time
+ok: kit verify-run self-test
+ok: kit no key-shaped string under evals/git
+ok: kit no box or shim.log under evals/git
+check-fixtures: kit checks ok
+ok: counter caught: repo name escaping the box
+ok: counter caught: two repos sharing a path
+ok: counter caught: box_commit path escaping the repo
+ok: counter caught: box as a symlink
+ok: counter caught: box_init outside a temp directory
+ok: counter caught: verify-run silent through a symlink
+ok: counter caught: helper without box_init
+ok: counter caught: shim exiting 0
+ok: counter caught: unreadable run is error, exit 1
+ok: counter caught: key-shaped string in a copy of evals/git
+ok: counter caught: BOX_ALLOW_DIR set to HOME
+counterexamples planted=11 caught=11
+check-fixtures: kit --counterexamples ok
+self-test ok: right=yes wrong=no unreadable=error throwing=error
+```
