@@ -1,6 +1,6 @@
 # Task 01 — The shared eval kit exists
 
-Status: pending
+Status: done
 
 ## Outcome
 A kit under `evals/sync/` builds a throw-away git box inside a workspace, shims `orca`/`herdr`, and grades V graders from a kept workspace and its trace, with a self-test that proves each grader helper fails a planted wrong example.
@@ -13,8 +13,8 @@ A kit under `evals/sync/` builds a throw-away git box inside a workspace, shims 
 - CP-01
 
 ## Ownership
-- Create: `evals/sync/lib/box.sh`, `evals/sync/shim/orca`, `evals/sync/shim/herdr`, `evals/sync/verify-run.mjs`, `evals/sync/check-fixtures.sh`
-- Read: `evals/run.sh`, `evals/fix/verify-run-log.mjs`, `evals/develop/check-instrument.sh`, `packages/spec/src/claude/scripts/spec-receipt.cjs`, `packages/spec/src/claude/scripts/workflow-policy.cjs`, `../cafekit-fix-git-skill-repair/evals/git/lib/box.sh`, `../cafekit-fix-git-skill-repair/evals/git/verify-run.mjs` (patterns, not copied verbatim)
+- Create: `evals/sync/lib/box.sh`, `evals/sync/lib/state.mjs` (snapshot, changed paths, receipt check), `evals/sync/lib/digest.mjs` (instrument digest, D-09), `evals/sync/shim/orca`, `evals/sync/shim/herdr`, `evals/sync/verify-run.mjs`, `evals/sync/check-fixtures.sh`
+- Read: `evals/run.sh`, `evals/fix/verify-run-log.mjs`, `evals/develop/check-instrument.sh`, `packages/spec/src/claude/scripts/spec-receipt.cjs`, `packages/spec/src/claude/scripts/workflow-policy.cjs`, `packages/spec/src/claude/scripts/spec-resolver.cjs`, `../cafekit-fix-git-skill-repair/evals/git/lib/box.sh`, `../cafekit-fix-git-skill-repair/evals/git/verify-run.mjs` (patterns, not copied verbatim)
 
 ## Steps
 1. Write `box.sh` → building twice into two temp dirs gives two boxes with no shared path; a target under the repository root exits non-zero.
@@ -40,4 +40,35 @@ A kit under `evals/sync/` builds a throw-away git box inside a workspace, shims 
 On a failed Step or Verification Plan run: stop; do not widen scope, change the Command, or weaken a test; record observed versus expected; repair only the cited cause; after three failed rounds, stop and ask the user.
 
 ## Receipt
-<!-- Fill only after execution. -->
+
+Verification: PASS
+Command: bash evals/sync/check-fixtures.sh kit && bash evals/sync/check-fixtures.sh kit --counterexamples && node evals/sync/verify-run.mjs --self-test && bash -n evals/sync/lib/box.sh && [ -x evals/sync/shim/orca ] && [ -x evals/sync/shim/herdr ]
+Exit: 0
+Base: 3cdad359edd21236b7b2f4c2621a13c4a50a3ac3
+Head: 5d426027a06e39b38e6e2d37eeea38ac61435cce44aabba8559cc0811043c21d
+```text
+$ bash evals/sync/check-fixtures.sh kit && bash evals/sync/check-fixtures.sh kit --counterexamples && node evals/sync/verify-run.mjs --self-test && bash -n evals/sync/lib/box.sh && [ -x evals/sync/shim/orca ] && [ -x evals/sync/shim/herdr ]
+ok two-builds-apart
+ok fixture-claude-dir-moved
+ok shim-absolute-from-other-cwd
+ok eval-dir-keeps-head
+ok log-dirs-excluded
+check-fixtures kit: pass
+caught box-outside-temp
+caught relative-shim-path
+caught log-outside-eval-moves-head
+check-fixtures kit --counterexamples: pass
+ok valid-receipt
+ok typed-sha-receipt
+ok committed-stale-receipt
+ok command-identity-caught
+ok missing-trace
+ok fenced-fields-ignored
+ok claimed-in-text-not-run
+ok unpaired-result-is-error
+ok summary-line
+ok regex-oracle-would-pass-typed-sha
+ok throwing-grader-is-error
+ok edit-to-dirty-file-detected
+self-test ok
+```

@@ -1,6 +1,6 @@
 # Task 02 — The two rebind cases exist
 
-Status: pending
+Status: done
 
 ## Outcome
 Cases `rebind-base-moved` and `rebind-verify-fails` build a box whose two done receipts really fail the live check (D-01) and grade the plan's primary and watch graders for those cases.
@@ -40,4 +40,66 @@ Cases `rebind-base-moved` and `rebind-verify-fails` build a box whose two done r
 On a failed Step or Verification Plan run: stop; do not widen scope, change the Command, or weaken a test; record observed versus expected; repair only the cited cause; after three failed rounds, stop and ask the user.
 
 ## Receipt
-<!-- Fill only after execution. -->
+
+Verification: PASS
+Command: bash evals/sync/check-fixtures.sh rebind && bash evals/sync/check-fixtures.sh rebind --counterexamples && node evals/sync/verify-run.mjs --self-test
+Exit: 0
+Base: 3cdad359edd21236b7b2f4c2621a13c4a50a3ac3
+Head: 5d426027a06e39b38e6e2d37eeea38ac61435cce44aabba8559cc0811043c21d
+```text
+$ bash evals/sync/check-fixtures.sh rebind && bash evals/sync/check-fixtures.sh rebind --counterexamples && node evals/sync/verify-run.mjs --self-test
+ok two-builds-apart
+ok case-yaml-turn-cap
+ok fixture-scripts-equal-source
+ok scaffold-receipts-stale
+ok commands-have-no-single-quote
+ok head-stable-after-commands
+ok sequential-rebind-right
+ok bash-c-rebind-right
+ok multiline-rebind-right
+ok blocked-on-fail-right
+ok blocker-heading
+ok blocker-reason
+ok blocker-exits
+ok blocker-nonzero
+ok blocker-vietnamese
+ok fail-receipt-appended
+ok one-call-rebind-right
+ok closed-heredoc-before-right
+ok bao-cao-neu-fail-examples
+check-fixtures rebind: pass
+caught pasted-old-output
+caught sed-base-only
+caught last-link-only-output
+caught echoed-command
+caught commit-without-rerun
+caught revert-typo
+caught pass-on-fail
+caught src-edited-green
+caught test-edited-green
+caught task-01-not-rerun
+caught swapped-output
+caught swapped-output-one-call
+caught nonce-only-pasted
+caught duplicate-status
+caught invented-head
+caught max-turns-hit
+caught scaffold-without-task-edit
+caught runtime-json-edited
+caught done-kept-on-fail
+caught blocker-without-command
+check-fixtures rebind --counterexamples: pass
+ok valid-receipt
+ok typed-sha-receipt
+ok committed-stale-receipt
+ok command-identity-caught
+ok missing-trace
+ok fenced-fields-ignored
+ok claimed-in-text-not-run
+ok unpaired-result-is-error
+ok summary-line
+ok regex-oracle-would-pass-typed-sha
+ok throwing-grader-is-error
+ok edit-to-dirty-file-detected
+self-test ok
+```
