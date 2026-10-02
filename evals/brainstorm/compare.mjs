@@ -10,6 +10,8 @@
 // rồi claude-versions=<n>. Thoát 1 khi thiếu file _regraded của một phía, sha256 thước trong file khác file thước hiện
 // hành (chấm lại bằng thước cũ), hay integrity của các ô sau thất bại.
 //   node evals/brainstorm/compare.mjs [--cells a,b] [--root <results root>]
+//   node evals/brainstorm/compare.mjs --base-prefix sau- --after-prefix sau2- [--cells a,b]   (any two cell prefixes;
+//        defaults base- and sau-; integrity runs on the after-prefix directories)
 //   node evals/brainstorm/compare.mjs --base-only      (so số gốc đã chấm lại với chính nó: mọi p=1.000)
 //   node evals/brainstorm/compare.mjs --self-test
 import fs from "fs";
@@ -54,7 +56,7 @@ function load(file, cases, say) {
   return j;
 }
 
-export function compare({ root = path.join(here, "..", "results"), cases = here, cells = CELLS, baseOnly = false, integrity = true } = {}) {
+export function compare({ root = path.join(here, "..", "results"), cases = here, cells = CELLS, baseOnly = false, integrity = true, basePrefix = "base-", afterPrefix = "sau-" } = {}) {
   const lines = [];
   let bad = 0;
   const say = (l) => { lines.push(l); };
@@ -62,8 +64,8 @@ export function compare({ root = path.join(here, "..", "results"), cases = here,
   const pair = (label, bx, bn, ax, an) => `${label} base=${bx}/${bn} after=${ax}/${an} p=${fmt(fisher(bx, bn, ax, an))}`;
   for (const cell of cells) {
     const kase = caseOf(cell);
-    const b = load(path.join(res, "_regraded", `base-${cell}.json`), cases, say);
-    const a = baseOnly ? b : load(path.join(res, "_regraded", `sau-${cell}.json`), cases, say);
+    const b = load(path.join(res, "_regraded", `${basePrefix}${cell}.json`), cases, say);
+    const a = baseOnly ? b : load(path.join(res, "_regraded", `${afterPrefix}${cell}.json`), cases, say);
     if (!b || !a) { bad++; continue; }
     const primary = PRIMARY[kase] || [];
     const names = [...primary, ...Object.keys(b.graders).filter((g) => !g.startsWith("dem-") && !primary.includes(g)).sort()];
@@ -89,7 +91,7 @@ export function compare({ root = path.join(here, "..", "results"), cases = here,
     }
   }
   if (!baseOnly && integrity) {
-    const dirs = cells.map((c) => path.join(res, `sau-${c}`));
+    const dirs = cells.map((c) => path.join(res, `${afterPrefix}${c}`));
     const r = spawnSync(process.execPath, [path.join(here, "read-traces.mjs"), "--integrity", ...dirs], { encoding: "utf8" });
     for (const l of r.stdout.trim().split("\n").filter(Boolean)) say(l.startsWith("claude-versions=") ? l : `integrity ${l}`);
     if (r.status !== 0) bad++;
@@ -117,6 +119,9 @@ function selfTest() {
     const L = r.lines.join("\n");
     check("a grader pair prints counts and p", L.includes("cell=syn-agent-opus grader=mot-duong set=watch base=0/10 after=10/10 p=0.00001083"), L);
     check("report-side and agent-route pairs print", L.includes("cell=syn-agent-opus reports base=2/10 after=3/10") && L.includes("r.mot-duong base=1/2 after=3/3") && L.includes("agent-route base=0/10 after=10/10"), L);
+    fs.writeFileSync(path.join(dir, "sau2-syn-agent-opus.json"), j(Array(10).fill(true), Array(10).fill(true), [true]));
+    r = compare({ root: path.join(root, "results"), cases: path.join(root, "cases"), cells: ["syn-agent-opus"], integrity: false, basePrefix: "sau-", afterPrefix: "sau2-" });
+    check("--base-prefix sau- --after-prefix sau2- pairs the two after sets", r.bad === 0 && r.lines.join("\n").includes("grader=mot-duong set=watch base=10/10 after=10/10 p=1.000") && r.lines.join("\n").includes("reports base=3/10 after=1/10"), r.lines.join("\n"));
     r = compare({ root: path.join(root, "results"), cases: path.join(root, "cases"), cells: ["syn-agent-opus"], baseOnly: true });
     check("--base-only prints p=1.000", r.bad === 0 && r.lines.join("\n").includes("base=0/10 after=0/10 p=1.000"), r.lines.join("\n"));
     fs.writeFileSync(path.join(cases, "mot-duong.md"), "---\ntype: regex\ntarget: last_message\n---\n\ny\n");
@@ -132,6 +137,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === SELF) {
   const args = process.argv.slice(2);
   if (args[0] === "--self-test") process.exit(selfTest());
   const opt = { baseOnly: args.includes("--base-only") };
+  const bp = args.indexOf("--base-prefix"); if (bp >= 0) opt.basePrefix = args[bp + 1];
+  const ap = args.indexOf("--after-prefix"); if (ap >= 0) opt.afterPrefix = args[ap + 1];
   const c = args.indexOf("--cells"); if (c >= 0) opt.cells = args[c + 1].split(",");
   const r0 = args.indexOf("--root"); if (r0 >= 0) opt.root = args[r0 + 1];
   const r = compare(opt);
