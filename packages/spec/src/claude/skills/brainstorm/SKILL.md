@@ -44,22 +44,26 @@ Classify intent first. This routing never waives safety or permission rules.
    different workflow, leave Brainstorm before scout, questions, approval, or
    persistence. Read-only product or architecture exploration is not direct merely
    because it writes no files.
-2. **Hydrate the contract, then keep routing:** for every request that remains,
+2. **Plan-and-tasks request:** when the user asks for a plan, a task list, or work split into tasks rather than a choice between designs,
+   leave Brainstorm before scout or questions: say in one or two sentences that Specs owns plans and tasks,
+   and ask the user to invoke `cf:specs` in a new request. Do not interview, compare options, write the
+   list, or start Specs. Open this answer with `Route: plan-and-tasks · Depth: Standard`.
+3. **Hydrate the contract, then keep routing:** for every request that remains,
    reuse accepted Outcome, Constraints, Non-goals, and Acceptance field by field
    only when current user text or an approved artifact binds them to the same
    target and revision. Preserve current non-conflicting fields; treat missing,
    stale, or conflicting fields as gaps. Never infer approval. Hydration is not a
    terminal route; continue to exactly one intent route below.
-3. **Bug or failure:** before diagnosis, capture the repaired-behavior Outcome,
+4. **Bug or failure:** before diagnosis, capture the repaired-behavior Outcome,
    Constraints, Non-goals, and Acceptance evidence. Then use `cf:debug` until
    root cause is evidenced. Do not brainstorm fixes from a symptom. If at least
    two cause-aligned remedies remain, compare 2–3 here. Hand off to `cf:fix`
    only when the user explicitly requested a fix; diagnosis-only work returns the
    root-cause report and stops.
-4. **Non-bug exploration only:** inspect enough evidence, give a chat
+5. **Non-bug exploration only:** inspect enough evidence, give a chat
    recommendation, and stop. Do not request design approval, persist a report, or
    invoke another workflow without a new explicit request.
-5. **Feature or documentation delivery:** continue through the design workflow.
+6. **Feature or documentation delivery:** continue through the design workflow.
 
 ## Adaptive analysis depth
 
@@ -73,6 +77,9 @@ evidence and material risk:
 - With no Deep signal, use Standard. `--deep` raises Standard to Deep. If three
   or more subsystems are independently deliverable, split them instead of using
   Deep as a monolithic substitute.
+
+Open every non-direct answer with one line naming its route and depth, for example
+`Route: feature delivery · Depth: Standard`. When the answer is a `cf:debug` report, that report's heading comes first and this line follows it.
 
 Deep is selective, not a checklist. Apply a lens only when its trigger is
 present and otherwise record `skipped: <reason>`: feasibility for an unresolved
@@ -130,6 +137,9 @@ assumptions, and open questions separately in the decision register.
 Stop asking when remaining details have safe implementation defaults. Do not
 force questions merely to consume a budget.
 
+When the user delegates a choice ("pick whichever is fastest"), choose from the recorded evidence, say that you chose on the user's behalf and why,
+record it in the Decision register as a delegated choice, and ask only for the approvals its route requires.
+
 ## Options and specialist use
 
 A material design choice exists only when at least two viable paths would satisfy
@@ -142,8 +152,10 @@ the contract with meaningfully different consequences.
   artificial or fail the contract. Never create strawman options.
 - Recommend the smallest path that satisfies the contract.
 
-Call `brainstormer` only for a material architectural choice that benefits from
-deeper pressure-testing. Use researcher only for current external facts the
+Unless the user names `brainstormer`, call it only for a material architectural choice that benefits from
+deeper pressure-testing. When the user names `brainstormer`, call it; tell it which route applies; the routes are
+feature delivery; an explicitly authorized fix; diagnosis-only bug work; non-bug exploration. Pass the contract with it; it may return a
+single-path conclusion. Use researcher only for current external facts the
 repository cannot establish. The controller remains responsible for questions,
 approval, persistence, and handoff.
 
