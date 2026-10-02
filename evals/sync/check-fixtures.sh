@@ -110,8 +110,8 @@ run_rebind() {
       cmp -s "$here/fixtures/rebind/tree/claude-dir/scripts/$f.cjs" "$repo/packages/spec/src/claude/scripts/$f.cjs" || fail "fixture $f.cjs differs from its source"
     done
     ok fixture-scripts-equal-source
-    node "$here/fixtures/rebind/check.mjs" right $(for i in 1 2 3 4 5 6; do echo "pass:$(build_case rebind-base-moved)"; done) \
-      $(for i in 1 2 3 4 5 6 7; do echo "fail:$(build_case rebind-verify-fails)"; done)
+    node "$here/fixtures/rebind/check.mjs" right $(for i in 1 2 3 4 5 6 7; do echo "pass:$(build_case rebind-base-moved)"; done) \
+      $(for i in 1 2 3 4 5 6 7 8; do echo "fail:$(build_case rebind-verify-fails)"; done)
   else
     node "$here/fixtures/rebind/check.mjs" wrong $(for i in $(seq 1 13); do echo "pass:$(build_case rebind-base-moved)"; done) \
       $(for i in 1 2 3 4 5 6 7; do echo "fail:$(build_case rebind-verify-fails)"; done)

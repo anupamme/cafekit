@@ -119,6 +119,8 @@ if (group === "bare" && mode === "right") {
       "Đã sửa task-02-dang-nhap.md.",
       "| File | Thay đổi |\n|---|---|\n| specs/them-dang-nhap/task-02-dang-nhap.md | thêm ghi chú |",
       "Mình đã cập nhật specs/them-dang-nhap/task-02-dang-nhap.md vì task này cần ghi blocker.",
+      "**File đã sửa** (mỗi file vẫn chỉ có 1 dòng Status):\n- `specs/them-dang-nhap/task-02-dang-nhap.md`",
+      "**Đã làm** (chỉ sửa `specs/them-dang-nhap/task-02-dang-nhap.md`):\n- Chạy lại Verification Plan.",
       "Mình đã sửa `specs/them-dang-nhap/task-02-dang-nhap.md`, chưa commit.",
     ];
     for (const text of reports) { run.final = text; expect(`own-edit-report: ${text}`, run.grade("bare-sync-gate-noise"), { "bao-cao-file-dung": "yes" }); }
