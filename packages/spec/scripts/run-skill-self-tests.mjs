@@ -4500,6 +4500,253 @@ async function runScoutSubroutineContractTests() {
   return mutations.length + 1;
 }
 
+// Pins of the cf:git worktree and commit contract. One home: scripts/weaken-git-pins.sh reads this block (strict JSON between the markers)
+// and removes each `includes` sentence (or appends each `excludes` string) from a copy of the skill to prove the pin goes red.
+// git-skill-pins:start
+const GIT_SKILL_PINS = [
+  {
+    "label": "cf:git commit scans the working tree before staging and stops everything on a hit",
+    "file": "src/claude/skills/git/SKILL.md",
+    "includes": [
+      "<!-- fallback-scan:start -->",
+      "<!-- fallback-scan:end -->",
+      "Scan the working tree first, so a secret never reaches the index.",
+      "Match → STOP everything: commit nothing, not even the clean groups.",
+      "Run this working-tree scan before staging whether or not the helper is installed, inside the target checkout (`cd <target>` first"
+    ]
+  },
+  {
+    "label": "cf:git commit never stages everything",
+    "file": "src/claude/skills/git/SKILL.md",
+    "includes": [
+      "never `git add -A`, `git add .`, `git add -u` or `git commit -a`"
+    ]
+  },
+  {
+    "label": "cf:git commit leaves the index alone until the user answers",
+    "file": "src/claude/skills/git/SKILL.md",
+    "includes": [
+      "Do not run `git reset`, `git restore --staged` or `git rm --cached`"
+    ]
+  },
+  {
+    "label": "cf:git commit adds no AI attribution unless asked",
+    "file": "src/claude/skills/git/SKILL.md",
+    "includes": [
+      "no `Co-Authored-By` and no other AI attribution trailer"
+    ]
+  },
+  {
+    "label": "cf:git commit confirms the target checkout before staging",
+    "file": "src/claude/skills/git/SKILL.md",
+    "includes": [
+      "Confirm the target checkout before staging: print `git rev-parse --show-toplevel` and `git branch --show-current`"
+    ]
+  },
+  {
+    "label": "cf:git commit never prints a secret before or after the scan",
+    "file": "src/claude/skills/git/SKILL.md",
+    "includes": [
+      "Do not print file contents or diffs of changed files before the scan has run",
+      "never `cat`, `git diff`, `git show` or Read a file the scan flagged"
+    ]
+  },
+  {
+    "label": "cf:git worktree is git-only with optional shortcuts and a lifecycle",
+    "file": "src/claude/skills/git/SKILL.md",
+    "includes": [
+      "Git alone is enough (plus `rsync`); Orca, Herdr and Claude Code's own worktree are optional shortcuts, never required.",
+      "`worktree list | remove <dir> | prune`",
+      "before `git worktree remove`, check `git -C <dir> status --porcelain --ignored` and `git -C <dir> log --oneline <base>..HEAD`, never `--force`",
+      "`remove <dir-name>` / `delete <branch>`"
+    ]
+  },
+  {
+    "label": "cf:git secret rule leaves the untracked and tracked choices to the user",
+    "file": "src/claude/skills/git/SKILL.md",
+    "includes": [
+      "for an untracked secret a `.gitignore` rule, for a tracked one rotating it first"
+    ]
+  },
+  {
+    "label": "cf:git worktree blueprint keeps siblings the default and nested paths user-named",
+    "file": "src/claude/skills/git/references/worktree-blueprint.md",
+    "includes": [
+      "Mặc định luôn là cấp Sibling",
+      "chỉ chấp nhận khi chính người dùng hoặc công cụ host",
+      "không chạy `git clean -fdx`"
+    ],
+    "excludes": [
+      "KHÔNG BAO GIỜ được đặt lồng bên trong thư mục Git hiện tại"
+    ]
+  },
+  {
+    "label": "cf:git worktree blueprint asks on an existing directory or branch",
+    "file": "src/claude/skills/git/references/worktree-blueprint.md",
+    "includes": [
+      "git show-ref --verify --quiet \"refs/heads/$BRANCH_NAME\"",
+      "Thư mục $TARGET_DIR đã tồn tại — hỏi người dùng",
+      "KHÔNG tự gắn worktree vào nó"
+    ],
+    "excludes": [
+      "|| git worktree add \"$TARGET_DIR\" \"$BRANCH_NAME\""
+    ]
+  },
+  {
+    "label": "cf:git worktree blueprint lifecycle never loses work",
+    "file": "src/claude/skills/git/references/worktree-blueprint.md",
+    "includes": [
+      "git worktree list --porcelain",
+      "git -C <dir> status --porcelain --ignored",
+      "git -C <dir> log --oneline <base>..HEAD",
+      "git worktree remove <dir>",
+      "gõ đúng `remove <tên-thư-mục>`",
+      "git worktree prune",
+      "Không bao giờ `rm -rf` một thư mục worktree",
+      "git branch -d <nhánh>",
+      "git branch --merged <base>",
+      "gõ đúng `delete <tên-nhánh>`"
+    ]
+  },
+  {
+    "label": "cf:git worktree blueprint names the optional shortcuts and the one-packet rule",
+    "file": "src/claude/skills/git/references/worktree-blueprint.md",
+    "includes": [
+      "`claude --worktree`, Orca, Herdr",
+      "không bắt buộc",
+      "Mỗi worktree chỉ giữ một gói specs đang mở"
+    ]
+  },
+  {
+    "label": "cf:git commit protocol checks the checkout, scans, then stages explicit paths",
+    "file": "src/claude/skills/git/references/commit-protocols.md",
+    "includes": [
+      "git -C <đích> rev-parse --show-toplevel",
+      "git -C <đích> branch --show-current",
+      "Quét bí mật khi CHƯA stage",
+      "Có trúng → dừng TOÀN BỘ",
+      "git -C <đích> add -- src/a.js src/b.js"
+    ],
+    "excludes": [
+      "\ngit add -A",
+      "git rm --cached"
+    ]
+  },
+  {
+    "label": "cf:git commit protocol avoids bash 4 features and attribution trailers",
+    "file": "src/claude/skills/git/references/commit-protocols.md",
+    "includes": [
+      "bash 3.2",
+      "`mapfile`, `readarray`, `declare -A`",
+      "Co-Authored-By"
+    ]
+  },
+  {
+    "label": "cf:git commit output shows the checkout and the scan before the staged line",
+    "file": "src/claude/skills/git/SKILL.md",
+    "includes": [
+      "✓ checkout: <top-level> @ <branch>\n✓ secrets: none\n✓ staged: N files"
+    ]
+  },
+  {
+    "label": "cf:git helper scan runs after staging as a second look",
+    "file": "src/claude/skills/git/SKILL.md",
+    "includes": [
+      "also run `node .claude/scripts/scan-staged-secrets.cjs` after staging, as a second look at the staged diff"
+    ]
+  },
+  {
+    "label": "cf:git worktree blueprint stops on an existing directory or branch instead of running on",
+    "file": "src/claude/skills/git/references/worktree-blueprint.md",
+    "includes": [
+      "if [ -e \"$TARGET_DIR\" ]; then",
+      "elif git show-ref --verify --quiet \"refs/heads/$BRANCH_NAME\"; then",
+      "đã tồn tại — hỏi người dùng, không chạy tiếp",
+      "hay đặt tên khác; không chạy tiếp"
+    ],
+    "excludes": [
+      "|| { echo \"Thư mục"
+    ]
+  },
+  {
+    "label": "cf:git SKILL.md holds no dollar-digit or $ARGUMENTS (Claude Code substitutes them with the invocation arguments)",
+    "file": "src/claude/skills/git/SKILL.md",
+    "includes": [],
+    "forbid": [
+      {
+        "re": "\\$[0-9]",
+        "plant": "$1"
+      },
+      {
+        "re": "\\$\\{[0-9]",
+        "plant": "${2}"
+      },
+      {
+        "re": "\\$ARGUMENTS",
+        "plant": "$ARGUMENTS"
+      }
+    ]
+  },
+  {
+    "label": "cf:git references/commit-protocols.md holds no dollar-digit or $ARGUMENTS (Claude Code substitutes them with the invocation arguments)",
+    "file": "src/claude/skills/git/references/commit-protocols.md",
+    "includes": [],
+    "forbid": [
+      {
+        "re": "\\$[0-9]",
+        "plant": "$1"
+      },
+      {
+        "re": "\\$\\{[0-9]",
+        "plant": "${2}"
+      },
+      {
+        "re": "\\$ARGUMENTS",
+        "plant": "$ARGUMENTS"
+      }
+    ]
+  },
+  {
+    "label": "cf:git references/finish-branch.md holds no dollar-digit or $ARGUMENTS (Claude Code substitutes them with the invocation arguments)",
+    "file": "src/claude/skills/git/references/finish-branch.md",
+    "includes": [],
+    "forbid": [
+      {
+        "re": "\\$[0-9]",
+        "plant": "$1"
+      },
+      {
+        "re": "\\$\\{[0-9]",
+        "plant": "${2}"
+      },
+      {
+        "re": "\\$ARGUMENTS",
+        "plant": "$ARGUMENTS"
+      }
+    ]
+  },
+  {
+    "label": "cf:git references/worktree-blueprint.md holds no dollar-digit or $ARGUMENTS (Claude Code substitutes them with the invocation arguments)",
+    "file": "src/claude/skills/git/references/worktree-blueprint.md",
+    "includes": [],
+    "forbid": [
+      {
+        "re": "\\$[0-9]",
+        "plant": "$1"
+      },
+      {
+        "re": "\\$\\{[0-9]",
+        "plant": "${2}"
+      },
+      {
+        "re": "\\$ARGUMENTS",
+        "plant": "$ARGUMENTS"
+      }
+    ]
+  }
+];
+// git-skill-pins:end
+
 async function runStaticSemanticTests() {
   const processTaskStatusTests = await runProcessTaskStatusContractTests();
   const implementationReadinessTests = await runImplementationReadinessContractTests();
@@ -5107,6 +5354,11 @@ async function runStaticSemanticTests() {
         content.includes("--exclude 'session-state/'") &&
         content.includes("--exclude 'worktrees/'"),
     },
+    ...GIT_SKILL_PINS.map((pin) => ({
+      label: pin.label,
+      file: pin.file,
+      assert: (content) => pin.includes.every((text) => content.includes(text)) && (pin.excludes ?? []).every((text) => !content.includes(text)) && (pin.forbid ?? []).every((f) => !new RegExp(f.re).test(content)),
+    })),
     {
       label: "cf:fix prevention gate points back to side-effect sweep",
       file: "src/claude/skills/fix/references/prevention-gate.md",
