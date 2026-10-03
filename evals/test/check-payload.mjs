@@ -18,6 +18,7 @@ import path from "path";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
 import { resolveCell, parseSaved } from "./save-runs.mjs";
+import { fisher } from "./compare.mjs";
 
 const SELF = fileURLToPath(import.meta.url);
 const TOP = ["schema_version", "target", "verdict", "command", "exit", "counts", "provenance", "proof_level", "expected", "observed", "reachability", "artifacts", "branches", "raw_output", "redactions", "payload_sha256"];
@@ -62,41 +63,82 @@ export function validate(p, probes, report) {
   return bad;
 }
 
+// specs/test-proof-repair D-01: the report, then `### Machine handoff (test-proof-v1)`, exactly one fenced json block
+// after it, no fenced block after that, and no JSON block inside the report.
+const HANDOFF = "### Machine handoff (test-proof-v1)";
+export function placed(answer) {
+  const at = answer.indexOf(HANDOFF);
+  if (at < 0 || answer.indexOf(HANDOFF, at + 1) >= 0) return false;
+  const fences = (t) => [...t.matchAll(/```([^\n]*)\n([\s\S]*?)\n```/g)];
+  const isJson = (m) => { if (/^json\b/i.test(m[1].trim())) return true; try { JSON.parse(m[2]); return true; } catch { return false; } };
+  if (fences(answer.slice(0, at)).some(isJson)) return false;
+  const after = fences(answer.slice(at + HANDOFF.length));
+  if (after.length !== 1 || !/^json\b/i.test(after[0][1].trim())) return false;
+  try { return JSON.parse(after[0][2]).schema_version === "test-proof-v1"; } catch { return false; }
+}
+
+// The facts of one cell over its comparable runs, or { error }.
+function cellFacts(raw) {
+  const dir = resolveCell(raw), cell = path.basename(dir), file = path.join(dir, "result.json"), saved = path.join(path.dirname(dir), "_saved", `${cell}.txt`);
+  if (!fs.existsSync(file) || !fs.existsSync(saved)) return { error: `${dir}: missing ${fs.existsSync(file) ? saved : file}` };
+  const bytes = fs.readFileSync(file), r = JSON.parse(bytes.toString("utf8")), text = fs.readFileSync(saved, "utf8");
+  if (r.partial) return { error: `${dir}: partial` };
+  if (!text.startsWith(`# result.json sha256=${sha(bytes)}\n`)) return { error: `${dir}: saved file is stale for its result.json` };
+  const runs = r.cases?.[0]?.arms?.with || [], facts = parseSaved(text);
+  if (facts.length !== runs.length) return { error: `${dir}: saved file has ${facts.length} runs, result.json ${runs.length}` };
+  const tally = Object.fromEntries(CHECKS.map((k) => [k, 0]));
+  let errored = 0, unloaded = 0, capped = 0, comparable = 0, delivered = 0, valid = 0, placedN = 0, missing = 0, dupProbes = false;
+  runs.forEach((x, i) => {
+    const f = facts[i];
+    if (x.error || f.error) { errored++; return; }
+    if (!f.loaded) { unloaded++; return; }
+    if (f.cap) { capped++; return; }
+    comparable++;
+    const probes = namedProbes(f.task);
+    if (new Set(probes).size !== probes.length) dupProbes = true;
+    if (placed(f.answer)) placedN++;
+    const p = payloadOf(f.answer);
+    if (!p) return;
+    delivered++;
+    const report = reportVerdict(f.answer);
+    if (report === null) missing++;
+    const failed = validate(p.json, probes, report);
+    for (const k of failed) tally[k]++;
+    if (!failed.length) valid++;
+  });
+  // A trung-probe cell has no valid payload by construction, whatever its runs hold (user decision).
+  const na = dupProbes || /(^|-)trung-probe-/.test(cell);
+  return { cell, tally, errored, unloaded, capped, comparable, delivered, valid, placed: placedN, missing, na };
+}
+
+const caseModel = (cell) => cell.replace(/-lan1$/, "").match(/((?:sach|do|khong-test|thieu-cong-cu|tron-legacy|trung-probe|khong-cham-code)-(?:sonnet|opus))$/)?.[1] || null;
+
+// Before and after, both over their comparable runs, with a two-sided Fisher p (specs/test-proof-repair D-03).
+export function pairCells(pairs) {
+  const lines = []; let bad = 0; const say = (l) => lines.push(l);
+  for (const [b, a] of pairs) {
+    const B = cellFacts(b), A = cellFacts(a);
+    if (B.error || A.error) { say(B.error || A.error); bad++; continue; }
+    const cm = caseModel(A.cell);
+    if (!cm || caseModel(B.cell) !== cm) { say(`pair ${B.cell},${A.cell}: case and model differ`); bad++; continue; }
+    const row = (k, x, y) => say(`pair=${cm} ${k} before=${x}/${B.comparable} after=${y}/${A.comparable} p=${fisher(x, B.comparable, y, A.comparable).toPrecision(4)}`);
+    row("delivered", B.delivered, A.delivered);
+    if (B.na || A.na) say(`pair=${cm} valid before=n/a after=n/a`); else row("valid", B.valid, A.valid);
+    row("placed", B.placed, A.placed);
+    if (!B.na && !A.na) for (const k of CHECKS) say(`pair=${cm} check=${k} before=${B.tally[k]} after=${A.tally[k]}`);
+  }
+  return { lines, bad };
+}
+
 export function checkCells(cells) {
   const lines = []; let bad = 0; const say = (l) => lines.push(l);
   for (const raw of cells) {
-    const dir = resolveCell(raw), cell = path.basename(dir), file = path.join(dir, "result.json"), saved = path.join(path.dirname(dir), "_saved", `${cell}.txt`);
-    if (!fs.existsSync(file) || !fs.existsSync(saved)) { say(`${dir}: missing ${fs.existsSync(file) ? saved : file}`); bad++; continue; }
-    const bytes = fs.readFileSync(file), r = JSON.parse(bytes.toString("utf8")), text = fs.readFileSync(saved, "utf8");
-    if (r.partial) { say(`${dir}: partial`); bad++; continue; }
-    if (!text.startsWith(`# result.json sha256=${sha(bytes)}\n`)) { say(`${dir}: saved file is stale for its result.json`); bad++; continue; }
-    const runs = r.cases?.[0]?.arms?.with || [], facts = parseSaved(text);
-    if (facts.length !== runs.length) { say(`${dir}: saved file has ${facts.length} runs, result.json ${runs.length}`); bad++; continue; }
-    const tally = Object.fromEntries(CHECKS.map((k) => [k, 0]));
-    let errored = 0, unloaded = 0, capped = 0, comparable = 0, delivered = 0, valid = 0, missing = 0, dupProbes = false;
-    runs.forEach((x, i) => {
-      const f = facts[i];
-      if (x.error || f.error) { errored++; return; }
-      if (!f.loaded) { unloaded++; return; }
-      if (f.cap) { capped++; return; }
-      comparable++;
-      const probes = namedProbes(f.task);
-      if (new Set(probes).size !== probes.length) dupProbes = true;
-      const p = payloadOf(f.answer);
-      if (!p) return;
-      delivered++;
-      const report = reportVerdict(f.answer);
-      if (report === null) missing++;
-      const failed = validate(p.json, probes, report);
-      for (const k of failed) tally[k]++;
-      if (!failed.length) valid++;
-    });
-    // A trung-probe cell has no valid payload by construction, whatever its runs hold (user decision).
-    const na = dupProbes || /(^|-)trung-probe-/.test(cell);
-    say(`cell=${cell} delivered=${delivered}/${comparable} valid=${na ? "n/a" : `${valid}/${delivered}`}`);
-    if (!na) for (const k of CHECKS) say(`cell=${cell} check=${k} failed=${tally[k]}`);
-    say(`cell=${cell} report-verdict missing=${missing}`);
-    say(`cell=${cell} errored=${errored} unloaded=${unloaded} capped=${capped}`);
+    const f = cellFacts(raw);
+    if (f.error) { say(f.error); bad++; continue; }
+    say(`cell=${f.cell} delivered=${f.delivered}/${f.comparable} valid=${f.na ? "n/a" : `${f.valid}/${f.delivered}`}`);
+    if (!f.na) for (const k of CHECKS) say(`cell=${f.cell} check=${k} failed=${f.tally[k]}`);
+    say(`cell=${f.cell} report-verdict missing=${f.missing}`);
+    say(`cell=${f.cell} errored=${f.errored} unloaded=${f.unloaded} capped=${f.capped}`);
   }
   return { lines, bad };
 }
@@ -165,6 +207,21 @@ function selfTest() {
     check("a saved file stale for its result.json is refused", r.bad === 1 && r.lines.join("\n").includes("stale"), r.lines.join("\n"));
     r = checkCells([cell("k-count-sonnet", [{ answer: report("PASS", good) }], { extra: 1 })]);
     check("a saved file with another run count is refused", r.bad === 1 && r.lines.join("\n").includes("has 2 runs"), r.lines.join("\n"));
+    const handoff = (p, extra = "") => `## Test Verdict\n\n**Status:** PASS\n\n### Machine handoff (test-proof-v1)\n\n\`\`\`json\n${JSON.stringify(p)}\n\`\`\`${extra}`;
+    check("placed: the handoff heading then one json block, nothing fenced after it", placed(handoff(good)) && placed(handoff(good, "\nThe controller writes the Receipt.")), handoff(good));
+    check("placed fails for a JSON block in the report, two blocks, a later fence, or no heading",
+      !placed(`**Status:** PASS\n${block(good)}\n${handoff(good)}`) && !placed(handoff(good, `\n${block(good)}`)) && !placed(handoff(good, "\n\`\`\`\nmore\n\`\`\`")) && !placed(report("PASS", good)));
+    const pk = (name, runs) => cell(name, runs);
+    pk("b-sach-sonnet", [{ answer: report("PASS", good) }, { answer: report("PASS", good) }, ...Array(8).fill({ answer: report("PASS") })]);
+    pk("a-sach-sonnet", [...Array(7).fill({ answer: handoff(good) }), ...Array(3).fill({ answer: handoff({ ...good, payload_sha256: "0".repeat(64) }) })]);
+    r = pairCells([[path.join(root, "test", "b-sach-sonnet"), path.join(root, "test", "a-sach-sonnet")]]);
+    L = r.lines.join("\n");
+    check("--pair reads valid over comparable runs: 2 of 2 delivered against 7 of 10 is 2/10 against 7/10", r.bad === 0 && L.includes("pair=sach-sonnet valid before=2/10 after=7/10 p=") && L.includes("pair=sach-sonnet delivered before=2/10 after=10/10") && L.includes("pair=sach-sonnet placed before=0/10 after=10/10"), L);
+    check("--pair prints both sides' check counts", L.includes("pair=sach-sonnet check=digest before=0 after=3"), L);
+    check("--pair p for 0/10 against 10/10 is 1.083e-5", L.includes("pair=sach-sonnet placed before=0/10 after=10/10 p=0.00001083"), L);
+    pk("a-sach-opus", [{ answer: handoff(good) }]);
+    r = pairCells([[path.join(root, "test", "b-sach-sonnet"), path.join(root, "test", "a-sach-opus")]]);
+    check("--pair refuses a pair whose case and model differ", r.bad === 1 && r.lines.join("\n").includes("case and model differ"), r.lines.join("\n"));
     check("namedProbes reads the backticked names; reportVerdict reads the first label only", namedProbes(task([A, B])).join("|") === `${A}|${B}` && reportVerdict("Task Status: in_progress\n**Status:** FAIL\nStatus: PASS") === "FAIL" && reportVerdict('{"verdict":"PASS"}') === null);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
   return failed ? 1 : 0;
@@ -173,7 +230,14 @@ function selfTest() {
 if (process.argv[1] && fs.realpathSync(path.resolve(process.argv[1])) === fs.realpathSync(SELF)) {
   const args = process.argv.slice(2);
   if (args[0] === "--self-test") process.exit(selfTest());
-  if (!args.length || args.some((a) => a.startsWith("--"))) { console.error("usage: check-payload.mjs <cell>... | --self-test"); process.exit(2); }
+  if (args[0] === "--pair") {
+    const pairs = args.slice(1).map((x) => x.split(","));
+    if (!pairs.length || pairs.some((x) => x.length !== 2 || !x[0] || !x[1])) { console.error("usage: check-payload.mjs --pair <before>,<after>..."); process.exit(2); }
+    const r = pairCells(pairs);
+    for (const l of r.lines) console.log(l);
+    process.exit(r.bad ? 1 : 0);
+  }
+  if (!args.length || args.some((a) => a.startsWith("--"))) { console.error("usage: check-payload.mjs <cell>... | --pair <before>,<after>... | --self-test"); process.exit(2); }
   const r = checkCells(args);
   for (const l of r.lines) console.log(l);
   process.exit(r.bad ? 1 : 0);

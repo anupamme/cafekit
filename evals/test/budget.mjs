@@ -26,6 +26,10 @@ const HARD_CELL = /^(kho-|pilot-(tron-legacy|trung-probe|khong-cham-code)-)/;
 const PACKETS = {
   baseline: { cases: ["sach", "do", "khong-test", "thieu-cong-cu"], cells: 4, result: () => true, lost: (p) => p.includes(`${path.sep}_kept${path.sep}`) },
   hard: { cases: ["tron-legacy", "trung-probe", "khong-cham-code"], cells: 3, result: (p) => p.split(path.sep).some((seg) => HARD_CELL.test(seg)), lost: (p) => p.includes(`${path.sep}_kept${path.sep}hard${path.sep}`) },
+  // specs/test-proof-repair D-03: the after-cells `sau-*` only; ceilings over the measured cases' existing pilots, never
+  // tighter than the caps their before-cells ran under, so before and after run on equal footing.
+  repair: { cases: ["sach", "thieu-cong-cu", "tron-legacy", "khong-cham-code"], cells: 4, floor: { sonnet: 4, opus: 5 },
+    result: (p) => p.split(path.sep).some((seg) => seg.startsWith("sau-")), lost: (p) => p.includes(`${path.sep}_kept${path.sep}repair${path.sep}`) },
 };
 const MODELS = ["sonnet", "opus"];
 const round = (x) => Number(x.toFixed(4));
@@ -70,7 +74,8 @@ export function ceiling(root, model, { allowMissing = false, packet = PACKETS.ba
   const p = pilots(root, model, packet);
   if (p.error) return p;
   if (p.missing && !allowMissing) return { error: `${model}: ${p.missing} pilot(s) missing` };
-  return { value: ceilingOf(p.top), reserve: round(ceilingOf(p.top) + p.top), missing: p.missing };
+  const value = Math.max(ceilingOf(p.top), (packet.floor || {})[model] || 0);
+  return { value, reserve: round(value + p.top), missing: p.missing };
 }
 
 function main(args) {
@@ -78,7 +83,7 @@ function main(args) {
   const r = args.indexOf("--root"); if (r >= 0) { root = args[r + 1]; args.splice(r, 2); }
   let packet = PACKETS.baseline;
   const pk = args.indexOf("--packet");
-  if (pk >= 0) { packet = PACKETS[args[pk + 1]]; if (!packet || args[pk + 1] === "baseline") { console.error("--packet takes hard"); return 2; } args.splice(pk, 2); }
+  if (pk >= 0) { packet = PACKETS[args[pk + 1]]; if (!packet || args[pk + 1] === "baseline") { console.error("--packet takes hard or repair"); return 2; } args.splice(pk, 2); }
   let x; try { x = spent(root, packet); } catch (e) { console.error(e.message); return 1; }
   const num = (s) => s !== undefined && s.trim() !== "" && Number.isFinite(Number(s)) && Number(s) >= 0;
   if (args[0] === "spent" && args.length === 1) { console.log(`spent=${x} cap=${CAP}`); return x > CAP ? 1 : 0; }
@@ -155,7 +160,18 @@ function selfTest() {
       for (const k of ["tron-legacy", "trung-probe", "khong-cham-code"]) { put(`test/pilot-${k}-sonnet`, 0.2); put(`test/pilot-${k}-opus`, k === "khong-cham-code" ? 0.45 : 0.3); }
       r = h(["--packet", "hard", "ceiling", "opus"]); check("--packet hard takes its ceiling over the three new cases: ⌈12 × 0.45⌉ = 6", r.status === 0 && r.stdout === "6\n", r.stdout + r.stderr);
       r = h(["--packet", "hard", "fits"]); check("--packet hard fits = spent + 3 × each reserve: 8.15 + 3 × 4.2 + 3 × 6.45 = 40.1", r.status === 0 && r.stdout.includes("need=40.1 "), r.stdout + r.stderr);
-      r = h(["--packet", "baseline", "spent"]); check("--packet takes only hard", r.status === 2, r.stdout);
+      r = h(["--packet", "baseline", "spent"]); check("--packet takes only hard or repair", r.status === 2, r.stdout);
+      put("test/sau-sach-sonnet", 1.25); put("test/_capped/sau-x-opus-cap1", 2); put("test/sau-thing/nested", 0.5);
+      fs.mkdirSync(path.join(hd, "test", "_kept", "repair", "t03"), { recursive: true });
+      fs.writeFileSync(path.join(hd, "test", "_kept", "repair", "t03", "sau-do-opus.lost.json"), JSON.stringify({ costUsd: 1 }));
+      r = h(["--packet", "repair", "spent"]); check("--packet repair counts sau-* at any depth and _kept/repair lost files, not base-*/kho-*/pilots → spent=4.75", r.status === 0 && r.stdout.trim() === "spent=4.75 cap=100", r.stdout + r.stderr);
+      r = h(["--packet", "hard", "spent"]); check("--packet hard is unchanged by sau-* cells → spent=8.15", r.stdout.trim() === "spent=8.15 cap=100", r.stdout);
+      for (const k of ["sach", "thieu-cong-cu"]) { put(`test/pilot-${k}-sonnet`, 0.2); put(`test/pilot-${k}-opus`, 0.3); }
+      r = h(["--packet", "repair", "ceiling", "opus"]); check("--packet repair keeps the before-cells' opus cap: max(⌈12 × 0.45⌉ = 6, 5) → 6", r.status === 0 && r.stdout === "6\n", r.stdout + r.stderr);
+      r = h(["--packet", "repair", "ceiling", "sonnet"]); check("--packet repair sonnet: max(4, ⌈12 × 0.2⌉, 4) → 4", r.status === 0 && r.stdout === "4\n", r.stdout + r.stderr);
+      put("test/pilot-khong-cham-code-opus", 0.3);
+      r = h(["--packet", "repair", "ceiling", "opus"]); check("--packet repair never goes under the opus floor: pilots give 4, floor 5 → 5", r.status === 0 && r.stdout === "5\n", r.stdout + r.stderr);
+      r = h(["--packet", "repair", "fits"]); check("--packet repair fits = spent + 4 × each reserve: 4.75 + 4 × 4.2 + 4 × 5.3 = 42.75", r.status === 0 && r.stdout.includes("need=42.75 "), r.stdout + r.stderr);
     } finally { fs.rmSync(hd, { recursive: true, force: true }); }
     const two = fs.mkdtempSync(path.join(os.tmpdir(), "test-budget-two-"));
     try {
