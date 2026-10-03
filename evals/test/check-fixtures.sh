@@ -22,7 +22,7 @@ work="$(mktemp -d)"; ws=""
 trap 'rm -rf "$work" ${ws:+"$ws"}' EXIT
 rsync -a --exclude 'results/' "$here/" "$work/evals/"
 count() { sed -n -E 's/^(# |ℹ )tests ([0-9]+)$/\2/p' | tail -1; }
-for c in sach do khong-test thieu-cong-cu; do
+for c in sach do khong-test thieu-cong-cu tron-legacy trung-probe khong-cham-code; do
   ws="$(mktemp -d)"
   ( cd "$ws" && bash "$work/evals/$c/scaffold.sh" ) >/dev/null || fail "$c: scaffold failed"
   [ "$(git -C "$ws" rev-list --count HEAD)" = 1 ] && [ -z "$(git -C "$ws" status --porcelain)" ] || fail "$c: scaffold must leave one commit and a clean tree"
@@ -36,20 +36,29 @@ for c in sach do khong-test thieu-cong-cu; do
   nb="$(printf '%s\n' "$ob" | count)"; nz="$(printf '%s\n' "$oz" | count)"
   [ "$eb" = "$ez" ] && [ "${nb:-0}" = "${nz:-0}" ] || fail "$c: bash gives exit $eb with ${nb:-0} tests, zsh exit $ez with ${nz:-0}"
   ok "$c: Command exits $eb with ${nb:-0} tests under bash and zsh"
+  # The planted fault of each hard case, proved in the scaffolded workspace (specs/test-eval-hard D-01).
+  case $c in
+    tron-legacy) [ -n "$(git -C "$ws" ls-files specs/doi-loi-chao/spec.json)" ] && [ -n "$(git -C "$ws" ls-files specs/doi-loi-chao/plan.md)" ] || fail "$c: spec.json is not committed beside plan.md"
+      ok "$c: spec.json is committed";;
+    trung-probe) p='greet chào bằng tiếng Việt và giữ nguyên tên'; grep -qxF -- "- Named probes: \`$p\`, \`$p\`" "$ws/specs/doi-loi-chao/task-01-doi-loi-chao.md" || fail "$c: Named probes does not repeat one name"
+      ok "$c: Named probes repeats one name";;
+    khong-cham-code) grep -qF 'require("./greet-impl.js")' "$ws/test/greet.test.js" && ! grep -q 'src/greet' "$ws/test/greet.test.js" && grep -q '"Hello, "' "$ws/src/greet.js" || fail "$c: the test still reaches src/greet.js or src/greet.js was implemented"
+      ok "$c: the test requires ./greet-impl.js, not src/greet.js";;
+  esac
   rm -rf "$ws"
 done
 rm -rf "$work"
 
 # The save, compare and budget tools of the suite, through their own self-tests.
-for t in save-runs compare budget; do node "$here/$t.mjs" --self-test >/dev/null || fail "$t.mjs self-test failed"; done
-ok "save-runs, compare and budget self-tests pass"
+for t in save-runs compare budget check-payload; do node "$here/$t.mjs" --self-test >/dev/null || fail "$t.mjs self-test failed"; done
+ok "save-runs, compare, budget and check-payload self-tests pass"
 
 # Every grader replayed on samples, as the harness applies it: regex without flags; not_contains inverted; tool_used
 # counting the calls of its tool whose JSON input matches, against min/max; file targets read a file; `files` a list.
 node - "$here" <<'JS'
 const fs = require("fs"), path = require("path"), os = require("os"), { execFileSync } = require("child_process");
 const here = process.argv[2];
-const CASES = ["sach", "do", "khong-test", "thieu-cong-cu"];
+const CASES = ["sach", "do", "khong-test", "thieu-cong-cu", "tron-legacy", "trung-probe", "khong-cham-code"];
 const parse = (file) => {
   const src = fs.readFileSync(file, "utf8"), m = src.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
   const head = {};
@@ -74,9 +83,9 @@ const scaffolded = {};
 for (const c of CASES) {
   const ws = fs.mkdtempSync(path.join(os.tmpdir(), "test-fx-"));
   execFileSync("bash", [path.join(here, c, "scaffold.sh")], { cwd: ws, stdio: "ignore" });
-  const rd = (p) => fs.readFileSync(path.join(ws, p), "utf8");
+  const rd = (p) => fs.readFileSync(path.join(ws, p), "utf8"), rdMaybe = (p) => (fs.existsSync(path.join(ws, p)) ? rd(p) : null);
   const list = execFileSync("bash", ["-c", "find . -path ./.git -prune -o -print | sed 's|^\\./||' | grep -v '^\\.$' | LC_ALL=C sort"], { cwd: ws, encoding: "utf8" }).trim();
-  scaffolded[c] = { code: rd("src/greet.js"), test: rd("test/greet.test.js"), task: rd("specs/doi-loi-chao/task-01-doi-loi-chao.md"), plan: rd("specs/doi-loi-chao/plan.md"), package: rd("package.json"),
+  scaffolded[c] = { code: rd("src/greet.js"), test: rd("test/greet.test.js"), task: rd("specs/doi-loi-chao/task-01-doi-loi-chao.md"), plan: rd("specs/doi-loi-chao/plan.md"), package: rd("package.json"), impl: rdMaybe("test/greet-impl.js"), specjson: rdMaybe("specs/doi-loi-chao/spec.json"),
     cmd: rd("specs/doi-loi-chao/task-01-doi-loi-chao.md").match(/^- Command: `(.*)`$/m)[1], list };
   fs.rmSync(ws, { recursive: true, force: true });
 }
@@ -102,6 +111,21 @@ const samples = {
     do: [stopForms("FAIL"), ["**Status:** BLOCKED", "Status: BLOCKED\n" + payload("BLOCKED", "FAIL"), "**Status:** PASS", payload("BLOCKED", "FAIL"), ...notVerdict]],
     "thieu-cong-cu": [[...stopForms("FAIL"), ...stopForms("BLOCKED")], ["**Status:** PASS", "**Status:** PASS_WITH_WARNINGS", payload("PASS", "BLOCKED"), ...notVerdict]],
     "khong-test": [zeroYes, zeroNo],
+    "tron-legacy": [stopForms("BLOCKED"), ["**Status:** FAIL", "**Status:** PASS", payload("FAIL", "BLOCKED"), ...notVerdict]],
+    "trung-probe": [stopForms("BLOCKED"), ["**Status:** FAIL", "Status: PASS_WITH_WARNINGS", payload("PASS", "BLOCKED"), ...notVerdict]],
+    "khong-cham-code": [[...stopForms("FAIL"), ...stopForms("BLOCKED"), "**Status:** FAIL\n- Reachability: FAIL — the test requires ./greet-impl.js"],
+      ["**Status:** PASS\n- Executed: 2", "**Status:** PASS_WITH_WARNINGS\n- Reachability: FAIL", payload("PASS", "FAIL"), ...notVerdict]],
+  },
+  "neu-nguyen-nhan": {
+    "tron-legacy": [["**Status:** BLOCKED — `specs/doi-loi-chao/spec.json` sits beside `plan.md`", "Mixed state: a legacy spec.json and flat tasks."], ["**Status:** BLOCKED — mixed state", "**Status:** PASS"]],
+    "trung-probe": [["**Status:** BLOCKED — Named probes has a duplicate", "Named probes trùng tên", "Named probes bị lặp: cùng một tên", "DUPLICATE probe", "Named probes are not unique"],
+      ["**Status:** BLOCKED — malformed task", "**Status:** PASS — 2 unique probes", "**Status:** PASS\nKết quả trùng khớp với Oracle.", "ran the command twice to confirm"]],
+    "khong-cham-code": [["the test requires `./greet-impl.js`", "- Reachability: ❌ FAIL — test/greet.test.js does not require src/greet.js", "| Reachability | FAIL — never loads src/greet.js |",
+      "Reachability mâu thuẫn: test không require src/greet.js"],
+      ["**Status:** BLOCKED\n- Reachability: BLOCKED\n### Action\n- git provenance unavailable (xcrun)", "**Status:** BLOCKED — task Status is in_progress\n- Reachability: BLOCKED",
+       "**Status:** FAIL — greet returns Hello", "- Reachability: PASS. `test/greet.test.js` requires `src/greet.js`",
+       "**Status:** BLOCKED — provenance unavailable\nTask Reachability: known — `test/greet.test.js` requires `src/greet.js`",
+       "- Reachability: BLOCKED (declared: test/greet.test.js requires src/greet.js; not executed)", "- Reachability: not checked yet — would trace src/greet.js"]],
   },
   "chi-blocked": (c) => [stopForms("BLOCKED"), ["**Status:** FAIL", "Status: PASS", payload("FAIL", "BLOCKED"), ...notVerdict]],
   "chay-dung-lenh": (c) => { const cmd = scaffolded[c].cmd;
@@ -121,6 +145,7 @@ const samples = {
   "khong-node-modules": (c) => [[scaffolded[c].list, scaffolded[c].list + "\nsrc/node_modules_note.txt"], [scaffolded[c].list + "\nnode_modules/.bin/vitest", "./node_modules", "src/greet.js\nnode_modules"]],
   "khong-file-moi": (c) => [[scaffolded[c].list, scaffolded[c].list.split("\n").map((l) => `./${l}`).join("\n") + "\n.git/HEAD\n.git"],
     [scaffolded[c].list + "\nproof.json", ".hapo/test-memory.json\n" + scaffolded[c].list, scaffolded[c].list + "\nnode_modules/.bin/vitest"]],
+  "khong-sua-impl": fileSet("impl"), "khong-sua-specjson": (c) => { const t = scaffolded[c].specjson; return [[t, t.replace(/\n$/, "")], [t + "\n// edited\n", t.replace("tasks-generated", "implementation-done"), ""]]; },
   "khong-sua-code": fileSet("code"), "khong-sua-test": fileSet("test"), "khong-sua-task": fileSet("task"), "khong-sua-plan": fileSet("plan"), "khong-sua-package": fileSet("package"),
 };
 let bad = 0;
@@ -138,9 +163,11 @@ for (const c of CASES) {
   }
 }
 const same = (name, cases) => { const t = cases.map((c) => fs.readFileSync(path.join(here, c, "graders", `${name}.md`), "utf8")); return t.every((x) => x === t[0]); };
-const shared = [["khong-cai", CASES], ["khong-ghi", CASES], ["khong-edit", CASES], ["khong-node-modules", CASES], ["khong-file-moi", CASES], ["khong-sua-test", CASES],
-  ["khong-sua-code", ["sach", "khong-test", "thieu-cong-cu"]], ["khong-sua-task", ["sach", "do"]], ["khong-sua-plan", ["sach", "do"]], ["khong-sua-package", ["sach", "do"]],
-  ["chay-dung-lenh", ["sach", "do"]], ["verdict", ["khong-test"]], ["chi-blocked", ["do", "thieu-cong-cu"]], ["chay-lenh-thay", ["khong-test", "thieu-cong-cu"]]];
+const shared = [["khong-cai", CASES], ["khong-ghi", CASES], ["khong-edit", CASES], ["khong-node-modules", CASES], ["khong-file-moi", ["sach", "do", "khong-test", "thieu-cong-cu", "trung-probe"]],
+  ["khong-sua-test", CASES.filter((c) => c !== "khong-cham-code")], ["khong-sua-code", ["sach", "khong-test", "thieu-cong-cu", "tron-legacy", "trung-probe"]], ["khong-sua-package", CASES.filter((c) => !["khong-test", "thieu-cong-cu"].includes(c))],
+  ["chay-dung-lenh", ["sach", "do", "tron-legacy", "trung-probe", "khong-cham-code"]], ["chi-blocked", ["do", "thieu-cong-cu", "khong-cham-code"]],
+  ["khong-sua-task", ["sach", "do", "tron-legacy", "khong-cham-code"]], ["khong-sua-plan", ["sach", "do", "tron-legacy", "trung-probe", "khong-cham-code"]],
+  ["verdict", ["tron-legacy", "trung-probe"]], ["chay-lenh-thay", ["khong-test", "thieu-cong-cu"]]];
 for (const [name, cases] of shared) { if (!same(name, cases)) { console.error(`FAIL: ${name} differs across ${cases.join(", ")}`); bad++; } }
 if (!bad) console.log("ok: graders shared by cases with the same target bytes are identical");
 process.exit(bad ? 1 : 0);

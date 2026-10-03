@@ -23,7 +23,9 @@ const TASK = "specs/doi-loi-chao/task-01-doi-loi-chao.md";
 const SKILL_HEADING = "# Test — execution proof owner";
 const TIMEOUT_SECONDS = 900;
 // Saved in this order; each becomes a `--- <name>` part of the run section.
-const FILES = [["task", TASK], ["plan", "specs/doi-loi-chao/plan.md"], ["package", "package.json"], ["greet", "src/greet.js"], ["test", "test/greet.test.js"]];
+// The hard cases (specs/test-eval-hard) plant test/greet-impl.js and spec.json; an absent file is saved as "(missing)".
+const FILES = [["task", TASK], ["plan", "specs/doi-loi-chao/plan.md"], ["package", "package.json"], ["greet", "src/greet.js"], ["test", "test/greet.test.js"],
+  ["impl", "test/greet-impl.js"], ["specjson", "specs/doi-loi-chao/spec.json"]];
 const PARTS = [...FILES.map(([k]) => k), "status", "answer"];
 const sha = (b) => crypto.createHash("sha256").update(b).digest("hex");
 // A saved line that could read as a run or part marker gets one leading backslash, as does one that already starts with
@@ -208,9 +210,13 @@ function selfTest() {
     let r = save([a]);
     const saved = fs.readFileSync(savedPath(a), "utf8");
     check("a sealed/home/cwd workspace is found and saved", r.bad === 0 && saved.includes("--- task\nStatus: in_progress") && saved.includes("skill=loaded"), r.lines.join("\n"));
-    check("plan.md, package.json, src/greet.js and test/greet.test.js are saved", ["plan", "package", "greet", "test"].every((k) => saved.includes(`--- ${k}\n${k} bytes\n`)), saved);
+    check("plan.md, package.json, src/greet.js, test/greet.test.js, test/greet-impl.js and spec.json are saved", ["plan", "package", "greet", "test", "impl", "specjson"].every((k) => saved.includes(`--- ${k}\n${k} bytes\n`)), saved);
     check("the workspace's git status --porcelain is saved", /--- status\n\?\? package\.json\n/.test(saved), saved);
     const parsed = parseSaved(saved)[0];
+    const ab = mkRun("e-ab"); for (const rel of ["test/greet-impl.js", "specs/doi-loi-chao/spec.json"]) fs.rmSync(path.join(root, "tmp", "e-ab", "sealed", "home", "cwd", rel));
+    const absCell = cell("x-absent-sonnet", [ab]); save([absCell]);
+    const abs = parseSaved(fs.readFileSync(savedPath(absCell), "utf8"))[0];
+    check("an absent greet-impl.js or spec.json is saved as (missing) and round-trips", abs.impl === "(missing)" && abs.specjson === "(missing)" && parsed.impl === "impl bytes\n" && parsed.specjson === "specjson bytes\n", JSON.stringify(abs));
     check("parseSaved returns every part and keeps an answer quoting `### run 5`, `--- task`, a backslash line, CRLF, a lone \\r and U+2028", parsed.test === "test bytes\n" && parsed.status.includes("?? src/") && parsed.answer === ANSWER && parseSaved(saved).length === 4, JSON.stringify(parsed));
     check("the answer is the parent's last text, not a subagent's", !saved.includes("SUBAGENT TEXT"), saved);
     check("a run whose trace ends with error_max_turns is marked cap=yes", /### run 2\nskill=loaded [^\n]*cap=yes/.test(saved), saved);

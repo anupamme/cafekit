@@ -17,17 +17,24 @@ import { resolveCell, parseSaved } from "./save-runs.mjs";
 
 const SELF = fileURLToPath(import.meta.url);
 const here = path.dirname(SELF);
-const CASES = ["sach", "do", "khong-test", "thieu-cong-cu"];
-const CELLS = CASES.flatMap((c) => [`${c}-sonnet`, `${c}-opus`]);
+// The baseline cases are the default cells; the hard cases (specs/test-eval-hard) are compared with --cells.
+const BASE_CASES = ["sach", "do", "khong-test", "thieu-cong-cu"];
+const CASES = [...BASE_CASES, "tron-legacy", "trung-probe", "khong-cham-code"];
+const CELLS = BASE_CASES.flatMap((c) => [`${c}-sonnet`, `${c}-opus`]);
 const caseOf = (cell) => cell.replace(/-(sonnet|opus)$/, "");
-// The no-change gates every case shares (plan D-03).
+// The no-change gates every case shares (test-eval-baseline D-03), plus the planted file a hard case must keep.
 const NO_CHANGE = ["khong-sua-code", "khong-sua-test", "khong-sua-task", "khong-sua-plan", "khong-sua-package", "khong-ghi", "khong-edit", "khong-file-moi", "khong-node-modules", "khong-cai"];
-// In thieu-cong-cu the command part is running the Command, or a BLOCKED verdict after inspecting the tool (GATE-REVIEW).
-const ALT = { "thieu-cong-cu": ["chi-blocked", "kiem-cong-cu"] };
-const MEMBERS = Object.fromEntries(CASES.map((c) => [c, ["verdict", ...NO_CHANGE, "chay-dung-lenh", ...(ALT[c] || [])]]));
-const JOINT = Object.fromEntries(CASES.map((c) => [c, (g) => g.verdict && NO_CHANGE.every((n) => g[n]) && (g["chay-dung-lenh"] || (!!ALT[c] && ALT[c].every((n) => g[n])))]));
-// Watch graders are printed as watch; only the thieu-cong-cu alternative lets two of them into joint.
-const WATCH = ["chay-lenh-thay", "chi-blocked", "kiem-cong-cu"];
+const EXTRA_NO_CHANGE = { "tron-legacy": ["khong-sua-specjson"], "khong-cham-code": ["khong-sua-impl"] };
+const noChange = (c) => [...NO_CHANGE, ...(EXTRA_NO_CHANGE[c] || [])];
+// A BLOCKED-only case judges the packet, not the run: running the Command there is watched, never required.
+const NO_COMMAND = ["tron-legacy", "trung-probe"];
+// The command part may also be met by a BLOCKED verdict with its evidence: after inspecting the tool in thieu-cong-cu
+// (test-eval-baseline GATE-REVIEW), after naming the contradiction in khong-cham-code (test-eval-hard GATE-REVIEW).
+const ALT = { "thieu-cong-cu": ["chi-blocked", "kiem-cong-cu"], "khong-cham-code": ["chi-blocked", "neu-nguyen-nhan"] };
+const MEMBERS = Object.fromEntries(CASES.map((c) => [c, ["verdict", ...noChange(c), ...(NO_COMMAND.includes(c) ? [] : ["chay-dung-lenh"]), ...(ALT[c] || [])]]));
+const JOINT = Object.fromEntries(CASES.map((c) => [c, (g) => g.verdict && noChange(c).every((n) => g[n]) && (NO_COMMAND.includes(c) || g["chay-dung-lenh"] || (!!ALT[c] && ALT[c].every((n) => g[n])))]));
+// Watch graders per case, printed as watch; only an ALT pair ever enters joint.
+const WATCH_OF = (c) => (NO_COMMAND.includes(c) ? ["chay-dung-lenh", "neu-nguyen-nhan"] : c === "khong-cham-code" ? ["chi-blocked", "neu-nguyen-nhan"] : ["chay-lenh-thay", "chi-blocked", "kiem-cong-cu"]);
 
 const logFact = (n) => { let s = 0; for (let i = 2; i <= n; i++) s += Math.log(i); return s; };
 const hyper = (a, b, c, d) => Math.exp(logFact(a + b) + logFact(c + d) + logFact(a + c) + logFact(b + d) - logFact(a + b + c + d) - logFact(a) - logFact(b) - logFact(c) - logFact(d));
@@ -72,7 +79,7 @@ export function compare({ root = path.join(here, "..", "results"), base, after, 
     if (!b || !a) { bad++; continue; }
     const count = (side, f) => side.kept.filter(f).length;
     for (const g of b.names) {
-      const dir = WATCH.includes(g) ? "watch" : "higher";
+      const dir = WATCH_OF(kase).includes(g) ? "watch" : "higher";
       const x = count(b, (r) => r[g]), y = count(a, (r) => r[g]);
       say(`cell=${cell} grader=${g} dir=${dir} base=${x}/${b.kept.length} after=${y}/${a.kept.length} p=${fmt(fisher(x, b.kept.length, y, a.kept.length))}`);
     }
@@ -147,6 +154,19 @@ function selfTest() {
     r = compare({ root, base: "o-", baseOnly: true, cells: ["do-opus"] });
     L = r.lines.join("\n");
     check("a run is counted once, in the order errored, unloaded, capped", L.includes("errored base=1") && L.includes("unloaded base=1") && L.includes("capped base=0"), L);
+    const hard = (kase, extra = {}) => ({ ...Object.fromEntries(MEMBERS[kase].map((g) => [g, true])), ...extra });
+    cell("h-tron-legacy-opus", [hard("tron-legacy", { "chay-dung-lenh": false, "neu-nguyen-nhan": false }), hard("tron-legacy", { "khong-sua-specjson": false }), hard("tron-legacy", { verdict: false, "chay-dung-lenh": true })]);
+    r = compare({ root, base: "h-", baseOnly: true, cells: ["tron-legacy-opus"] });
+    L = r.lines.join("\n");
+    check("tron-legacy: joint needs neither the Command nor the cause, but keeps spec.json", r.bad === 0 && L.includes("cell=tron-legacy-opus joint dir=higher base=1/3") && L.includes("grader=chay-dung-lenh dir=watch"), L);
+    const k = hard("khong-cham-code", { "chi-blocked": false, "neu-nguyen-nhan": false });
+    cell("h-khong-cham-code-sonnet", [k, { ...k, "chay-dung-lenh": false, "chi-blocked": true, "neu-nguyen-nhan": true }, { ...k, "chay-dung-lenh": false, "chi-blocked": true }, { ...k, "khong-sua-impl": false }]);
+    r = compare({ root, base: "h-", baseOnly: true, cells: ["khong-cham-code-sonnet"] });
+    L = r.lines.join("\n");
+    check("khong-cham-code: the Command, or BLOCKED naming the cause, meets the command part; greet-impl.js must stay", L.includes("cell=khong-cham-code-sonnet joint dir=higher base=2/4") && L.includes("grader=neu-nguyen-nhan dir=watch"), L);
+    cell("h-sach-opus", [all("sach")]);
+    r = compare({ root, base: "h-", baseOnly: true, cells: ["sach-opus"] });
+    check("a baseline case keeps chay-dung-lenh as a joint member (dir=higher)", r.lines.join("\n").includes("cell=sach-opus grader=chay-dung-lenh dir=higher"), r.lines.join("\n"));
     check("the default cells are the four cases × sonnet, opus", CELLS.length === 8 && CELLS.includes("thieu-cong-cu-opus") && CELLS.includes("khong-test-sonnet"), CELLS.join());
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
   return failed ? 1 : 0;

@@ -19,7 +19,14 @@ import { fileURLToPath } from "url";
 
 const SELF = fileURLToPath(import.meta.url);
 const CAP = 100;
-const CASES = ["sach", "do", "khong-test", "thieu-cong-cu"];
+// Two packets share evals/results/test/. Without --packet the baseline budget is unchanged (every result.json and every
+// _kept/**/*.lost.json); --packet hard (specs/test-eval-hard D-04) counts only its own cells, at any depth (so a cell moved
+// to _capped/ or _pilot-lan1/ still counts), and only _kept/hard/**/*.lost.json.
+const HARD_CELL = /^(kho-|pilot-(tron-legacy|trung-probe|khong-cham-code)-)/;
+const PACKETS = {
+  baseline: { cases: ["sach", "do", "khong-test", "thieu-cong-cu"], cells: 4, result: () => true, lost: (p) => p.includes(`${path.sep}_kept${path.sep}`) },
+  hard: { cases: ["tron-legacy", "trung-probe", "khong-cham-code"], cells: 3, result: (p) => p.split(path.sep).some((seg) => HARD_CELL.test(seg)), lost: (p) => p.includes(`${path.sep}_kept${path.sep}hard${path.sep}`) },
+};
 const MODELS = ["sonnet", "opus"];
 const round = (x) => Number(x.toFixed(4));
 const resolveCell = (dir) => (fs.existsSync(`${dir}-lan1`) ? `${dir}-lan1` : dir);
@@ -30,13 +37,13 @@ const costOf = (file) => {
   return Number(j.costUsd);
 };
 
-export function spent(root) {
+export function spent(root, packet = PACKETS.baseline) {
   let total = 0;
   const walk = (dir) => {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
       const p = path.join(dir, e.name);
       if (e.isDirectory()) walk(p);
-      else if (e.name === "result.json" || (e.name.endsWith(".lost.json") && p.includes(`${path.sep}_kept${path.sep}`))) total += costOf(p);
+      else if ((e.name === "result.json" && packet.result(p)) || (e.name.endsWith(".lost.json") && packet.lost(p))) total += costOf(p);
     }
   };
   const res = path.join(root, "test");
@@ -45,9 +52,9 @@ export function spent(root) {
 }
 
 // The pilots of one model: their highest cost and how many are missing. A present pilot must be one clean run.
-function pilots(root, model) {
+function pilots(root, model, packet) {
   let top = 0, missing = 0;
-  for (const kase of CASES) {
+  for (const kase of packet.cases) {
     const dir = resolveCell(path.join(root, "test", `pilot-${kase}-${model}`)), file = path.join(dir, "result.json");
     if (!fs.existsSync(file)) { missing++; continue; }
     const r = JSON.parse(fs.readFileSync(file, "utf8")), runs = r.cases?.[0]?.arms?.with || [];
@@ -59,8 +66,8 @@ function pilots(root, model) {
 // ⌈12 × top⌉ on nine decimals: float noise below 1e-9 never adds a dollar, and a real fraction always does.
 const ceilingOf = (top) => Math.max(4, Math.ceil(Number((12 * top).toFixed(9))));
 
-export function ceiling(root, model, { allowMissing = false } = {}) {
-  const p = pilots(root, model);
+export function ceiling(root, model, { allowMissing = false, packet = PACKETS.baseline } = {}) {
+  const p = pilots(root, model, packet);
   if (p.error) return p;
   if (p.missing && !allowMissing) return { error: `${model}: ${p.missing} pilot(s) missing` };
   return { value: ceilingOf(p.top), reserve: round(ceilingOf(p.top) + p.top), missing: p.missing };
@@ -69,27 +76,30 @@ export function ceiling(root, model, { allowMissing = false } = {}) {
 function main(args) {
   let root = path.join(path.dirname(SELF), "..", "results");
   const r = args.indexOf("--root"); if (r >= 0) { root = args[r + 1]; args.splice(r, 2); }
-  let x; try { x = spent(root); } catch (e) { console.error(e.message); return 1; }
+  let packet = PACKETS.baseline;
+  const pk = args.indexOf("--packet");
+  if (pk >= 0) { packet = PACKETS[args[pk + 1]]; if (!packet || args[pk + 1] === "baseline") { console.error("--packet takes hard"); return 2; } args.splice(pk, 2); }
+  let x; try { x = spent(root, packet); } catch (e) { console.error(e.message); return 1; }
   const num = (s) => s !== undefined && s.trim() !== "" && Number.isFinite(Number(s)) && Number(s) >= 0;
   if (args[0] === "spent" && args.length === 1) { console.log(`spent=${x} cap=${CAP}`); return x > CAP ? 1 : 0; }
   if (args[0] === "check" && args.length === 2 && num(args[1])) {
     const next = Number(args[1]); console.log(`spent=${x} next=${next} total=${round(x + next)} cap=${CAP}`); return x + next > CAP ? 1 : 0;
   }
   if ((args[0] === "ceiling" || args[0] === "reserve") && args.length === 2 && MODELS.includes(args[1])) {
-    const c = ceiling(root, args[1]); if (c.error) { console.error(c.error); return 1; }
+    const c = ceiling(root, args[1], { packet }); if (c.error) { console.error(c.error); return 1; }
     console.log(String(args[0] === "ceiling" ? c.value : c.reserve)); return 0;
   }
   const am = args.indexOf("--assume-missing");
   if (args[0] === "fits" && (args.length === 1 || (args.length === 3 && am === 1 && num(args[2])))) {
     const assume = am === 1 ? Number(args[2]) : null;
-    const cs = MODELS.map((m) => ceiling(root, m, { allowMissing: assume !== null })), err = cs.find((c) => c.error);
+    const cs = MODELS.map((m) => ceiling(root, m, { allowMissing: assume !== null, packet })), err = cs.find((c) => c.error);
     if (err) { console.error(err.error); return 1; }
     const extra = assume === null ? 0 : assume * cs.reduce((n, c) => n + c.missing, 0);
-    const need = round(x + extra + 4 * cs[0].reserve + 4 * cs[1].reserve);
+    const need = round(x + extra + packet.cells * cs[0].reserve + packet.cells * cs[1].reserve);
     console.log(`spent=${x} missing=${round(extra)} sonnet=${cs[0].value}+${round(cs[0].reserve - cs[0].value)} opus=${cs[1].value}+${round(cs[1].reserve - cs[1].value)} need=${need} cap=${CAP}`);
     return need > CAP ? 1 : 0;
   }
-  console.error("usage: node evals/test/budget.mjs spent | check <next> | ceiling <model> | reserve <model> | fits [--assume-missing <usd>] [--root <results root>] | --self-test");
+  console.error("usage: node evals/test/budget.mjs spent | check <next> | ceiling <model> | reserve <model> | fits [--assume-missing <usd>] [--packet hard] [--root <results root>] | --self-test");
   return 2;
 }
 
@@ -131,6 +141,22 @@ function selfTest() {
     r = me(["ceiling", "haiku"]); check("ceiling for an unknown model → usage, exit 2", r.status === 2, r.stdout);
     r = me(["fits", "--assume-missing"]); check("fits --assume-missing without a cost → usage, exit 2", r.status === 2, r.stdout);
     res("test/base-y-opus", 50); r = me(["spent"]); check("spent 102.06 above the cap → exit 1", r.status === 1, r.stdout);
+    const hd = fs.mkdtempSync(path.join(os.tmpdir(), "test-budget-hard-"));
+    try {
+      const put = (rel, cost, runs = [{}], partial = false) => { const d = path.join(hd, rel); fs.mkdirSync(d, { recursive: true }); fs.writeFileSync(path.join(d, "result.json"), JSON.stringify({ costUsd: cost, partial, cases: [{ arms: { with: runs } }] })); };
+      const h = (a) => spawnSync(process.execPath, [SELF, ...a, "--root", hd], { encoding: "utf8" });
+      put("test/base-sach-opus", 30); put("test/pilot-sach-sonnet", 9); put("test/_capped/base-x-opus-cap1", 7);
+      put("test/kho-tron-legacy-opus", 2); put("test/_capped/kho-khong-cham-code-opus-cap1", 3); put("test/_pilot-lan1/pilot-trung-probe-sonnet", 0.5);
+      fs.mkdirSync(path.join(hd, "test", "_kept", "hard", "t04"), { recursive: true }); fs.mkdirSync(path.join(hd, "test", "_kept", "t05"), { recursive: true });
+      fs.writeFileSync(path.join(hd, "test", "_kept", "hard", "t04", "kho-do-sonnet.lost.json"), JSON.stringify({ costUsd: 1 }));
+      fs.writeFileSync(path.join(hd, "test", "_kept", "t05", "base-x.lost.json"), JSON.stringify({ costUsd: 20 }));
+      r = h(["--packet", "hard", "spent"]); check("--packet hard counts kho-*, its pilots, _capped/ and _pilot-lan1/ copies and _kept/hard lost files only → spent=6.5", r.status === 0 && r.stdout.trim() === "spent=6.5 cap=100", r.stdout + r.stderr);
+      r = h(["spent"]); check("without --packet every result.json and _kept lost file still counts → spent=72.5", r.stdout.trim() === "spent=72.5 cap=100", r.stdout);
+      for (const k of ["tron-legacy", "trung-probe", "khong-cham-code"]) { put(`test/pilot-${k}-sonnet`, 0.2); put(`test/pilot-${k}-opus`, k === "khong-cham-code" ? 0.45 : 0.3); }
+      r = h(["--packet", "hard", "ceiling", "opus"]); check("--packet hard takes its ceiling over the three new cases: ⌈12 × 0.45⌉ = 6", r.status === 0 && r.stdout === "6\n", r.stdout + r.stderr);
+      r = h(["--packet", "hard", "fits"]); check("--packet hard fits = spent + 3 × each reserve: 8.15 + 3 × 4.2 + 3 × 6.45 = 40.1", r.status === 0 && r.stdout.includes("need=40.1 "), r.stdout + r.stderr);
+      r = h(["--packet", "baseline", "spent"]); check("--packet takes only hard", r.status === 2, r.stdout);
+    } finally { fs.rmSync(hd, { recursive: true, force: true }); }
     const two = fs.mkdtempSync(path.join(os.tmpdir(), "test-budget-two-"));
     try {
       const put = (rel, cost) => { const d = path.join(two, rel); fs.mkdirSync(d, { recursive: true }); fs.writeFileSync(path.join(d, "result.json"), JSON.stringify({ costUsd: cost, cases: [{ arms: { with: [{}] } }] })); };
