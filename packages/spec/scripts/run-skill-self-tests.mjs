@@ -2238,6 +2238,16 @@ function testPlanNativeContractIssues(input) {
     "Failure count never changes the lattice",
   ] });
 
+  requireClauses("payload-delivery", { skill: [
+    "end the final message with the concise report, then a `### Machine handoff (test-proof-v1)` heading and exactly one fenced `json` block holding the validated payload.",
+    "The handoff block follows the report and is not part of it. No further fenced block follows it.",
+    "For any other target, end with the report and the line `No payload: target not identifiable.`",
+  ], strategy: [
+    "A pre-execution `BLOCKED` payload for a task with two Named probes,",
+    "`FAIL` variants: a branch with a nonzero exit or a failed count is `FAIL` and makes the payload `FAIL`; a reachability `FAIL` with every branch passing keeps the branches `PASS` and makes the payload `FAIL`.",
+    "under `### Machine handoff (test-proof-v1)`, one fenced `json` block that follows the report and is not part of it.",
+  ] });
+
   requireClauses("report-proof-separation", { skill: [
     "return a concise human report separately from the machine handoff.",
     "Do not place the full JSON payload, secrets, verbose raw logs, or screenshots in the concise report.",
@@ -2324,6 +2334,11 @@ async function runTestPlanNativeContractTests() {
     ["lazy-install-restored", "strategy", "side-effect-boundary", "Do not auto-install\nmissing runners, packages, browsers, or linters.", "Run npm install for missing browser tooling."],
     ["profile-cross-origin", "skill", "safe-ui-auth-and-redaction", "Block cross-origin redirects and destructive production actions without fresh\n  consent.", "Allow cross-origin redirects and destructive production actions."],
     ["partial-verdict", "triage", "canonical-verdicts", "Do not emit `PARTIAL`, `COLLAPSE`, `NO_TESTS`, or an unknown result.", "Emit `PARTIAL` for coverage gaps."],
+    ["payload-placement", "skill", "payload-delivery", "then a `### Machine handoff (test-proof-v1)` heading and exactly", "then optionally a payload and"],
+    ["payload-separate", "skill", "payload-delivery", "The handoff block follows", "The handoff block may sit inside"],
+    ["payload-none", "skill", "payload-delivery", "`No payload: target not identifiable.`", "nothing more."],
+    ["payload-example", "strategy", "payload-delivery", "A pre-execution `BLOCKED` payload for a task with two Named probes,", "A payload,"],
+    ["payload-fail-variants", "strategy", "payload-delivery", "keeps\nthe branches `PASS` and makes the payload `FAIL`.", "may keep any verdict."],
     ["report-embeds-proof", "skill", "report-proof-separation", "Do not place the full JSON payload, secrets, verbose raw logs, or screenshots in", "Place the full JSON payload and verbose raw logs in"],
     ["live-proof-promoted", "skill", "proof-level-promotion", "`[UNVERIFIED]` without a host invocation.", "[VERIFIED] by static inspection."],
   ];

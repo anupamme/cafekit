@@ -165,6 +165,16 @@ Do not place the full JSON payload, secrets, verbose raw logs, or screenshots in
 the concise report. `PASS_WITH_WARNINGS` remains unfinished; only literal
 validated `PASS` may be synchronized by the controller.
 
+When the target's task can be read — a process-first packet, or a packet
+`BLOCKED` while it is classified that still holds exactly one regular flat task
+with a readable `Command` and `Named probes` — end the final message with the
+concise report, then a `### Machine handoff (test-proof-v1)` heading and exactly
+one fenced `json` block holding the validated payload. The handoff block follows
+the report and is not part of it. No further fenced block follows it. A
+pre-execution `BLOCKED` takes the same placement; its shape is in
+`references/execution-strategy.md` §4. For any other target, end with the
+report and the line `No payload: target not identifiable.`
+
 ## Legacy workflow compatibility
 
 A valid legacy packet keeps the v2.1 adapter, legacy task resolution, and its

@@ -149,6 +149,79 @@ and `skipped` each equal the element-wise sum of that field across every branch;
 any unattributed, multiply attributed, or unequal count is contradictory and
 returns `BLOCKED`.
 
+A pre-execution `BLOCKED` payload for a task with two Named probes, when the
+packet failed classification after the repository had a commit:
+
+```json
+{
+  "schema_version": "test-proof-v1",
+  "target": {
+    "feature": "user-auth",
+    "task_path": "specs/user-auth/task-01-login.md"
+  },
+  "verdict": "BLOCKED",
+  "command": null,
+  "exit": null,
+  "counts": {
+    "executed": 0,
+    "passed": 0,
+    "failed": 0,
+    "skipped": 0
+  },
+  "provenance": {
+    "base": "4f2a9c0e7b1d3a5f6e8c9b0a1d2e3f4a5b6c7d8e",
+    "head": "9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d"
+  },
+  "proof_level": "source",
+  "expected": "both Named probes pass under `node --test test/login.test.js`",
+  "observed": "BLOCKED before execution: specs/user-auth also holds spec.json, a legacy marker",
+  "reachability": {
+    "status": "BLOCKED",
+    "evidence": [
+      "not executed: the packet failed classification"
+    ]
+  },
+  "artifacts": [],
+  "branches": [
+    {
+      "id": "login accepts a valid password",
+      "required": true,
+      "verdict": "BLOCKED",
+      "command": null,
+      "exit": null,
+      "counts": {
+        "executed": 0,
+        "passed": 0,
+        "failed": 0,
+        "skipped": 0
+      },
+      "proof_level": "source"
+    },
+    {
+      "id": "login rejects a wrong password",
+      "required": true,
+      "verdict": "BLOCKED",
+      "command": null,
+      "exit": null,
+      "counts": {
+        "executed": 0,
+        "passed": 0,
+        "failed": 0,
+        "skipped": 0
+      },
+      "proof_level": "source"
+    }
+  ],
+  "raw_output": "not executed: the packet failed classification",
+  "redactions": [],
+  "payload_sha256": "b62c65f70d9cba41c4ab92c7dfb5a7db371aff609095525cc10a8adf147631f7"
+}
+```
+
+`FAIL` variants: a branch with a nonzero exit or a failed count is `FAIL` and
+makes the payload `FAIL`; a reachability `FAIL` with every branch passing keeps
+the branches `PASS` and makes the payload `FAIL`.
+
 ## 5. Aggregation and integrity
 
 Aggregate required branches in strict order:
@@ -199,6 +272,9 @@ must not write project state.
 Return the validated `test-proof-v1` handoff to the controller and a separate
 concise report containing only verdict, scope, exact redacted command, exit,
 counts, reachability, proof level, project-command drift, and next action.
+Place the handoff as `SKILL.md` "Verdict and report" says: after the concise
+report, under `### Machine handoff (test-proof-v1)`, one fenced `json` block
+that follows the report and is not part of it.
 
 Do not paste verbose raw output, full JSON, credentials, PII, or screenshots into
 the report. Do not write a report file during proof. Process-first Status and
