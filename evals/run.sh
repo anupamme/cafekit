@@ -14,6 +14,8 @@
 #   evals/run.sh code-review --with-agent code-auditor --out pilot-x --model sonnet \
 #     --judge-model sonnet --runs 1 --threshold 0 --ablation none --allow-tools Bash Agent
 #     # a case that measures an agent needs it loaded the way the product ships it
+#   evals/run.sh test --plugin-name cf --out pilot-x --model sonnet --runs 1 --case sach
+#     # the plugin is named cf, so the eval host lists the skill as cf:test (default cafekit-<skill>)
 #
 # Why a script: the harness treats the plugin root as the tree it enumerates, and it
 # passes one Read/Glob/Grep grant per path to the child as a single --allowed-tools
@@ -39,11 +41,23 @@ cases="$root/evals/$skill"
 # product ships. Refuse an unknown name rather than building a plugin that silently lacks it.
 # `--with-agent <name>`, repeatable and in any order with `--with-skill`: copy an agent into the
 # plugin's agents/ folder, which the harness loads by default, so a case can measure the agent
-# the way the product ships it. Both flags come right after <skill>.
+# the way the product ships it. `--plugin-name <name>`, at most once: name the temporary plugin, so
+# the host lists the skill as <name>:<skill> instead of cafekit-<skill>:<skill>. All three flags come
+# right after <skill>, before --validate or --out.
 extra=()
 agents=()
-while [ "${1:-}" = "--with-skill" ] || [ "${1:-}" = "--with-agent" ]; do
-  if [ "$1" = "--with-skill" ]; then
+plugin_name="cafekit-$skill"
+named_plugin=0
+while [ "${1:-}" = "--with-skill" ] || [ "${1:-}" = "--with-agent" ] || [ "${1:-}" = "--plugin-name" ]; do
+  if [ "$1" = "--plugin-name" ]; then
+    [ "$named_plugin" = 0 ] || { echo "--plugin-name is given once" >&2; exit 2; }
+    name="${2:-}"
+    # A regex, not a case range: bash 3.2 under a UTF-8 locale lets [a-z] match capitals.
+    [[ "$name" =~ ^[a-z0-9][a-z0-9-]*$ ]] && [[ ! "$name" =~ [A-Z] ]] \
+      || { echo "--plugin-name takes a name of a-z, 0-9 and -, not starting with -" >&2; exit 2; }
+    plugin_name="$name"
+    named_plugin=1
+  elif [ "$1" = "--with-skill" ]; then
     name="${2:?usage: --with-skill <name>}"
     [ -f "$root/packages/spec/src/claude/skills/$name/SKILL.md" ] \
       || { echo "no skill at packages/spec/src/claude/skills/$name" >&2; exit 2; }
@@ -76,7 +90,7 @@ done
 version="$(node -p "require('$root/packages/spec/package.json').version")"
 mkdir -p "$work/.claude-plugin"
 cat > "$work/.claude-plugin/plugin.json" <<JSON
-{ "name": "cafekit-$skill", "version": "$version",
+{ "name": "$plugin_name", "version": "$version",
   "description": "temporary eval root for the CafeKit $skill skill",
   "skills": [$skill_list], "experimental": { "evals": "evals" } }
 JSON
