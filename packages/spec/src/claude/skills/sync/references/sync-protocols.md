@@ -40,12 +40,12 @@ provenance, and path or artifact mismatch.
 
 - Plan row without task file: report missing; do not synthesize scope.
 - Task file without plan row: report unknown; do not silently adopt it.
-- Done without valid Receipt: downgrade only when the repair is deterministic,
-  otherwise block and request direction.
+- Done without valid Receipt: after the user confirms, downgrade when the repair is deterministic,
+  otherwise report and request direction.
 - Receipt on unfinished task: preserve it only if it is clearly historical;
   otherwise report the conflict.
-- Missing or cyclic dependency: block affected tasks.
-- Overlapping write ownership in one proposed wave: serialize or request an
+- Missing or cyclic dependency: report; block affected tasks only after the user confirms.
+- Overlapping write ownership in one proposed wave: report and request an
   ownership decision.
 - Acceptance ID not mapped both ways: report traceability drift.
 

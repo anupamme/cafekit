@@ -5,7 +5,7 @@ user-invocable: true
 when_to_use: "Invoke after implementation or verification changes a task's real state, or to audit a feature packet for drift."
 category: utilities
 keywords: [sync, state, tracking, consistency]
-argument-hint: "<feature> <task-file> <pending|in_progress|paused|blocked|done|sync-finalize> [blocker] | audit <feature>"
+argument-hint: "<feature> <task-file> <pending|in_progress|paused|blocked|done|sync-finalize> [blocker] | audit <feature> | rebind <feature> [task-file] | (none: audit all, write nothing)"
 metadata:
   author: haposoft
   version: "3.0.0"
@@ -24,6 +24,8 @@ state. Never infer proof, approval, review independence, or product readiness.
 /cf:sync <feature> <task-NN-slug.md> done
 /cf:sync <feature> <task-NN-slug.md> sync-finalize
 /cf:sync audit <feature>
+/cf:sync rebind <feature> [<task-NN-slug.md>]
+/cf:sync
 ```
 
 Resolve one regular direct-child task inside `specs/<feature>/`. Reject path
@@ -59,11 +61,10 @@ task filenames, dependencies, Status, acceptance mapping, and Receipts. Report
 missing files, unknown rows, cycles, duplicate fields, done-without-proof,
 proof-on-unfinished-task, and overlapping ownership.
 
-Repair deterministic formatting drift only. A semantic conflict, missing
-evidence, or ownership decision requires user or implementation input; do not
-pick a winner. After any edit, report exact files changed and unresolved items.
-
-Read `references/sync-protocols.md` for surgical update and audit rules.
+An audit writes nothing until the user confirms the named changes; then repair
+deterministic formatting drift only and never pick a winner in a semantic conflict.
+Read `references/rebind-and-audit.md` before a rebind, a bare call, or a file
+report, and `references/sync-protocols.md` for surgical update and audit rules.
 
 ## Docs impact
 

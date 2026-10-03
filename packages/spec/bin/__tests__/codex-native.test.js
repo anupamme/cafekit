@@ -1561,13 +1561,15 @@ test('Codex structured-input corpus oracle stays differential and production-awa
     'src/claude/agents/spec-maker.md',
     'src/claude/hooks/session.cjs',
     'src/claude/skills/git/SKILL.md',
-    'src/claude/skills/scout/SKILL.md'
+    'src/claude/skills/scout/SKILL.md',
+    'src/claude/skills/sync/references/rebind-and-audit.md'
   ];
   assert.deepEqual(actualPaths, expectedPaths, 'every source occurrence needs an explicit projection oracle');
 
   const instructionExpectedSnippets = new Map([
     ['src/claude/skills/git/SKILL.md', 'Present options via a structured user-input request — header'],
-    ['src/claude/skills/scout/SKILL.md', '**Fallback to a structured user-input request:**']
+    ['src/claude/skills/scout/SKILL.md', '**Fallback to a structured user-input request:**'],
+    ['src/claude/skills/sync/references/rebind-and-audit.md', 'End by asking with a structured user-input request when the host has']
   ]);
   for (const [relativePath, expectedSnippet] of instructionExpectedSnippets) {
     const sourcePath = path.join(PACKAGE_ROOT, relativePath);

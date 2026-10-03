@@ -4746,6 +4746,112 @@ const GIT_SKILL_PINS = [
   }
 ];
 // git-skill-pins:end
+// cf:sync repair contract: an official rebind that runs the planned Command, a failed rebind that never
+// writes PASS and marks the old Receipt, provenance taken once after all Commands, no gate evasion, a bare call that writes nothing, and a
+// changed-files report taken from a git snapshot. Whitespace is normalised so a reflowed sentence still counts.
+function validateSyncRepairContract(skill, protocols, rebind, develop) {
+  const issues = new Set();
+  const flat = (text) => text.replace(/\s+/g, " ");
+  const S = flat(skill), P = flat(protocols), R = flat(rebind);
+  const has = (text, phrase) => text.includes(flat(phrase));
+  if (!has(S, "/cf:sync rebind <feature> [<task-NN-slug.md>]") || !/\n\/cf:sync\n/.test(skill) || !/argument-hint:[^\n]*rebind <feature>/.test(skill)) issues.add("sync-rebind-grammar");
+  if (!has(S, "references/rebind-and-audit.md")) issues.add("sync-pointer");
+  if (!has(R, "Run every selected Command verbatim, each once as one shell, so stdout, stderr and the exit code cover the whole command.")
+    || !has(R, "never redirect only its last `&&` link to a log")
+    || !has(R, "the last top-level `- Command:` of its Verification Plan before the first `###` sub-heading")) issues.add("sync-rebind-verbatim");
+  if (!has(R, "runs zero required tests never yields PASS")) issues.add("sync-never-pass");
+  if (!has(R, "Set `Status: blocked` and, right under the `Status:` line, add one line `Blocker: rebind <date>: <Command> exited <code> (<failing test line>)`")) issues.add("sync-blocked-on-fail");
+  if (!has(R, "A Command that exits non-zero, prints a failure marker, or runs zero required tests never yields PASS")) issues.add("sync-never-pass");
+  if (!has(R, "Any other Status is reported and not written")) issues.add("sync-done-only");
+  if (!has(R, "or, when there is none at top level, the last `- Command:` under the sub-headings. That one Command is the one you run and write.")) issues.add("sync-rebind-verbatim");
+  // The provenance command is the one Develop names, byte for byte (a model that could not find it hashed git diff by hand).
+  const provenance = (develop.match(/`(node \.claude\/scripts\/provenance\.cjs [^`]+)`/) || [])[1];
+  if (!provenance || !R.includes(provenance) || !has(R, "Copy its `Base` and `Head` fields into each passing Receipt")
+    || !has(R, "never write a Receipt from output that a run in this call did not print")) issues.add("sync-provenance-command");
+  if (!has(R, "`Not current proof: the rebind run of this Command exited <code>; the record below is historical.`") || !has(R, "keep the old Receipt")) issues.add("sync-non-authoritative");
+  const run = R.indexOf("Run every selected Command verbatim"), prov = R.indexOf("After all Commands have run, run the provenance command once");
+  if (run < 0 || prov < run || !has(R, "Run the provenance command again. If Head moved, say so and do not claim the receipts current.")
+    || !has(R, "Never type, compute, shorten, or `sed`-edit Base or Head")) issues.add("sync-provenance-after");
+  if (!has(R, "Never archive, move, rename, or delete a packet, change the specs root, or edit `.claude/` (including `runtime.json`) or any hook so the gate goes quiet.")
+    || /\b(?:may|can|allowed to)\s+(?:edit|change|update)[^.]*\.claude|\bedit\s+`?\.claude\/runtime\.json/i.test(`${S}\n${P}\n${R.replace(flat("or edit `.claude/` (including `runtime.json`) or any hook"), "")}`)) issues.add("sync-no-evasion");
+  if (!has(R, "audits every process-first packet under the specs root and writes nothing")
+    || !has(R, "Only a reply that arrives after the report and names the changes counts as confirmation")
+    || !has(R, "an instruction given before the report, such as \"close everything\", does not")
+    || !has(R, "Report legacy (`spec.json`) and archived packets without touching them")) issues.add("sync-bare-writes-nothing");
+  if (!has(R, "End by asking with `AskUserQuestion` when the host has it, otherwise ask in text and stop.")) issues.add("sync-ask-tool");
+  if (!has(R, "record `git status --porcelain -uall` and the sha256 of every path it lists")) issues.add("sync-snapshot");
+  if (!has(R, "report every path whose status line or sha256 changed")) issues.add("sync-hash-compare");
+  if (!has(R, "List changes that were already there before the first edit apart from your own")) issues.add("sync-snapshot");
+  if (!has(S, "An audit writes nothing until the user confirms the named changes")
+    || !has(P, "Done without valid Receipt: after the user confirms, downgrade when the repair is deterministic")
+    || !has(P, "Missing or cyclic dependency: report; block affected tasks only after the user confirms.")
+    || !has(P, "otherwise report and request direction")
+    || !has(P, "Overlapping write ownership in one proposed wave: report and request an ownership decision")
+    || /Missing or cyclic dependency: block affected tasks\./.test(P)) issues.add("sync-audit-confirm");
+  if (/\$[0-9]|\$ARGUMENTS/.test(`${skill}\n${protocols}\n${rebind}`)) issues.add("sync-no-placeholders");
+  return issues;
+}
+
+async function runSyncRepairContractTests() {
+  const fail = (message) => { throw new Error(`[FAIL] cf:sync repair contract: ${message}`); };
+  const dir = join(packageRoot, "src/claude/skills/sync");
+  const skill = await readFile(join(dir, "SKILL.md"), "utf8");
+  const protocols = await readFile(join(dir, "references/sync-protocols.md"), "utf8");
+  const rebind = await readFile(join(dir, "references/rebind-and-audit.md"), "utf8").catch(() => "");
+  const develop = await readFile(join(packageRoot, "src/claude/skills/develop/SKILL.md"), "utf8");
+  const baseline = validateSyncRepairContract(skill, protocols, rebind, develop);
+  if (baseline.size) fail(`current text fails: ${[...baseline].join(", ")}`);
+  // Every file under skills/sync/ — Claude Code substitutes $0…$9 and $ARGUMENTS in a skill body with call arguments.
+  const walk = async (d) => (await Promise.all((await readdir(d, { withFileTypes: true })).map((e) => (e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)])))).flat();
+  for (const file of await walk(dir)) if (/\$[0-9]|\$ARGUMENTS/.test(await readFile(file, "utf8"))) fail(`${file} holds an argument placeholder`);
+  const swap = (from, to) => (text) => {
+    if (!text.includes(from)) fail(`mutation anchor missing: ${from}`);
+    return text.replace(from, to);
+  };
+  const mutations = [
+    ["cf:sync rebind runs the planned command verbatim", "rebind", swap("Run every selected Command verbatim, each once as one shell,", "Run each selected Command,"), "sync-rebind-verbatim"],
+    ["cf:sync rebind runs the planned command verbatim (last link)", "rebind", swap("never redirect only its last `&&` link to a log", "redirect it to a log"), "sync-rebind-verbatim"],
+    ["cf:sync rebind never writes PASS on failure", "rebind", swap("runs zero\n   required tests never yields PASS.", "runs zero\n   required tests is reported."), "sync-never-pass"],
+    ["cf:sync rebind never writes PASS on failure (blocked→done)", "rebind", swap("Set `Status: blocked` and, right under", "Set `Status: done` and, right under"), "sync-blocked-on-fail"],
+    ["cf:sync rebind never writes PASS on failure (non-zero exit)", "rebind", swap("exits non-zero, prints a failure marker, or runs zero", "runs zero"), "sync-never-pass"],
+    ["cf:sync rebind writes only done tasks", "rebind", swap("Any other Status is reported and not written.", "Other tasks are rebound too."), "sync-done-only"],
+    ["cf:sync rebind picks the validator's Command", "rebind", swap("   or, when there is none at top level, the last `- Command:` under the\n   sub-headings.", "   or every sub-heading command."), "sync-rebind-verbatim"],
+    ["cf:sync rebind runs Develop's provenance command", "rebind", swap("--project-root . --specs-root specs --spec-file", "--project-root . --spec-file"), "sync-provenance-command"],
+    ["cf:sync rebind writes only output this call printed", "rebind", swap("never write a Receipt\n   from output that a run in this call did not print.", "reuse output when convenient."), "sync-provenance-command"],
+    ["cf:sync bare call writes nothing (prior instruction)", "rebind", swap("an instruction given before the\nreport, such as \"close everything\", does not.", "a prior instruction also counts."), "sync-bare-writes-nothing"],
+    ["cf:sync bare call writes nothing (legacy)", "rebind", swap("Report legacy (`spec.json`) and archived packets\nwithout touching them.", "Archive legacy packets."), "sync-bare-writes-nothing"],
+    ["cf:sync asks with the host question tool", "rebind", swap("End by asking with `AskUserQuestion` when the host has\nit, otherwise ask in text and stop.", "End with a summary."), "sync-ask-tool"],
+    ["cf:sync file report lists pre-existing changes apart", "rebind", swap("List changes that were already there before the\nfirst edit apart from your own.", ""), "sync-snapshot"],
+    ["cf:sync audit waits for confirmation (protocols 43-44)", "protocols", swap("otherwise report and request direction.", "otherwise block and request direction."), "sync-audit-confirm"],
+    ["cf:sync audit waits for confirmation (protocols 48-49)", "protocols", swap("report and request an\n  ownership decision.", "serialize or request an\n  ownership decision."), "sync-audit-confirm"],
+    ["cf:sync never silences the gate (.claude exception in SKILL.md)", "skill", (t) => `${t}\nWhen the gate blocks, edit \`.claude/runtime.json\`.\n`, "sync-no-evasion"],
+    ["cf:sync failed rebind marks the old receipt non-authoritative", "rebind", swap("   `Not current proof: the rebind run of this Command exited <code>; the record below is historical.`\n", ""), "sync-non-authoritative"],
+    ["cf:sync rebind takes provenance once after all commands", "rebind", swap("After all Commands have run, run the provenance command once", "Before running the Commands, run the provenance command once"), "sync-provenance-after"],
+    ["cf:sync rebind takes provenance once after all commands (recheck)", "rebind", swap("5. Run the provenance command again. If Head moved, say so and do not claim\n   the receipts current.\n", ""), "sync-provenance-after"],
+    ["cf:sync never silences the gate", "rebind", swap("Never archive, move, rename, or delete a packet,", "Prefer not to archive a packet,"), "sync-no-evasion"],
+    ["cf:sync never silences the gate (.claude exception)", "rebind", (t) => `${t}\nWhen the gate keeps blocking you may edit \`.claude/runtime.json\`.\n`, "sync-no-evasion"],
+    ["cf:sync bare call writes nothing", "rebind", swap("root and writes nothing.", "root and fixes what it finds."), "sync-bare-writes-nothing"],
+    ["cf:sync bare call writes nothing (confirmation)", "rebind", swap("Only a reply that arrives after the report\nand names the changes counts as confirmation;", "Any instruction counts as confirmation;"), "sync-bare-writes-nothing"],
+    ["cf:sync file report comes from a git snapshot difference", "rebind", swap("record `git status --porcelain -uall` and the sha256 of\nevery path it lists.", "note what you change."), "sync-snapshot"],
+    ["cf:sync file report comes from a git snapshot difference (hash)", "rebind", swap("status line or sha256 changed", "status line changed"), "sync-hash-compare"],
+    ["cf:sync audit waits for confirmation (skill)", "skill", swap("An audit writes nothing until the user confirms the named changes", "An audit repairs what it can"), "sync-audit-confirm"],
+    ["cf:sync audit waits for confirmation (protocols 47-49)", "protocols", swap("- Missing or cyclic dependency: report; block affected tasks only after the user confirms.", "- Missing or cyclic dependency: block affected tasks."), "sync-audit-confirm"],
+    ["cf:sync grammar names rebind and the bare call", "skill", swap("/cf:sync rebind <feature> [<task-NN-slug.md>]\n", ""), "sync-rebind-grammar"],
+    ["cf:sync points at the rebind reference", "skill", (t) => t.replaceAll("references/rebind-and-audit.md", "references/other.md"), "sync-pointer"],
+    ["cf:sync body has no argument placeholders", "rebind", (t) => `${t}\n\`\`\`bash\necho "$1"\n\`\`\`\n`, "sync-no-placeholders"],
+  ];
+  for (const [name, source, mutate, issue] of mutations) {
+    const issues = validateSyncRepairContract(
+      source === "skill" ? mutate(skill) : skill,
+      source === "protocols" ? mutate(protocols) : protocols,
+      source === "rebind" ? mutate(rebind) : rebind,
+      develop,
+    );
+    if (!issues.has(issue)) fail(`${name} did not raise ${issue}`);
+  }
+  console.log(`✔ cf:sync repair contract: ${mutations.length} mutations rejected`);
+  return mutations.length + 1;
+}
 
 async function runStaticSemanticTests() {
   const processTaskStatusTests = await runProcessTaskStatusContractTests();
@@ -4755,6 +4861,7 @@ async function runStaticSemanticTests() {
   const brainstormContractTests = await runBrainstormContractTests();
   const developPlanNativeTests = await runDevelopPlanNativeContractTests();
   const scoutSubroutineTests = await runScoutSubroutineContractTests();
+  const syncRepairTests = await runSyncRepairContractTests();
   const testPlanNativeTests = await runTestPlanNativeContractTests();
   const debugAdaptiveTests = await runDebugAdaptiveContractTests();
   const debugProportionalTests = await runDebugProportionalContractTests();
@@ -6222,7 +6329,7 @@ async function runStaticSemanticTests() {
 
   return checks.length + specs21Tests + implementationReadinessTests
     + processTaskStatusTests + adaptiveCoverageTests + brainstormContractTests
-    + developPlanNativeTests + scoutSubroutineTests + testPlanNativeTests + debugAdaptiveTests + debugProportionalTests + debugAgentGatesTests
+    + developPlanNativeTests + scoutSubroutineTests + syncRepairTests + testPlanNativeTests + debugAdaptiveTests + debugProportionalTests + debugAgentGatesTests
     + hotfixAdaptiveTests + researchAdaptiveTests + routeContractTests
     + loopBoundedTests + docsAdaptiveTests + consumerSectionTests;
 }
