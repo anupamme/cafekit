@@ -34,6 +34,10 @@ const PACKETS = {
   // specs/test-eval-coverage D-03: the cells `rong-*` and the three cases' pilots, at any depth; ceilings as the hard packet.
   coverage: { cases: ["thuong-sach", "thuong-do", "chap-chon"], cells: 3, result: (p) => p.split(path.sep).some((seg) => COVERAGE_CELL.test(seg)),
     lost: (p) => p.includes(`${path.sep}_kept${path.sep}rong${path.sep}`) },
+  // specs/test-flaky-repair D-03: the after-cells `ondinh-*` at any depth; ceilings over the two cases' existing pilots,
+  // never under the cap their before-cells ran at.
+  flaky: { cases: ["thuong-sach", "chap-chon"], cells: 2, floor: { sonnet: 4, opus: 4 },
+    result: (p) => p.split(path.sep).some((seg) => seg.startsWith("ondinh-")), lost: (p) => p.includes(`${path.sep}_kept${path.sep}ondinh${path.sep}`) },
 };
 const MODELS = ["sonnet", "opus"];
 const round = (x) => Number(x.toFixed(4));
@@ -87,7 +91,7 @@ function main(args) {
   const r = args.indexOf("--root"); if (r >= 0) { root = args[r + 1]; args.splice(r, 2); }
   let packet = PACKETS.baseline;
   const pk = args.indexOf("--packet");
-  if (pk >= 0) { packet = PACKETS[args[pk + 1]]; if (!packet || args[pk + 1] === "baseline") { console.error("--packet takes hard, repair or coverage"); return 2; } args.splice(pk, 2); }
+  if (pk >= 0) { packet = PACKETS[args[pk + 1]]; if (!packet || args[pk + 1] === "baseline") { console.error("--packet takes hard, repair, coverage or flaky"); return 2; } args.splice(pk, 2); }
   let x; try { x = spent(root, packet); } catch (e) { console.error(e.message); return 1; }
   const num = (s) => s !== undefined && s.trim() !== "" && Number.isFinite(Number(s)) && Number(s) >= 0;
   if (args[0] === "spent" && args.length === 1) { console.log(`spent=${x} cap=${CAP}`); return x > CAP ? 1 : 0; }
@@ -164,7 +168,7 @@ function selfTest() {
       for (const k of ["tron-legacy", "trung-probe", "khong-cham-code"]) { put(`test/pilot-${k}-sonnet`, 0.2); put(`test/pilot-${k}-opus`, k === "khong-cham-code" ? 0.45 : 0.3); }
       r = h(["--packet", "hard", "ceiling", "opus"]); check("--packet hard takes its ceiling over the three new cases: ⌈12 × 0.45⌉ = 6", r.status === 0 && r.stdout === "6\n", r.stdout + r.stderr);
       r = h(["--packet", "hard", "fits"]); check("--packet hard fits = spent + 3 × each reserve: 8.15 + 3 × 4.2 + 3 × 6.45 = 40.1", r.status === 0 && r.stdout.includes("need=40.1 "), r.stdout + r.stderr);
-      r = h(["--packet", "baseline", "spent"]); check("--packet takes only hard, repair or coverage", r.status === 2, r.stdout);
+      r = h(["--packet", "baseline", "spent"]); check("--packet takes only hard, repair, coverage or flaky", r.status === 2, r.stdout);
       put("test/sau-sach-sonnet", 1.25); put("test/_capped/sau-x-opus-cap1", 2); put("test/sau-thing/nested", 0.5);
       fs.mkdirSync(path.join(hd, "test", "_kept", "repair", "t03"), { recursive: true });
       fs.writeFileSync(path.join(hd, "test", "_kept", "repair", "t03", "sau-do-opus.lost.json"), JSON.stringify({ costUsd: 1 }));
@@ -187,6 +191,16 @@ function selfTest() {
       for (const k of ["thuong-sach", "thuong-do", "chap-chon"]) { put(`test/pilot-${k}-sonnet`, 0.2); put(`test/pilot-${k}-opus`, k === "chap-chon" ? 0.55 : 0.3); }
       r = h(["--packet", "coverage", "ceiling", "opus"]); check("--packet coverage takes its ceiling over its three cases: ⌈12 × 0.55⌉ = 7", r.status === 0 && r.stdout === "7\n", r.stdout + r.stderr);
       r = h(["--packet", "coverage", "fits"]); check("--packet coverage fits = spent + 3 × each reserve: 6.6 + 3 × 4.2 + 3 × 7.55 = 41.85", r.status === 0 && r.stdout.includes("need=41.85 "), r.stdout + r.stderr);
+      r = h(["--packet", "flaky", "spent"]); check("--packet flaky with none of its cells → spent=0", r.status === 0 && r.stdout.trim() === "spent=0 cap=100", r.stdout + r.stderr);
+      const others = ["hard", "repair", "coverage"].map((k) => h(["--packet", k, "spent"]).stdout), all = h(["spent"]).stdout;
+      put("test/ondinh-chap-chon-sonnet", 1.25); put("test/_capped/ondinh-thuong-sach-opus-cap1", 2); put("test/ondinh-chap-chon-opus-lan1/nested", 0.5); put("test/xondinh-chap-chon-opus", 9);
+      fs.mkdirSync(path.join(hd, "test", "_kept", "ondinh", "t03"), { recursive: true });
+      fs.writeFileSync(path.join(hd, "test", "_kept", "ondinh", "t03", "ondinh-thuong-sach-sonnet.lost.json"), JSON.stringify({ costUsd: 1 }));
+      r = h(["--packet", "flaky", "spent"]); check("--packet flaky counts ondinh-* at any depth and _kept/ondinh lost files, not rong-*/pilots/xondinh-*/_kept/rong → spent=4.75", r.status === 0 && r.stdout.trim() === "spent=4.75 cap=100", r.stdout + r.stderr);
+      check("the hard, repair and coverage packets are unchanged by flaky cells; without --packet they count too (+13.75)", ["hard", "repair", "coverage"].every((k, i) => h(["--packet", k, "spent"]).stdout === others[i]) && h(["spent"]).stdout.trim() === `spent=${round(Number(all.match(/spent=([\d.]+)/)[1]) + 13.75)} cap=100`, others.join("") + all);
+      r = h(["--packet", "flaky", "ceiling", "opus"]); check("--packet flaky takes its ceiling over thuong-sach and chap-chon pilots: ⌈12 × 0.55⌉ = 7", r.status === 0 && r.stdout === "7\n", r.stdout + r.stderr);
+      r = h(["--packet", "flaky", "ceiling", "sonnet"]); check("--packet flaky sonnet: max(⌈12 × 0.2⌉, floor 4) → 4", r.status === 0 && r.stdout === "4\n", r.stdout + r.stderr);
+      r = h(["--packet", "flaky", "fits"]); check("--packet flaky fits = spent + 2 × each reserve: 4.75 + 2 × 4.2 + 2 × 7.55 = 28.25", r.status === 0 && r.stdout.includes("need=28.25 "), r.stdout + r.stderr);
     } finally { fs.rmSync(hd, { recursive: true, force: true }); }
     const two = fs.mkdtempSync(path.join(os.tmpdir(), "test-budget-two-"));
     try {
