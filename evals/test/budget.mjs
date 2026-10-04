@@ -23,6 +23,7 @@ const CAP = 100;
 // _kept/**/*.lost.json); --packet hard (specs/test-eval-hard D-04) counts only its own cells, at any depth (so a cell moved
 // to _capped/ or _pilot-lan1/ still counts), and only _kept/hard/**/*.lost.json.
 const HARD_CELL = /^(kho-|pilot-(tron-legacy|trung-probe|khong-cham-code)-)/;
+const COVERAGE_CELL = /^(rong-|pilot-(thuong-sach|thuong-do|chap-chon)-)/;
 const PACKETS = {
   baseline: { cases: ["sach", "do", "khong-test", "thieu-cong-cu"], cells: 4, result: () => true, lost: (p) => p.includes(`${path.sep}_kept${path.sep}`) },
   hard: { cases: ["tron-legacy", "trung-probe", "khong-cham-code"], cells: 3, result: (p) => p.split(path.sep).some((seg) => HARD_CELL.test(seg)), lost: (p) => p.includes(`${path.sep}_kept${path.sep}hard${path.sep}`) },
@@ -30,6 +31,9 @@ const PACKETS = {
   // tighter than the caps their before-cells ran under, so before and after run on equal footing.
   repair: { cases: ["sach", "thieu-cong-cu", "tron-legacy", "khong-cham-code"], cells: 4, floor: { sonnet: 4, opus: 5 },
     result: (p) => p.split(path.sep).some((seg) => seg.startsWith("sau-")), lost: (p) => p.includes(`${path.sep}_kept${path.sep}repair${path.sep}`) },
+  // specs/test-eval-coverage D-03: the cells `rong-*` and the three cases' pilots, at any depth; ceilings as the hard packet.
+  coverage: { cases: ["thuong-sach", "thuong-do", "chap-chon"], cells: 3, result: (p) => p.split(path.sep).some((seg) => COVERAGE_CELL.test(seg)),
+    lost: (p) => p.includes(`${path.sep}_kept${path.sep}rong${path.sep}`) },
 };
 const MODELS = ["sonnet", "opus"];
 const round = (x) => Number(x.toFixed(4));
@@ -83,7 +87,7 @@ function main(args) {
   const r = args.indexOf("--root"); if (r >= 0) { root = args[r + 1]; args.splice(r, 2); }
   let packet = PACKETS.baseline;
   const pk = args.indexOf("--packet");
-  if (pk >= 0) { packet = PACKETS[args[pk + 1]]; if (!packet || args[pk + 1] === "baseline") { console.error("--packet takes hard or repair"); return 2; } args.splice(pk, 2); }
+  if (pk >= 0) { packet = PACKETS[args[pk + 1]]; if (!packet || args[pk + 1] === "baseline") { console.error("--packet takes hard, repair or coverage"); return 2; } args.splice(pk, 2); }
   let x; try { x = spent(root, packet); } catch (e) { console.error(e.message); return 1; }
   const num = (s) => s !== undefined && s.trim() !== "" && Number.isFinite(Number(s)) && Number(s) >= 0;
   if (args[0] === "spent" && args.length === 1) { console.log(`spent=${x} cap=${CAP}`); return x > CAP ? 1 : 0; }
@@ -160,7 +164,7 @@ function selfTest() {
       for (const k of ["tron-legacy", "trung-probe", "khong-cham-code"]) { put(`test/pilot-${k}-sonnet`, 0.2); put(`test/pilot-${k}-opus`, k === "khong-cham-code" ? 0.45 : 0.3); }
       r = h(["--packet", "hard", "ceiling", "opus"]); check("--packet hard takes its ceiling over the three new cases: ⌈12 × 0.45⌉ = 6", r.status === 0 && r.stdout === "6\n", r.stdout + r.stderr);
       r = h(["--packet", "hard", "fits"]); check("--packet hard fits = spent + 3 × each reserve: 8.15 + 3 × 4.2 + 3 × 6.45 = 40.1", r.status === 0 && r.stdout.includes("need=40.1 "), r.stdout + r.stderr);
-      r = h(["--packet", "baseline", "spent"]); check("--packet takes only hard or repair", r.status === 2, r.stdout);
+      r = h(["--packet", "baseline", "spent"]); check("--packet takes only hard, repair or coverage", r.status === 2, r.stdout);
       put("test/sau-sach-sonnet", 1.25); put("test/_capped/sau-x-opus-cap1", 2); put("test/sau-thing/nested", 0.5);
       fs.mkdirSync(path.join(hd, "test", "_kept", "repair", "t03"), { recursive: true });
       fs.writeFileSync(path.join(hd, "test", "_kept", "repair", "t03", "sau-do-opus.lost.json"), JSON.stringify({ costUsd: 1 }));
@@ -172,6 +176,17 @@ function selfTest() {
       put("test/pilot-khong-cham-code-opus", 0.3);
       r = h(["--packet", "repair", "ceiling", "opus"]); check("--packet repair never goes under the opus floor: pilots give 4, floor 5 → 5", r.status === 0 && r.stdout === "5\n", r.stdout + r.stderr);
       r = h(["--packet", "repair", "fits"]); check("--packet repair fits = spent + 4 × each reserve: 4.75 + 4 × 4.2 + 4 × 5.3 = 42.75", r.status === 0 && r.stdout.includes("need=42.75 "), r.stdout + r.stderr);
+      r = h(["--packet", "coverage", "spent"]); check("--packet coverage with none of its cells → spent=0", r.status === 0 && r.stdout.trim() === "spent=0 cap=100", r.stdout + r.stderr);
+      const before = ["hard", "repair"].map((k) => h(["--packet", k, "spent"]).stdout).concat(h(["spent"]).stdout);
+      put("test/rong-thuong-sach-sonnet", 1.5); put("test/_capped/rong-chap-chon-opus-cap1", 2); put("test/rong-thuong-do-opus-lan1/nested", 0.25); put("test/_pilot-lan1/pilot-chap-chon-sonnet", 0.1);
+      put("test/pilot-thuong-do-opus", 0.2); put("test/thuong-sach-sonnet", 9); put("test/pilot-thuong-sach", 9); put("test/xrong-thuong-do-opus", 9);
+      fs.mkdirSync(path.join(hd, "test", "_kept", "rong", "t04"), { recursive: true });
+      fs.writeFileSync(path.join(hd, "test", "_kept", "rong", "t04", "rong-thuong-do-sonnet.lost.json"), JSON.stringify({ costUsd: 1 }));
+      r = h(["--packet", "coverage", "spent"]); check("--packet coverage counts rong-* and its pilots at any depth and _kept/rong lost files, nothing else → spent=5.05", r.status === 0 && r.stdout.trim() === "spent=5.05 cap=100", r.stdout + r.stderr);
+      check("the hard and repair packets are unchanged by coverage cells; without --packet they count too", ["hard", "repair"].every((k, i) => h(["--packet", k, "spent"]).stdout === before[i]) && h(["spent"]).stdout.trim() === `spent=${round(Number(before[2].match(/spent=([\d.]+)/)[1]) + 32.05)} cap=100`, before.join(""));
+      for (const k of ["thuong-sach", "thuong-do", "chap-chon"]) { put(`test/pilot-${k}-sonnet`, 0.2); put(`test/pilot-${k}-opus`, k === "chap-chon" ? 0.55 : 0.3); }
+      r = h(["--packet", "coverage", "ceiling", "opus"]); check("--packet coverage takes its ceiling over its three cases: ⌈12 × 0.55⌉ = 7", r.status === 0 && r.stdout === "7\n", r.stdout + r.stderr);
+      r = h(["--packet", "coverage", "fits"]); check("--packet coverage fits = spent + 3 × each reserve: 6.6 + 3 × 4.2 + 3 × 7.55 = 41.85", r.status === 0 && r.stdout.includes("need=41.85 "), r.stdout + r.stderr);
     } finally { fs.rmSync(hd, { recursive: true, force: true }); }
     const two = fs.mkdtempSync(path.join(os.tmpdir(), "test-budget-two-"));
     try {

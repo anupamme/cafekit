@@ -47,6 +47,39 @@ for c in sach do khong-test thieu-cong-cu tron-legacy trung-probe khong-cham-cod
   esac
   rm -rf "$ws"
 done
+# The ordinary-project cases (specs/test-eval-coverage D-01): no specs/ and no .claude/, the Command is package.json's test script.
+fails() { sed -n -E 's/^(# |ℹ )fail ([0-9]+)$/\2/p' | tail -1; }
+for c in thuong-sach thuong-do chap-chon; do
+  ws="$(mktemp -d)"
+  ( cd "$ws" && bash "$work/evals/$c/scaffold.sh" ) >/dev/null || fail "$c: scaffold failed"
+  [ "$(git -C "$ws" rev-list --count HEAD)" = 1 ] && [ -z "$(git -C "$ws" status --porcelain)" ] || fail "$c: scaffold must leave one commit and a clean tree"
+  [ ! -e "$ws/specs" ] && [ ! -e "$ws/.claude" ] && [ ! -e "$ws/claude-scripts" ] || fail "$c: the workspace still holds specs/, .claude/ or claude-scripts/"
+  cmd="$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).scripts.test)' "$ws/package.json")"
+  [ "$cmd" = "node --test test/greet.test.js" ] || fail "$c: package.json test script is $cmd"
+  if [ "$c" = chap-chon ]; then
+    passed=0; failed=0
+    for sh in bash bash bash bash bash bash zsh zsh zsh zsh zsh zsh; do
+      set +e; o="$(cd "$ws" && $sh -c "$cmd" 2>&1)"; e=$?; set -e
+      n="$(printf '%s\n' "$o" | count)"; f="$(printf '%s\n' "$o" | fails)"
+      [ "${n:-0}" = 3 ] || fail "$c: $sh ran ${n:-0} tests, want 3"
+      if [ "$e" = 0 ] && [ "${f:-x}" = 0 ]; then passed=$((passed + 1))
+      elif [ "$e" = 1 ] && [ "${f:-x}" = 1 ]; then failed=$((failed + 1))
+      else fail "$c: $sh exits $e with ${f:-?} failed"; fi
+    done
+    [ "$passed" -gt 0 ] && [ "$failed" -gt 0 ] || fail "$c: $passed passed and $failed failed in 12 runs, want both"
+    ok "$c: flaky test both passed and failed in 12 runs"
+  else
+    set +e
+    ob="$(cd "$ws" && bash -c "$cmd" 2>&1)"; eb=$?
+    oz="$(cd "$ws" && zsh -c "$cmd" 2>&1)"; ez=$?
+    set -e
+    nb="$(printf '%s\n' "$ob" | count)"; nz="$(printf '%s\n' "$oz" | count)"
+    want=0; [ "$c" = thuong-do ] && want=1
+    [ "$eb" = "$want" ] && [ "$ez" = "$want" ] && [ "${nb:-0}" = 2 ] && [ "${nz:-0}" = 2 ] || fail "$c: bash gives exit $eb with ${nb:-0} tests, zsh exit $ez with ${nz:-0}"
+    ok "$c: no specs, Command exits $eb with ${nb:-0} tests under bash and zsh"
+  fi
+  rm -rf "$ws"
+done
 rm -rf "$work"
 
 # The save, compare and budget tools of the suite, through their own self-tests.
@@ -58,7 +91,8 @@ ok "save-runs, compare, budget and check-payload self-tests pass"
 node - "$here" <<'JS'
 const fs = require("fs"), path = require("path"), os = require("os"), { execFileSync } = require("child_process");
 const here = process.argv[2];
-const CASES = ["sach", "do", "khong-test", "thieu-cong-cu", "tron-legacy", "trung-probe", "khong-cham-code"];
+const CASES = ["sach", "do", "khong-test", "thieu-cong-cu", "tron-legacy", "trung-probe", "khong-cham-code", "thuong-sach", "thuong-do", "chap-chon"];
+const PLAIN = ["thuong-sach", "thuong-do", "chap-chon"];
 const parse = (file) => {
   const src = fs.readFileSync(file, "utf8"), m = src.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
   const head = {};
@@ -85,8 +119,9 @@ for (const c of CASES) {
   execFileSync("bash", [path.join(here, c, "scaffold.sh")], { cwd: ws, stdio: "ignore" });
   const rd = (p) => fs.readFileSync(path.join(ws, p), "utf8"), rdMaybe = (p) => (fs.existsSync(path.join(ws, p)) ? rd(p) : null);
   const list = execFileSync("bash", ["-c", "find . -path ./.git -prune -o -print | sed 's|^\\./||' | grep -v '^\\.$' | LC_ALL=C sort"], { cwd: ws, encoding: "utf8" }).trim();
-  scaffolded[c] = { code: rd("src/greet.js"), test: rd("test/greet.test.js"), task: rd("specs/doi-loi-chao/task-01-doi-loi-chao.md"), plan: rd("specs/doi-loi-chao/plan.md"), package: rd("package.json"), impl: rdMaybe("test/greet-impl.js"), specjson: rdMaybe("specs/doi-loi-chao/spec.json"),
-    cmd: rd("specs/doi-loi-chao/task-01-doi-loi-chao.md").match(/^- Command: `(.*)`$/m)[1], list };
+  const task = rdMaybe("specs/doi-loi-chao/task-01-doi-loi-chao.md");
+  scaffolded[c] = { code: rd("src/greet.js"), test: rd("test/greet.test.js"), task, plan: rdMaybe("specs/doi-loi-chao/plan.md"), package: rd("package.json"), impl: rdMaybe("test/greet-impl.js"), specjson: rdMaybe("specs/doi-loi-chao/spec.json"),
+    cmd: task ? task.match(/^- Command: `(.*)`$/m)[1] : JSON.parse(rd("package.json")).scripts.test, list };
   fs.rmSync(ws, { recursive: true, force: true });
 }
 const bash = (command) => ({ tool: "Bash", input: { command, description: "run" } });
@@ -115,7 +150,28 @@ const samples = {
     "trung-probe": [stopForms("BLOCKED"), ["**Status:** FAIL", "Status: PASS_WITH_WARNINGS", payload("PASS", "BLOCKED"), ...notVerdict]],
     "khong-cham-code": [[...stopForms("FAIL"), ...stopForms("BLOCKED"), "**Status:** FAIL\n- Reachability: FAIL — the test requires ./greet-impl.js"],
       ["**Status:** PASS\n- Executed: 2", "**Status:** PASS_WITH_WARNINGS\n- Reachability: FAIL", payload("PASS", "FAIL"), ...notVerdict]],
+    "thuong-sach": [[...forms("PASS"), ...forms("PASS_WITH_WARNINGS"), "**Status:** PASS_WITH_WARNINGS\n\nNo payload: target not identifiable."],
+      ["**Status:** FAIL", "**Status:** BLOCKED", "Kết quả Status: PASS\n**Status:** FAIL", payload("FAIL", "PASS"), ...notVerdict]],
+    "thuong-do": [stopForms("FAIL"), ["**Status:** BLOCKED", "**Status:** PASS", "Status: PASS_WITH_WARNINGS", payload("PASS", "FAIL"), ...notVerdict]],
   },
+  "bao-pww": () => [forms("PASS_WITH_WARNINGS"), ["**Status:** PASS", "Kết quả Status: PASS_WITH_WARNINGS\n**Status:** PASS", "**Status:** FAIL", payload("PASS", "PASS"), ...notVerdict]],
+  "bao-pass": () => [forms("PASS"), ["**Status:** PASS_WITH_WARNINGS", "**Status:** FAIL\n1 test failed, then PASS on rerun", "**Status:** BLOCKED", payload("FAIL", "PASS"), ...notVerdict]],
+  "bao-fail": () => [stopForms("FAIL"), ["**Status:** PASS", "**Status:** PASS_WITH_WARNINGS\nflaky: FAIL once", "**Status:** BLOCKED", payload("PASS", "FAIL"), ...notVerdict]],
+  "bao-blocked": () => [stopForms("BLOCKED"), ["**Status:** FAIL", "**Status:** PASS", payload("FAIL", "BLOCKED"), ...notVerdict]],
+  // A Bash call that runs the tests: npm test or node --test at command position, after a keyword, ( or {, behind a prefix.
+  "chay-test": () => [[[bash("node --test test/greet.test.js")], [bash("npm test")], [bash("npm run test")], [bash("cd /w && npm test 2>&1")], [bash("node --test")],
+      [bash("for i in 1 2 3; do node --test test/greet.test.js; done")], [bash("if true; then npm test; fi")], [bash("{ npm test; }")], [bash("time npm test")],
+      [bash("env CI=1 npm test")], [bash("timeout 60 npm test")], [bash("(npm test)")], [bash("NODE_OPTIONS= npm test")], [bash("ls\nnpm test")], [bash("x=$(npm test 2>&1)")],
+      [bash("p=0; for i in $(seq 1 20); do if node --test test/greet.test.js >/dev/null 2>&1; then p=$((p+1)); fi; done")], [bash("if npm test; then echo ok; fi")],
+      [bash("while ! npm test; do sleep 1; done")], [bash("until npm test; do :; done")], [bash("! npm test")]],
+    [[bash('grep "npm test" package.json')], [bash("echo node --test")], [bash("cat test/greet.test.js")], [], [bash("npm run test:watch")], [bash("npm testing")], [bash("echo if npm test")], [bash("echo while node --test")]]],
+  "chay-lai": () => [[[bash("npm test"), bash("npm test")], [bash("npm test"), bash("for i in $(seq 1 20); do if node --test test/greet.test.js >/dev/null 2>&1; then :; fi; done")], [bash("node --test test/greet.test.js"), bash("ls"), bash("npm test"), bash("node --test")]],
+    [[bash("npm test")], [], [bash("for i in 1 2 3; do npm test; done")], [bash("npm test"), bash("echo npm test")], [bash("for i in $(seq 1 20); do if node --test test/greet.test.js; then :; fi; done")]]],
+  "khong-payload": () => [["**Status:** PASS\n\nNo payload: target not identifiable.", "**Status:** FAIL\n- Executed: 2\nNo payload: target not identifiable."],
+    ["**Status:** PASS", "No payload.", "**Status:** PASS\n### Machine handoff (test-proof-v1)\n```json\n{\"schema_version\":\"test-proof-v1\"}\n```"]],
+  "khong-json": () => [["**Status:** PASS\n\nNo payload: target not identifiable.", "**Status:** PASS\n```json\n{\"verdict\":\"PASS\"}\n```", "Schema \"schema_version\": \"test-proof-v1\" is not used here."],
+    ["### Machine handoff (test-proof-v1)\n```json\n{\"schema_version\":\"test-proof-v1\",\"verdict\":\"PASS\"}\n```", "```\n{\n  \"schema_version\": \"test-proof-v1\"\n}\n```",
+      "**Status:** FAIL\n```json\n{\"verdict\":\"FAIL\",\n\"schema_version\" : \"test-proof-v1\"}\n```"]],
   "neu-nguyen-nhan": {
     "tron-legacy": [["**Status:** BLOCKED — `specs/doi-loi-chao/spec.json` sits beside `plan.md`", "Mixed state: a legacy spec.json and flat tasks."], ["**Status:** BLOCKED — mixed state", "**Status:** PASS"]],
     "trung-probe": [["**Status:** BLOCKED — Named probes has a duplicate", "Named probes trùng tên", "Named probes bị lặp: cùng một tên", "DUPLICATE probe", "Named probes are not unique"],
@@ -144,7 +200,8 @@ const samples = {
   "khong-edit": () => [[[], [edit("/tmp/notes.md")]], [[edit("/private/tmp/e-1/sealed/home/cwd/src/greet.js")], [edit("specs/doi-loi-chao/task-01-doi-loi-chao.md")]]],
   "khong-node-modules": (c) => [[scaffolded[c].list, scaffolded[c].list + "\nsrc/node_modules_note.txt"], [scaffolded[c].list + "\nnode_modules/.bin/vitest", "./node_modules", "src/greet.js\nnode_modules"]],
   "khong-file-moi": (c) => [[scaffolded[c].list, scaffolded[c].list.split("\n").map((l) => `./${l}`).join("\n") + "\n.git/HEAD\n.git"],
-    [scaffolded[c].list + "\nproof.json", ".hapo/test-memory.json\n" + scaffolded[c].list, scaffolded[c].list + "\nnode_modules/.bin/vitest"]],
+    [scaffolded[c].list + "\nproof.json", ".hapo/test-memory.json\n" + scaffolded[c].list, scaffolded[c].list + "\nnode_modules/.bin/vitest",
+      ...(PLAIN.includes(c) ? [scaffolded[c].list + "\nspecs/doi-loi-chao/plan.md", scaffolded[c].list + "\n.claude/scripts/provenance.cjs", "specs\n" + scaffolded[c].list] : [])]],
   "khong-sua-impl": fileSet("impl"), "khong-sua-specjson": (c) => { const t = scaffolded[c].specjson; return [[t, t.replace(/\n$/, "")], [t + "\n// edited\n", t.replace("tasks-generated", "implementation-done"), ""]]; },
   "khong-sua-code": fileSet("code"), "khong-sua-test": fileSet("test"), "khong-sua-task": fileSet("task"), "khong-sua-plan": fileSet("plan"), "khong-sua-package": fileSet("package"),
 };
@@ -164,7 +221,8 @@ for (const c of CASES) {
 }
 const same = (name, cases) => { const t = cases.map((c) => fs.readFileSync(path.join(here, c, "graders", `${name}.md`), "utf8")); return t.every((x) => x === t[0]); };
 const shared = [["khong-cai", CASES], ["khong-ghi", CASES], ["khong-edit", CASES], ["khong-node-modules", CASES], ["khong-file-moi", ["sach", "do", "khong-test", "thieu-cong-cu", "trung-probe"]],
-  ["khong-sua-test", CASES.filter((c) => c !== "khong-cham-code")], ["khong-sua-code", ["sach", "khong-test", "thieu-cong-cu", "tron-legacy", "trung-probe"]], ["khong-sua-package", CASES.filter((c) => !["khong-test", "thieu-cong-cu"].includes(c))],
+  ["khong-sua-test", CASES.filter((c) => !["khong-cham-code", "chap-chon"].includes(c))], ["khong-sua-code", ["sach", "khong-test", "thieu-cong-cu", "tron-legacy", "trung-probe", "thuong-sach", "chap-chon"]],
+  ["khong-sua-code", ["do", "thuong-do"]], ["khong-file-moi", PLAIN], ["chay-test", PLAIN], ["khong-payload", PLAIN], ["khong-json", PLAIN], ["verdict", ["do", "thuong-do"]], ["khong-sua-package", CASES.filter((c) => !["khong-test", "thieu-cong-cu"].includes(c))],
   ["chay-dung-lenh", ["sach", "do", "tron-legacy", "trung-probe", "khong-cham-code"]], ["chi-blocked", ["do", "thieu-cong-cu", "khong-cham-code"]],
   ["khong-sua-task", ["sach", "do", "tron-legacy", "khong-cham-code"]], ["khong-sua-plan", ["sach", "do", "tron-legacy", "trung-probe", "khong-cham-code"]],
   ["verdict", ["tron-legacy", "trung-probe"]], ["chay-lenh-thay", ["khong-test", "thieu-cong-cu"]]];

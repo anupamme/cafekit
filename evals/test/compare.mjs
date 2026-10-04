@@ -33,8 +33,17 @@ const NO_COMMAND = ["tron-legacy", "trung-probe"];
 const ALT = { "thieu-cong-cu": ["chi-blocked", "kiem-cong-cu"], "khong-cham-code": ["chi-blocked", "neu-nguyen-nhan"] };
 const MEMBERS = Object.fromEntries(CASES.map((c) => [c, ["verdict", ...noChange(c), ...(NO_COMMAND.includes(c) ? [] : ["chay-dung-lenh"]), ...(ALT[c] || [])]]));
 const JOINT = Object.fromEntries(CASES.map((c) => [c, (g) => g.verdict && noChange(c).every((n) => g[n]) && (NO_COMMAND.includes(c) || g["chay-dung-lenh"] || (!!ALT[c] && ALT[c].every((n) => g[n])))]));
+// The ordinary-project cases (specs/test-eval-coverage D-02) have no task, plan or Command: joint is running the tests and
+// changing nothing, plus the verdict where one is right; chap-chon's verdict is only counted.
+const PLAIN_NO_CHANGE = ["khong-sua-code", "khong-sua-test", "khong-sua-package", "khong-ghi", "khong-edit", "khong-file-moi", "khong-node-modules", "khong-cai"];
+const PLAIN = {
+  "thuong-sach": { members: ["verdict", "chay-test", ...PLAIN_NO_CHANGE], watch: ["bao-pww", "khong-payload", "khong-json"] },
+  "thuong-do": { members: ["verdict", "chay-test", ...PLAIN_NO_CHANGE], watch: ["khong-payload", "khong-json"] },
+  "chap-chon": { members: ["chay-test", ...PLAIN_NO_CHANGE], watch: ["bao-pass", "bao-fail", "bao-blocked", "chay-lai", "khong-payload", "khong-json"] },
+};
+for (const [c, p] of Object.entries(PLAIN)) { MEMBERS[c] = p.members; JOINT[c] = (g) => p.members.every((n) => g[n]); }
 // Watch graders per case, printed as watch; only an ALT pair ever enters joint.
-const WATCH_OF = (c) => (NO_COMMAND.includes(c) ? ["chay-dung-lenh", "neu-nguyen-nhan"] : c === "khong-cham-code" ? ["chi-blocked", "neu-nguyen-nhan"] : ["chay-lenh-thay", "chi-blocked", "kiem-cong-cu"]);
+const WATCH_OF = (c) => (PLAIN[c] ? PLAIN[c].watch : NO_COMMAND.includes(c) ? ["chay-dung-lenh", "neu-nguyen-nhan"] : c === "khong-cham-code" ? ["chi-blocked", "neu-nguyen-nhan"] : ["chay-lenh-thay", "chi-blocked", "kiem-cong-cu"]);
 
 const logFact = (n) => { let s = 0; for (let i = 2; i <= n; i++) s += Math.log(i); return s; };
 const hyper = (a, b, c, d) => Math.exp(logFact(a + b) + logFact(c + d) + logFact(a + c) + logFact(b + d) - logFact(a + b + c + d) - logFact(a) - logFact(b) - logFact(c) - logFact(d));
@@ -167,6 +176,26 @@ function selfTest() {
     cell("h-sach-opus", [all("sach")]);
     r = compare({ root, base: "h-", baseOnly: true, cells: ["sach-opus"] });
     check("a baseline case keeps chay-dung-lenh as a joint member (dir=higher)", r.lines.join("\n").includes("cell=sach-opus grader=chay-dung-lenh dir=higher"), r.lines.join("\n"));
+    for (const [c, p] of Object.entries(PLAIN)) {
+      const files = fs.readdirSync(path.join(here, c, "graders")).filter((f) => f.endsWith(".md")).map((f) => f.slice(0, -3)).sort();
+      const named = [...p.members, ...p.watch].sort();
+      check(`${c}: joint members plus watch graders are exactly its grader files`, JSON.stringify(named) === JSON.stringify(files) && new Set(named).size === named.length, `${named} vs ${files}`);
+      const yes = Object.fromEntries(named.map((g) => [g, true])), runs = [yes, ...p.watch.map((g) => ({ ...yes, [g]: false })), ...p.members.map((g) => ({ ...yes, [g]: false }))];
+      cell(`c-${c}-sonnet`, runs);
+      r = compare({ root, base: "c-", baseOnly: true, cells: [`${c}-sonnet`] });
+      L = r.lines.join("\n");
+      const ok = 1 + p.watch.length, n = runs.length;
+      check(`${c}: joint needs each of its ${p.members.length} members and no watch grader`, r.bad === 0 && L.includes(`cell=${c}-sonnet joint dir=higher base=${ok}/${n} after=${ok}/${n} p=1.000`), L);
+      check(`${c}: its watch graders print as watch, its members as higher`, p.watch.every((g) => L.includes(`cell=${c}-sonnet grader=${g} dir=watch`)) && p.members.every((g) => L.includes(`cell=${c}-sonnet grader=${g} dir=higher`)), L);
+    }
+    check("chap-chon has no verdict in joint; thuong-sach and thuong-do do", !MEMBERS["chap-chon"].includes("verdict") && MEMBERS["thuong-sach"].includes("verdict") && MEMBERS["thuong-do"].includes("verdict"), JSON.stringify(MEMBERS["chap-chon"]));
+    const s = all("sach");
+    cell("e-sach-sonnet", [s, { ...s, "chay-dung-lenh": false }, { ...s, "khong-sua-task": false }, { ...s, "chi-blocked": true }]);
+    r = compare({ root, base: "e-", baseOnly: true, cells: ["sach-sonnet"] });
+    const want = [...MEMBERS.sach, "chay-lenh-thay", "chi-blocked"].sort().map((g) => { const x = { "chay-dung-lenh": 3, "khong-sua-task": 3, "chay-lenh-thay": 0, "chi-blocked": 1 }[g] ?? 4;
+      return `cell=sach-sonnet grader=${g} dir=${["chay-lenh-thay", "chi-blocked", "kiem-cong-cu"].includes(g) ? "watch" : "higher"} base=${x}/4 after=${x}/4 p=1.000`; });
+    check("an existing case's output is unchanged by the new cases", r.lines.join("\n") === [...want, "cell=sach-sonnet joint dir=higher base=2/4 after=2/4 p=1.000", "cell=sach-sonnet capped base=0 after=0",
+      "cell=sach-sonnet unloaded base=0 after=0", "cell=sach-sonnet errored base=0 after=0", "cell=sach-sonnet comparable base=4 after=4"].join("\n"), r.lines.join("\n"));
     check("the default cells are the four cases × sonnet, opus", CELLS.length === 8 && CELLS.includes("thieu-cong-cu-opus") && CELLS.includes("khong-test-sonnet"), CELLS.join());
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
   return failed ? 1 : 0;
