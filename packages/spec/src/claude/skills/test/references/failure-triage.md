@@ -10,7 +10,7 @@ implementation owner. Testing never edits implementation or tests.
 | Compilation or packaging | command, exit, relevant file/line | `FAIL` |
 | Logic/contract | named probe, expected, observed | `FAIL` |
 | Environment/prerequisite | missing tool, service, variable, permission | `BLOCKED` before execution; otherwise `FAIL` after an attempted command |
-| Flaky/nondeterministic | repeated current runs with differing outcomes | `FAIL` |
+| Flaky/nondeterministic | repeated current runs with differing outcomes, or an assertion or pass condition that depends on a nondeterministic source | `FAIL` |
 | Coverage/reachability gap | exact uncovered branch or unreachable surface | `FAIL`, or `PASS_WITH_WARNINGS` only when explicitly non-required |
 | UI console/network/flow | URL path, safe status, redacted error | `FAIL` when required |
 | Accessibility/visual/performance/SEO | metric or element plus declared threshold | requirement decides `FAIL` or `PASS_WITH_WARNINGS` |

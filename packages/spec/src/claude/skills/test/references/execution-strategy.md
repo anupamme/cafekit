@@ -59,6 +59,13 @@ and runtime surfaces. Escalate to a wider suite when configuration or shared
 infrastructure changes, mapped scope exceeds roughly 60 percent, or a required
 surface cannot be isolated. `--full` widens selection; it does not loosen proof.
 
+Before an Ordinary non-Spec `PASS` or `PASS_WITH_WARNINGS`, read the tests that
+cover the target or changed code (every test file when the suite is small). A
+nondeterministic source in an assertion or its pass condition is `FAIL`, naming
+the source, even when every run passes. A source only in setup means rerunning
+just the suspect tests at least twice more; any differing outcome is `FAIL` as
+flaky (`failure-triage.md`). A process-first Named probe still runs exactly once.
+
 Run cheap project-provided prechecks before expensive tests. Do not auto-install
 missing runners, packages, browsers, or linters. A missing prerequisite is
 `BLOCKED`; a precheck that actually runs and fails is `FAIL`.

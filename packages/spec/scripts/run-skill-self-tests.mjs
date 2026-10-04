@@ -2238,6 +2238,18 @@ function testPlanNativeContractIssues(input) {
     "Failure count never changes the lattice",
   ] });
 
+  requireClauses("ordinary-nondeterminism", { skill: [
+    "For Ordinary non-Spec testing, before any `PASS` or `PASS_WITH_WARNINGS`, read the tests that cover the target or changed code (every test file when the suite is small).",
+    "When an assertion or its pass condition depends on a nondeterministic source — the clock, randomness, the network, shared filesystem state or test order — the verdict is `FAIL`, naming the source, even when every run passes.",
+    "When only setup depends on one, rerun just the suspect tests at least twice more; any differing outcome is `FAIL` as flaky.",
+    "This step does not apply to process-first Named probes, which run exactly once.",
+  ], strategy: [
+    "A nondeterministic source in an assertion or its pass condition is `FAIL`, naming the source, even when every run passes.",
+    "A process-first Named probe still runs exactly once.",
+  ], triage: [
+    "repeated current runs with differing outcomes, or an assertion or pass condition that depends on a nondeterministic source",
+  ] });
+
   requireClauses("payload-delivery", { skill: [
     "end the final message with the concise report, then a `### Machine handoff (test-proof-v1)` heading and exactly one fenced `json` block holding the validated payload.",
     "The handoff block follows the report and is not part of it. No further fenced block follows it.",
@@ -2334,6 +2346,11 @@ async function runTestPlanNativeContractTests() {
     ["lazy-install-restored", "strategy", "side-effect-boundary", "Do not auto-install\nmissing runners, packages, browsers, or linters.", "Run npm install for missing browser tooling."],
     ["profile-cross-origin", "skill", "safe-ui-auth-and-redaction", "Block cross-origin redirects and destructive production actions without fresh\n  consent.", "Allow cross-origin redirects and destructive production actions."],
     ["partial-verdict", "triage", "canonical-verdicts", "Do not emit `PARTIAL`, `COLLAPSE`, `NO_TESTS`, or an unknown result.", "Emit `PARTIAL` for coverage gaps."],
+    ["flaky-read", "skill", "ordinary-nondeterminism", "read the tests that cover the target or changed code (every test file when", "skim the code (every test file when"],
+    ["flaky-assert", "skill", "ordinary-nondeterminism", "even when every run passes. When only setup", "unless a run passes. When only setup"],
+    ["flaky-rerun", "skill", "ordinary-nondeterminism", "suspect tests at least twice more; any differing outcome is `FAIL` as flaky.", "suspect tests if time allows."],
+    ["flaky-process-first", "skill", "ordinary-nondeterminism", "process-first Named probes, which run exactly once.", "process-first Named probes, which may be rerun."],
+    ["flaky-triage", "triage", "ordinary-nondeterminism", "or an assertion or pass condition that depends on a nondeterministic source", "or a hunch"],
     ["payload-placement", "skill", "payload-delivery", "then a `### Machine handoff (test-proof-v1)` heading and exactly", "then optionally a payload and"],
     ["payload-separate", "skill", "payload-delivery", "The handoff block follows", "The handoff block may sit inside"],
     ["payload-none", "skill", "payload-delivery", "`No payload: target not identifiable.`", "nothing more."],

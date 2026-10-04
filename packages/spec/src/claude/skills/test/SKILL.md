@@ -87,10 +87,19 @@ For a process-first feature:
 1. Detect commands from task and repository files; never invent them.
 2. Run a cheap compile or typecheck precheck when the project provides one.
 3. Execute the exact task command and all named probes with real counts.
-4. Inspect negative paths, runtime reachability, and declared artifacts.
-5. Capture tracked, untracked, and ignored project-command drift separately
+4. For Ordinary non-Spec testing, before any `PASS` or `PASS_WITH_WARNINGS`,
+   read the tests that cover the target or changed code (every test file when
+   the suite is small). When an assertion or its pass condition depends on a
+   nondeterministic source — the clock, randomness, the network, shared
+   filesystem state or test order — the verdict is `FAIL`, naming the source,
+   even when every run passes. When only setup depends on one, rerun just the
+   suspect tests at least twice more; any differing outcome is `FAIL` as flaky.
+   A single green run of such a test is not `PASS`. This step does not apply to
+   process-first Named probes, which run exactly once.
+5. Inspect negative paths, runtime reachability, and declared artifacts.
+6. Capture tracked, untracked, and ignored project-command drift separately
    from runtime Head. Never silently clean or hide project changes.
-6. Redact sensitive material, validate the complete proof object, then return a
+7. Redact sensitive material, validate the complete proof object, then return a
    concise human report separately from the machine handoff.
 
 Required proof follows the behavior:
