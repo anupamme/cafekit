@@ -168,7 +168,6 @@ CafeKit ships many skills, but the main release surface is:
 - `/cf:brainstorm <idea-or-problem>`: scout the repo, clarify exact requirements, compare approaches, and hand off to specs
 - `/cf:research <decision>`: choose proportional depth and return traceable evidence for an uncertain technical decision
 - `/cf:route <material-request>`: classify ambiguous, multi-step, multi-domain, or elevated-risk work and compose the shortest valid installed chain
-- `/cf:loop <bounded-experiment>`: run explicit-only numeric optimization in an isolated worktree and return a base-bound patch handoff
 - `/cf:orca <orca-request>`: inside an Orca (onorca.dev) pane, route a request to read, wait on, or send to another agent pane, or spawn one into a worktree
 - `/cf:specs <feature-description>`: create or resume a structured spec workflow
 - `/cf:develop <feature-name>`: implement from approved spec artifacts
@@ -194,7 +193,7 @@ completes work. Chat is the default output. A durable file needs explicit user
 authority, and no Brainstorm output is live proof or Specs/Develop approval or
 execution authority.
 
-### Adaptive Research and bounded Loop
+### Adaptive Research
 
 Use `/cf:research` when the result is a decision: Quick, Standard, or Deep
 research binds material claims to a URL or repository anchor, authority,
@@ -202,18 +201,9 @@ date/version, applicability, and `confirmed`, `inferred`, or `unresolved`
 state. Research returns evidence and tradeoffs; it does not implement the
 recommendation or guarantee correctness.
 
-Use `/cf:loop` only by explicit request and only after its preflight freezes
-Goal, isolated Scope, finite numeric Metric and Direction, reproducible
-Baseline, distinct Guard, noise policy and minimum delta, budget, and stop
-conditions. Each iteration stays in a detached worktree. The result is a
-base-bound isolated patch handoff, never an automatic apply, commit, push, or
-guarantee of improvement.
-
 ```text
 /cf:research Compare current local-first search libraries for this repository
-/cf:loop Goal="reduce parser latency" Scope="packages/parser" Metric="median ms, lower" Baseline="pinned base" Guard="npm test" Noise="MAD; minimum delta 2%" Budget="10 iterations" Stop="budget, drift, or failed guard"
 $cf-research Compare current local-first search libraries for this repository
-$cf-loop Goal="reduce parser latency" Scope="packages/parser" Metric="median ms, lower" Baseline="pinned base" Guard="npm test" Noise="MAD; minimum delta 2%" Budget="10 iterations" Stop="budget, drift, or failed guard"
 ```
 
 Optional document skills are `docs`, `docx`, `pdf`, `pptx`, `xlsx`, and

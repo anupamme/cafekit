@@ -35,7 +35,6 @@ CafeKit installs a native runtime bundle for each supported coding agent:
 - `cf:brainstorm` for unresolved product or architecture choices, with proportional routing before delivery
 - `cf:research` for proportional, traceable evidence when a technical decision remains uncertain
 - `cf:route` for ambiguous, multi-step, multi-domain, or elevated-risk work that needs the shortest valid installed chain
-- `cf:loop` for explicit-only, bounded numeric optimization in an isolated worktree
 - `cf:specs` for structured specification work
 - `cf:develop` for implementation after technical spec readiness and an explicit invocation
 - `cf:debug` and `cf:fix` for evidence-first diagnosis and root-cause repairs — every repair consumes the debug handoff before mutation; Quick/local stays direct; Standard and Incident/deep bound outcome, constraints, non-goals, and acceptance; complex repairs use post-diagnosis research, brainstorm, and staged planning only when the evidence leaves a real decision; all depths retain shared `PASS | PASS_WITH_WARNINGS | FAIL | BLOCKED` verdicts
@@ -64,7 +63,6 @@ Feature: Idea -> /cf:brainstorm (if choices remain) -> explicit /cf:specs -> /cf
 Bug/failure: /cf:debug -> /cf:fix only when the user requested a fix
 Product/architecture exploration: /cf:brainstorm -> chat recommendation -> stop
 Uncertain technical decision: /cf:research -> traceable evidence -> decision handoff
-Explicit numeric optimization: /cf:loop -> bounded isolated experiments -> patch handoff
 ```
 
 ## Quick Start
@@ -76,7 +74,6 @@ Claude Code:
 /cf:scout "Find the runtime entrypoints for skill installation"
 /cf:brainstorm Explore approaches for a meeting transcript extension
 /cf:research Compare current local-first search libraries for this repository
-/cf:loop Goal="reduce parser latency" Scope="packages/parser" Metric="median ms, lower" Baseline="pinned base" Guard="npm test" Noise="MAD; minimum delta 2%" Budget="10 iterations" Stop="budget, drift, or failed guard"
 /cf:specs Build a meeting transcript extension with AI summaries
 /cf:develop meet-transcript-mvp
 /cf:test --full
@@ -90,7 +87,6 @@ $cf-ask "Which config controls CafeKit runtime behavior?" --repo
 $cf-scout "Find the runtime entrypoints for skill installation"
 $cf-brainstorm Explore approaches for a meeting transcript extension
 $cf-research Compare current local-first search libraries for this repository
-$cf-loop Goal="reduce parser latency" Scope="packages/parser" Metric="median ms, lower" Baseline="pinned base" Guard="npm test" Noise="MAD; minimum delta 2%" Budget="10 iterations" Stop="budget, drift, or failed guard"
 $cf-specs Build a meeting transcript extension with AI summaries
 $cf-develop meet-transcript-mvp
 $cf-test --full
@@ -100,18 +96,12 @@ $cf-code-review --pending
 Use `/skills` to browse installed skills. Trust the repository, then review
 project hooks with `/hooks` before enabling them.
 
-### Research versus Loop
+### Research
 
 Research answers an uncertain decision. It selects Quick, Standard, or Deep
 depth, uses repository evidence for local fit, and attaches source, authority,
 date/version, applicability, and confidence state to material claims. It does
 not implement the recommendation or guarantee that it is correct.
-
-Loop is never selected automatically. Use it only when Goal, isolated Scope,
-finite numeric Metric and Direction, reproducible Baseline, distinct Guard,
-noise policy and minimum delta, budget, and stop conditions are explicit. It
-experiments in a detached worktree and returns a base-bound patch handoff; it
-does not apply, commit, push, or guarantee an improvement.
 
 With the optional document skills installed, existing or legacy systems can use:
 

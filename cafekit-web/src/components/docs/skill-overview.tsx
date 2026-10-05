@@ -39,7 +39,6 @@ const labels = {
 const supportSkills = [
   ['cf:route', 'Semantic routing is not deterministic; use it only to escalate material ambiguity, chaining, domains, or risk.'],
   ['cf:research', 'Adaptive evidence for uncertain decisions, with traceable claims and explicit gaps; it does not implement or guarantee the recommendation.'],
-  ['cf:loop', 'Explicit-only bounded experiments requiring Goal, isolated Scope, numeric Metric and Direction, reproducible Baseline, distinct Guard, noise policy and minimum delta, budget, and stop conditions; returns a base-bound isolated patch handoff without guaranteed improvement.'],
   ['cf:ui-ux-pro-max', 'UI/UX rules, accessibility, layout, motion, and design intelligence.'],
   ['cf:web-testing', 'Playwright, Vitest, k6, visual, a11y, and performance testing.'],
   ['cf:agent-browser', 'Context-efficient browser automation snapshots.'],

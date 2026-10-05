@@ -28,5 +28,4 @@ owner, entry condition, and observable exit per retained link. Diagnosis does
 not authorize repair; implementation does not authorize commit, push, deploy,
 publish, or release; no route expands the user's existing authority.
 
-Use `skill-domain-routing.md` to resolve domain capability slots. The numeric
-optimization capability remains explicit-only and must never be auto-routed.
+Use `skill-domain-routing.md` to resolve domain capability slots.

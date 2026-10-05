@@ -136,9 +136,6 @@ const REQUIRED_PAYLOAD = [
   'src/claude/agents/brainstormer.md',
   'src/claude/skills/research/SKILL.md',
   'src/claude/agents/researcher.md',
-  'src/claude/skills/loop/SKILL.md',
-  'src/claude/skills/loop/references/bounded-loop-protocol.md',
-  'src/claude/skills/loop/references/metric-and-guard-contract.md',
   'src/claude/skills/docs/SKILL.md',
   'src/claude/skills/docx/SKILL.md',
   'src/claude/skills/pdf/SKILL.md',
@@ -179,12 +176,9 @@ const BRAINSTORM_SOURCE_RELATIVES = {
   framework: 'src/claude/skills/brainstorm/references/question-framework.md',
   agent: 'src/claude/agents/brainstormer.md',
 };
-const RESEARCH_LOOP_SOURCE_RELATIVES = {
+const RESEARCH_SOURCE_RELATIVES = {
   research: 'src/claude/skills/research/SKILL.md',
   agent: 'src/claude/agents/researcher.md',
-  loop: 'src/claude/skills/loop/SKILL.md',
-  protocol: 'src/claude/skills/loop/references/bounded-loop-protocol.md',
-  metric: 'src/claude/skills/loop/references/metric-and-guard-contract.md',
   workflow: 'src/claude/rules/skill-workflow-routing.md',
   domain: 'src/claude/rules/skill-domain-routing.md',
 };
@@ -774,30 +768,24 @@ function assertPackedBrainstormParity(project, platform) {
   }
 }
 
-function packedResearchLoopPaths(project, platform) {
+function packedResearchPaths(project, platform) {
   return platform === 'codex'
     ? {
         research: path.join(project, '.agents/skills/research/SKILL.md'),
         agent: path.join(project, '.codex/agents/researcher.toml'),
-        loop: path.join(project, '.agents/skills/loop/SKILL.md'),
-        protocol: path.join(project, '.agents/skills/loop/references/bounded-loop-protocol.md'),
-        metric: path.join(project, '.agents/skills/loop/references/metric-and-guard-contract.md'),
         workflow: path.join(project, '.codex/rules/skill-workflow-routing.md'),
         domain: path.join(project, '.codex/rules/skill-domain-routing.md'),
       }
     : {
         research: path.join(project, '.claude/skills/research/SKILL.md'),
         agent: path.join(project, '.claude/agents/researcher.md'),
-        loop: path.join(project, '.claude/skills/loop/SKILL.md'),
-        protocol: path.join(project, '.claude/skills/loop/references/bounded-loop-protocol.md'),
-        metric: path.join(project, '.claude/skills/loop/references/metric-and-guard-contract.md'),
         workflow: path.join(project, '.claude/rules/skill-workflow-routing.md'),
         domain: path.join(project, '.claude/rules/skill-domain-routing.md'),
       };
 }
 
-function readPackedResearchLoop(project, platform) {
-  const paths = packedResearchLoopPaths(project, platform);
+function readPackedResearch(project, platform) {
+  const paths = packedResearchPaths(project, platform);
   const values = Object.fromEntries(Object.entries(paths).map(([key, target]) => [
     key, fs.readFileSync(target, 'utf8'),
   ]));
@@ -807,13 +795,12 @@ function readPackedResearchLoop(project, platform) {
   return values;
 }
 
-function packedResearchLoopIssues(project, platform) {
-  const values = Object.fromEntries(Object.entries(readPackedResearchLoop(project, platform)).map(
+function packedResearchIssues(project, platform) {
+  const values = Object.fromEntries(Object.entries(readPackedResearch(project, platform)).map(
     ([key, value]) => [key, value.replace(/\s+/g, ' ').trim()]
   ));
   const issues = new Set();
   const publicResearch = platform === 'codex' ? 'name: cf-research' : 'name: cf:research';
-  const publicLoop = platform === 'codex' ? 'name: cf-loop' : 'name: cf:loop';
   if (!values.research.includes(publicResearch)
     || !values.research.includes('Choose the smallest depth that can support the decision:')
     || !values.research.includes('Use delegated researchers only as optional acceleration')
@@ -826,35 +813,15 @@ function packedResearchLoopIssues(project, platform) {
     || !values.agent.includes('owns any authorized persistence.')) {
     issues.add('research-agent-boundary');
   }
-  if (!values.loop.includes(publicLoop)
-    || !values.loop.includes('Loop is explicit-only. Never auto-route ordinary implementation, debugging, or research into Loop.')
-    || !values.loop.includes('Reject dirty in-scope state; record but never import or clean out-of-scope dirt.')
-    || !values.loop.includes('separately approved external realpath')
-    || !values.loop.includes('complete detached-worktree tracked/untracked manifest')
-    || !values.loop.includes('Live-agent adherence to this written contract is `[UNPROVEN]` without a host run.')) {
-    issues.add('loop-safety');
-  }
-  if (!values.metric.includes('Guard is mandatory, fixed before baseline, and distinct from Metric.')
-    || !values.metric.includes('`numeric_format`: exactly IEEE-754 binary64')
-    || !values.metric.includes('nonzero exit')
-    || !values.metric.includes('require median, noise, improvement, and required delta to remain finite.')) {
-    issues.add('metric-guard');
-  }
-  if (!values.protocol.includes('do not clean. Preserve the exact path, PID/process evidence, and ownership marker; return `BLOCKED`')
-    || !values.protocol.includes('`base_oid`;')
-    || !values.protocol.includes('patch byte length and lowercase SHA-256')) {
-    issues.add('failure-handoff');
-  }
-  if (!values.workflow.includes('numeric optimization capability remains explicit-only and must never be auto-routed.')
-    || !values.domain.includes('explicit-only numeric optimization capability unless the user invokes it with its required bounded metric/guard contract.')) {
-    issues.add('explicit-routing');
+  if (/numeric optimization capability/.test(`${values.workflow}\n${values.domain}`)) {
+    issues.add('loop-removed');
   }
   return [...issues].sort();
 }
 
-function assertPackedResearchLoopParity(project, platform) {
-  const installed = packedResearchLoopPaths(project, platform);
-  for (const [key, relative] of Object.entries(RESEARCH_LOOP_SOURCE_RELATIVES)) {
+function assertPackedResearchParity(project, platform) {
+  const installed = packedResearchPaths(project, platform);
+  for (const [key, relative] of Object.entries(RESEARCH_SOURCE_RELATIVES)) {
     const sourcePath = path.join(PACKAGE_ROOT, relative);
     const source = fs.readFileSync(sourcePath, 'utf8');
     const expected = platform === 'codex'
@@ -866,12 +833,15 @@ function assertPackedResearchLoopParity(project, platform) {
   }
   const manifest = JSON.parse(fs.readFileSync(path.join(project, RUNTIMES[platform].manifest), 'utf8'));
   const prefixes = platform === 'codex'
-    ? ['.agents/skills/research/', '.agents/skills/loop/']
-    : ['skills/research/', 'skills/loop/'];
+    ? ['.agents/skills/research/']
+    : ['skills/research/'];
   for (const prefix of prefixes) {
     assert.ok(Object.keys(manifest.files).some((entry) => entry.startsWith(prefix)), `${platform} manifest missing ${prefix}`);
   }
-  assert.deepEqual(packedResearchLoopIssues(project, platform), []);
+  const removedLoop = platform === 'codex' ? '.agents/skills/loop/' : 'skills/loop/';
+  assert.equal(Object.keys(manifest.files).some((entry) => entry.startsWith(removedLoop)), false, `${platform} manifest still lists ${removedLoop}`);
+  assert.equal(fs.existsSync(path.join(project, platform === 'codex' ? '.agents/skills/loop' : '.claude/skills/loop')), false, `${platform} still installs Loop`);
+  assert.deepEqual(packedResearchIssues(project, platform), []);
 }
 
 function packedBrainstormInstalledPaths(project, platform) {
@@ -2480,8 +2450,8 @@ test('packed Claude and Codex installs preserve adaptive Specs, spec-maker, and 
   }
 });
 
-test('packed Claude and Codex installs preserve bounded Loop safety and routing', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cafekit-packed-research-loop-'));
+test('packed Claude and Codex installs preserve Research and install no Loop', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cafekit-packed-research-'));
   const destination = path.join(root, 'pack');
   fs.mkdirSync(destination, { recursive: true });
   try {
@@ -2493,7 +2463,7 @@ test('packed Claude and Codex installs preserve bounded Loop safety and routing'
       const project = path.join(root, platform);
       const installer = installPacked(tarball, project, runtimeClosure);
       runInstaller(installer, project, [platform], null);
-      assertPackedResearchLoopParity(project, platform);
+      assertPackedResearchParity(project, platform);
       assert.equal(fs.existsSync(path.join(
         project, platform === 'codex' ? '.agents/skills/autoresearch' : '.claude/skills/autoresearch'
       )), false);
@@ -2503,26 +2473,17 @@ test('packed Claude and Codex installs preserve bounded Loop safety and routing'
   }
 });
 
-test('packed Research and Loop reject semantic weakenings', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cafekit-packed-research-loop-mutations-'));
+test('packed Research rejects semantic weakenings', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cafekit-packed-research-mutations-'));
   const destination = path.join(root, 'pack');
   fs.mkdirSync(destination, { recursive: true });
-  const canonicalBytes = new Map(Object.values(RESEARCH_LOOP_SOURCE_RELATIVES).map((relative) => {
+  const canonicalBytes = new Map(Object.values(RESEARCH_SOURCE_RELATIVES).map((relative) => {
     const sourcePath = path.join(PACKAGE_ROOT, relative);
     return [sourcePath, fs.readFileSync(sourcePath)];
   }));
   const mutations = [
     ['research', 'research-adaptive-evidence', 'Use delegated researchers only as optional acceleration', 'Delegation is required for every research request'],
     ['research', 'research-adaptive-evidence', 'Default to a concise answer in chat.', 'Persist every answer before returning chat output.'],
-    ['loop', 'loop-safety', 'Loop is explicit-only.', 'Loop may be auto-routed.'],
-    ['loop', 'loop-safety', 'separately approved external', 'worktree-contained'],
-    ['loop', 'loop-safety', 'complete detached-worktree tracked/untracked manifest', 'scoped manifest'],
-    ['metric', 'metric-guard', 'Guard is mandatory,', 'Guard may be optional,'],
-    ['metric', 'metric-guard', '`numeric_format`: exactly IEEE-754 binary64', '`numeric_format`: implementation-defined'],
-    ['metric', 'metric-guard', 'nonzero exit', 'nonzero value'],
-    ['protocol', 'failure-handoff', 'do not clean. Preserve the exact path', 'clean the uncertain path and continue'],
-    ['protocol', 'failure-handoff', '`base_oid`;', '`optional_base`;'],
-    ['workflow', 'explicit-routing', 'must never be auto-routed', 'should be auto-routed when optimization seems useful'],
   ];
   try {
     const packed = npmPack(['--pack-destination', destination, '--json'], PACKAGE_ROOT);
@@ -2532,8 +2493,8 @@ test('packed Research and Loop reject semantic weakenings', () => {
       const project = path.join(root, platform);
       const installer = installPacked(tarball, project, runtimeClosure);
       runInstaller(installer, project, [platform], null);
-      assertPackedResearchLoopParity(project, platform);
-      const paths = packedResearchLoopPaths(project, platform);
+      assertPackedResearchParity(project, platform);
+      const paths = packedResearchPaths(project, platform);
       for (const [source, expectedIssue, from, to] of mutations) {
         const target = fs.realpathSync(paths[source]);
         const relative = path.relative(fs.realpathSync(project), target);
@@ -2549,12 +2510,12 @@ test('packed Research and Loop reject semantic weakenings', () => {
         assert.equal(content.indexOf(from, anchor + from.length), -1, `${platform}/${source} duplicate mutation anchor`);
         try {
           fs.writeFileSync(target, `${content.slice(0, anchor)}${to}${content.slice(anchor + from.length)}`);
-          assert.deepEqual(packedResearchLoopIssues(project, platform), [expectedIssue]);
+          assert.deepEqual(packedResearchIssues(project, platform), [expectedIssue]);
           for (const [sourcePath, bytes] of canonicalBytes) assert.deepEqual(fs.readFileSync(sourcePath), bytes);
         } finally {
           fs.writeFileSync(target, original);
         }
-        assert.deepEqual(packedResearchLoopIssues(project, platform), []);
+        assert.deepEqual(packedResearchIssues(project, platform), []);
       }
     }
   } finally {
@@ -2562,40 +2523,24 @@ test('packed Research and Loop reject semantic weakenings', () => {
   }
 });
 
-test('repository and package guides document adaptive Research and bounded Loop', () => {
+test('repository and package guides document adaptive Research and no Loop', () => {
   const guides = {
     repository: fs.readFileSync(path.resolve(PACKAGE_ROOT, '../../README.md'), 'utf8'),
     package: fs.readFileSync(path.join(PACKAGE_ROOT, 'README.md'), 'utf8'),
   };
   for (const [name, guide] of Object.entries(guides)) {
     assert.match(guide, /cf:research/, `${name} names Claude Research`);
-    assert.match(guide, /cf:loop/, `${name} names Claude Loop`);
     assert.match(guide, /\$cf-research/, `${name} names Codex Research`);
-    assert.match(guide, /\$cf-loop/, `${name} names Codex Loop`);
     assert.match(guide, /Quick, Standard, or Deep/, `${name} documents adaptive Research depth`);
-    assert.match(guide, /explicit-only|never selected automatically/i, `${name} keeps Loop explicit-only`);
-    for (const field of ['Goal', 'Scope', 'Metric', 'Direction', 'Baseline', 'Guard', 'minimum delta', 'budget']) {
-      assert.match(guide, new RegExp(field, 'i'), `${name} documents Loop field ${field}`);
-    }
-    assert.match(guide, /stop\s+conditions/i, `${name} documents Loop stop conditions`);
-    assert.match(guide, /detached worktree/, `${name} documents Loop isolation`);
-    assert.match(guide, /base-bound (?:isolated )?patch handoff/, `${name} documents Loop handoff`);
-    assert.match(guide, /does not .{0,80}guarantee|never .{0,80}guarantee/is, `${name} rejects guarantees`);
+    assert.doesNotMatch(guide, /cf[:-]loop/, `${name} does not advertise Loop`);
     assert.doesNotMatch(guide, /cf[:-]autoresearch/, `${name} does not advertise Autoresearch`);
   }
 
   const catalog = fs.readFileSync(path.resolve(PACKAGE_ROOT, '../../cafekit-web/src/components/docs/catalog-visuals.tsx'), 'utf8');
   const overview = fs.readFileSync(path.resolve(PACKAGE_ROOT, '../../cafekit-web/src/components/docs/skill-overview.tsx'), 'utf8');
-  assert.match(catalog, /\['Bounded optimization', \['loop'\]\]/);
   assert.match(catalog, /proportional, traceable evidence/);
   assert.match(overview, /\['cf:research'/);
-  assert.match(overview, /\['cf:loop'/);
-  for (const field of ['Goal', 'Scope', 'Metric', 'Direction', 'Baseline', 'Guard', 'noise policy', 'minimum delta', 'budget']) {
-    assert.match(overview, new RegExp(field, 'i'), `website documents Loop field ${field}`);
-  }
-  assert.match(overview, /stop conditions/);
-  assert.match(overview, /base-bound isolated patch handoff/);
-  assert.match(overview, /without guaranteed improvement/);
+  assert.doesNotMatch(`${catalog}\n${overview}`, /cf:loop|'loop'/);
   assert.doesNotMatch(`${catalog}\n${overview}`, /autoresearch/i);
 });
 

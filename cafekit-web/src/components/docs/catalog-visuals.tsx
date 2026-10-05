@@ -4,7 +4,6 @@ const skillGroups: Array<[string, string[]]> = [
   ['Routing — semantic, not deterministic', ['cf:route']],
   ['Core workflow', ['specs', 'develop', 'test', 'code-review', 'sync', 'git']],
   ['Pre-spec discovery', ['ask', 'brainstorm', 'scout', 'research']],
-  ['Bounded optimization', ['loop']],
   ['Debug and change safety', ['debug', 'fix']],
   ['Product and browser', ['ui-ux-pro-max', 'web-testing', 'agent-browser', 'chrome-devtools']],
   ['Documents and media — optional when installed', ['docs', 'ai-multimodal', 'docx', 'pdf', 'pptx', 'xlsx']],

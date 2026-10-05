@@ -27,6 +27,4 @@ an entry condition for the primary. If zero valid capabilities match, continue
 inline when safe or name the gap. If multiple catalog entries expose the same
 public identity, do not auto-route; require explicit user disambiguation.
 
-Never infer an optional document capability from this rule. Never select the
-explicit-only numeric optimization capability unless the user invokes it with
-its required bounded metric/guard contract.
+Never infer an optional document capability from this rule.

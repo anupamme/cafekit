@@ -85,7 +85,7 @@ test('skill routing consumes live catalog without fixed optional commands', () =
   const codexEntry = fs.readFileSync(path.join(PACKAGE_ROOT, 'src/codex/AGENTS.md'), 'utf8');
   assert.match(workflow, /user names a valid installed skill[\s\S]*one obvious low-risk[\s\S]*direct factual conversation/);
   assert.match(workflow, /do not invoke Route or agents for ceremony/);
-  assert.match(workflow.replace(/\s+/g, ' '), /numeric optimization capability remains explicit-only/);
+  assert.doesNotMatch(`${workflow}\n${domain}`, /numeric optimization capability/);
   assert.match(domain, /examples below are intent hints, not a copied installed inventory/);
   assert.match(domain, /document\/artifact work \| use only a matching installed optional capability/);
   assert.doesNotMatch(domain, /\/cf:(?:docs|docx|pdf|pptx|xlsx|ai-multimodal)/);
