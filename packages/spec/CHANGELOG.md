@@ -5,6 +5,16 @@ All notable changes to @haposoft/cafekit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`cf:ui-ux`** — evondevKit's `ui-ux` skill (https://github.com/evondev/evondevKit, 0.3.13, commit `6465d4c`, MIT) vendored under `skills/ui-ux/` byte-identical except a CafeKit frontmatter and one body line (`count_files`' `"$1"` → `"$*"`, because Claude Code substitutes `$0`–`$9` in a loaded skill body), with `LICENSE` and a `scripts/package.json` that makes `--with-skills-deps` provision Playwright and download its Chromium for `probe.mjs` (a default `--yes` install downloads nothing). A designer-style flow (brief → 2–3 wireframes → pick → build) for in-app screens, plus review, rebuild-keeping-brand, refactor, design-system-first and logo routes. Kept as upstream ships them: the body is Vietnamese; `probe.mjs` clicks popups and openers and taps truncated text on the page it measures, loads Playwright from `--pw`, then the current directory, then its own directory (a project with its own Playwright should pass `--pw .claude/skills/ui-ux/scripts`), and falls back to the system Chrome; the skill asks the model to hotlink Unsplash/randomuser mock images and to run a background `http.server` — CafeKit's process and scope rules still apply; `scripts/lint-skill.mjs` ships unused. `bin/__tests__/ui-ux-skill.test.js` pins the identity, license, the absence of `$<digit>`, the Playwright manifest and the installed copy; an installed run with `--with-skills-deps` measured the skill's own kanban sample at 375 and 1440 px.
+
+### Changed
+
+- `cf:ui-ux-pro-max` `when_to_use` now names lookups only (palettes, fonts, product-type styles, UX guidelines) and points screen work to `cf:ui-ux`.
+
 ## [0.16.8] - 2026-09-22
 
 ### Changed

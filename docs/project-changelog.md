@@ -3,6 +3,12 @@
 All notable changes to CafeKit are documented here, following
 [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+### Added
+- **`cf:ui-ux`** — skill `ui-ux` của evondevKit (https://github.com/evondev/evondevKit, 0.3.13, commit `6465d4c`, MIT) được chép vào `skills/ui-ux/` giữ nguyên từng byte, trừ frontmatter theo chuẩn CafeKit và một dòng trong thân (`"$1"` của `count_files` → `"$*"`, vì Claude Code thay `$0`–`$9` trong thân skill bằng đối số gọi), kèm `LICENSE` và `scripts/package.json` để `--with-skills-deps` cài Playwright và tải Chromium cho `probe.mjs` (cài mặc định `--yes` không tải gì). Quy trình kiểu designer (brief → 2–3 wireframe → chọn → dựng) cho màn trong app, cùng các lối soi UI, dựng lại giữ brand, refactor, dựng design system trước và làm logo. Giữ nguyên như upstream: thân skill tiếng Việt; `probe.mjs` bấm popup, nút mở và chạm chữ bị cắt trên trang nó đo, tìm Playwright theo `--pw`, rồi thư mục đang đứng, rồi thư mục của nó (dự án có Playwright riêng nên truyền `--pw .claude/skills/ui-ux/scripts`), và rơi về Chrome hệ thống; skill bảo model gắn ảnh mẫu Unsplash/randomuser và chạy nền `http.server` — luật quản lý tiến trình và phạm vi của CafeKit vẫn áp dụng; `scripts/lint-skill.mjs` được ship nhưng không dùng. `bin/__tests__/ui-ux-skill.test.js` ghim tên, license, việc không còn `$<số>`, manifest Playwright và bản đã cài; một lần cài thật với `--with-skills-deps` đã đo trang kanban mẫu của skill ở 375 và 1440 px.
+### Changed
+- `when_to_use` của `cf:ui-ux-pro-max` giờ chỉ nói việc tra cứu (bảng màu, font, style theo loại sản phẩm, luật UX) và chỉ việc dựng màn sang `cf:ui-ux`.
+
 ## [0.16.8] - 2026-09-22
 ### Changed
 - **`cf:orca` theo hướng dẫn của Orca 1.4.220.** Yêu cầu giao việc ("hand off", "handover", "giao cho agent khác") giờ đi tới `orca skills get orca-cli` thay vì `orchestration`, vốn chỉ dành cho việc người dùng nói rõ muốn giám sát, theo dõi hay điều phối; danh sách chủ đề nêu đúng các hướng dẫn CLI này có (browser, automations, publishing artifact là reference của `orca-cli`; Linear, giả lập iOS/Android, môi trường theo workspace và điều khiển GUI qua `orca skills list`). `terminal close --all` và `worktree rm` giờ phải hỏi người dùng kể cả trong worktree hiện tại, vì chúng dừng mọi tiến trình của workspace và xoá trạng thái; nội dung trang trong browser và nội dung ticket Linear cũng được coi là không tin cậy như output terminal.
