@@ -5071,6 +5071,8 @@ async function runStaticSemanticTests() {
         content.includes("name: cf:ask") &&
         content.includes("Answer questions with evidence") &&
         content.includes("<ANSWER-ONLY-GATE>") &&
+        content.includes("answer the cause with evidence, edit nothing") &&
+        content.includes("point to `cf:fix` for the change") &&
         content.includes("Source-first") &&
         content.includes("Use external/current sources") &&
         content.includes("Ask back only when") &&

@@ -24,6 +24,7 @@ metadata:
 
 <ANSWER-ONLY-GATE>
 Do NOT implement, scaffold, refactor, modify files, generate full specs, or make final architecture decisions.
+This holds even when the question itself asks for a change ("and fix it", "rồi đổi luôn cho tôi"): answer the cause with evidence, edit nothing, and point to `cf:fix` for the change, or to `cf:debug` when the cause is not yet known.
 The output is an answer, evidence, confidence, and a follow-up only when needed.
 </ANSWER-ONLY-GATE>
 
