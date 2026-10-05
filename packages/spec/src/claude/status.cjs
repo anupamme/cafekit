@@ -132,7 +132,7 @@ function buildBranchPart(ctx) {
 
 // Default session line: one row of single-width symbols, each value labelled by
 // its glyph so the line stays short and every number says what it measures.
-//   ◆ model (effort)  ◔ context%  ⧗ 5h-quota% reset  ◷ weekly%  ⎇ branch ●changed ↑ahead ↓behind  ± +added/-removed
+//   ◆ model (effort) ϟfast ✱thinking  ◔ context%  ⧗ 5h-quota% reset  ◷ weekly%  ⎇ branch ●changed ↑ahead ↓behind  ± +added/-removed  ⏱ session  ↻ cache-hit%
 
 /** Quarter-circle glyph that fills with the percentage. */
 function fillGlyph(percent) {
@@ -156,12 +156,32 @@ function shortReset(sessionText) {
   return match ? `${match[1]}h${match[2]}m` : null;
 }
 
+/** 28147114 → "7h49m"; under an hour → "12m". */
+function formatDuration(ms) {
+  const minutes = Math.floor(ms / 60000);
+  const hours = Math.floor(minutes / 60);
+  return hours > 0 ? `${hours}h${String(minutes % 60).padStart(2, '0')}m` : `${minutes}m`;
+}
+
+/** "#80✓" approved, "#80✗" changes requested, "#80" pending, dim "#80" draft; "!80" for a GitLab MR. */
+function formatPr(pr) {
+  const label = `${pr.kind === 'mr' ? '!' : '#'}${pr.number}`;
+  if (pr.review_state === 'approved') return `${label}${green('✓')}`;
+  if (pr.review_state === 'changes_requested') return `${label}${red('✗')}`;
+  if (pr.review_state === 'draft') return dim(label);
+  return label;
+}
+
 /**
  * Parts of the default line in display order. `drop` ranks what goes first
  * when the terminal is too narrow (higher drops earlier); 0 never drops.
  */
 function buildLineParts(ctx, { minimal = false } = {}) {
-  const parts = [{ text: `◆ ${ctx.modelName}${ctx.effortLevel ? ` ${dim(`(${ctx.effortLevel})`)}` : ''}`, drop: 0 }];
+  let model = `◆ ${ctx.modelName}`;
+  if (ctx.effortLevel) model += ` ${dim(`(${ctx.effortLevel})`)}`;
+  const flags = `${ctx.fastMode ? 'ϟ' : ''}${ctx.thinking ? '✱' : ''}`;
+  if (flags) model += ` ${flags}`;
+  const parts = [{ text: model, drop: 0 }];
 
   if (ctx.contextPercent > 0) {
     parts.push({ text: tintPercent(ctx.contextPercent, `${fillGlyph(ctx.contextPercent)} ${ctx.contextPercent}%`), drop: 0 });
@@ -184,12 +204,24 @@ function buildLineParts(ctx, { minimal = false } = {}) {
       if (changed > 0) git += ` ${yellow(`●${changed}`)}`;
       if (ctx.gitAhead > 0) git += ` ↑${ctx.gitAhead}`;
       if (ctx.gitBehind > 0) git += ` ↓${ctx.gitBehind}`;
+      if (ctx.pr) git += ` ${formatPr(ctx.pr)}`;
+      if (ctx.inWorktree) git += ' ⊟';
     }
     parts.push({ text: git, drop: 1 });
   }
 
   if (!minimal && (ctx.linesAdded > 0 || ctx.linesRemoved > 0)) {
     parts.push({ text: `± ${green(`+${ctx.linesAdded}`)}/${red(`-${ctx.linesRemoved}`)}`, drop: 4 });
+  }
+
+  if (!minimal && ctx.durationMs >= 60000) {
+    parts.push({ text: `⏱ ${formatDuration(ctx.durationMs)}`, drop: 5 });
+  }
+
+  if (!minimal && ctx.cacheHitRatio != null) {
+    const pct = Math.round(ctx.cacheHitRatio * 100);
+    const tinted = pct < 50 ? red(`${pct}%`) : pct < 80 ? yellow(`${pct}%`) : green(`${pct}%`);
+    parts.push({ text: `↻ ${tinted}`, drop: 6 });
   }
 
   return parts;
@@ -508,48 +540,53 @@ async function main() {
     // Parse transcript for tools/agents/todos
     const transcript = transcriptPath ? await parseTranscript(transcriptPath) : { tools: [], agents: [], todos: [], sessionStart: null };
 
-    // Read actual reset time and utilization from usage limits cache (written by usage-context-awareness hook)
+    // Quota windows: Claude Code's own rate_limits when present (Pro/Max, after the
+    // first API response); otherwise the usage limits cache the usage hook writes.
     let usagePercent = null;
-    try {
-      const usageCachePath = path.join(os.tmpdir(), 'ck-usage-limits-cache.json');
-      if (fs.existsSync(usageCachePath)) {
-        const cache = JSON.parse(fs.readFileSync(usageCachePath, 'utf8'));
-
-        // Check status flag for fallback (non-OAuth scenarios)
-        const fresh = typeof cache.timestamp === 'number'
-          && Date.now() - cache.timestamp < USAGE_CACHE_TTL_MS;
-        if (cache.status === 'unavailable') {
-          sessionText = 'N/A';
-        } else if (cache.status === 'available' && fresh) {
-          const fiveHour = cache.data?.five_hour;
-          usagePercent = fiveHour?.utilization ?? null;
-          const resetAt = fiveHour?.resets_at;
-          if (resetAt) {
-            const resetTime = new Date(resetAt);
-            const remaining = Math.floor(resetTime.getTime() / 1000) - Math.floor(Date.now() / 1000);
-            if (remaining > 0 && remaining < 18000) {
-              const rh = Math.floor(remaining / 3600);
-              const rm = Math.floor((remaining % 3600) / 60);
-              sessionText = `${rh}h ${rm}m until reset`;
-            }
-          }
-          const sevenDay = cache.data?.seven_day;
-          if (sevenDay?.utilization != null) {
-            weeklyPercent = Math.round(sevenDay.utilization);
-            weeklyText = `wk ${Math.round(sevenDay.utilization)}%`;
-            const wkResetAt = sevenDay.resets_at;
-            if (wkResetAt) {
-              const wkRemaining = Math.floor(new Date(wkResetAt).getTime() / 1000) - Math.floor(Date.now() / 1000);
-              if (wkRemaining > 0) {
-                const wd = Math.floor(wkRemaining / 86400);
-                const wh = Math.floor((wkRemaining % 86400) / 3600);
-                weeklyText += ` (${wd}d ${wh}h)`;
-              }
-            }
-          }
+    const applyWindows = (fiveHour, sevenDay) => {
+      if (fiveHour?.percent != null) {
+        usagePercent = fiveHour.percent;
+        const remaining = Math.floor(fiveHour.resetsAtMs / 1000) - Math.floor(Date.now() / 1000);
+        if (remaining > 0 && remaining < 18000) {
+          sessionText = `${Math.floor(remaining / 3600)}h ${Math.floor((remaining % 3600) / 60)}m until reset`;
         }
       }
-    } catch {}
+      if (sevenDay?.percent != null) {
+        weeklyPercent = Math.round(sevenDay.percent);
+        weeklyText = `wk ${weeklyPercent}%`;
+        const wkRemaining = Math.floor(sevenDay.resetsAtMs / 1000) - Math.floor(Date.now() / 1000);
+        if (wkRemaining > 0) {
+          weeklyText += ` (${Math.floor(wkRemaining / 86400)}d ${Math.floor((wkRemaining % 86400) / 3600)}h)`;
+        }
+      }
+    };
+    const fromPayload = (window) => (window && typeof window.used_percentage === 'number'
+      ? { percent: window.used_percentage, resetsAtMs: Number(window.resets_at) * 1000 }
+      : null);
+    const payloadFive = fromPayload(data.rate_limits?.five_hour);
+    const payloadWeek = fromPayload(data.rate_limits?.seven_day);
+    if (payloadFive || payloadWeek) {
+      applyWindows(payloadFive, payloadWeek);
+    } else {
+      try {
+        const usageCachePath = path.join(os.tmpdir(), 'ck-usage-limits-cache.json');
+        if (fs.existsSync(usageCachePath)) {
+          const cache = JSON.parse(fs.readFileSync(usageCachePath, 'utf8'));
+
+          // Check status flag for fallback (non-OAuth scenarios)
+          const fresh = typeof cache.timestamp === 'number'
+            && Date.now() - cache.timestamp < USAGE_CACHE_TTL_MS;
+          if (cache.status === 'unavailable') {
+            sessionText = 'N/A';
+          } else if (cache.status === 'available' && fresh) {
+            const fromCache = (window) => (window?.utilization != null
+              ? { percent: window.utilization, resetsAtMs: window.resets_at ? new Date(window.resets_at).getTime() : NaN }
+              : null);
+            applyWindows(fromCache(cache.data?.five_hour), fromCache(cache.data?.seven_day));
+          }
+        }
+      } catch {}
+    }
 
     // Cost and lines changed
     const billingMode = env.CLAUDE_BILLING_MODE || 'api';
@@ -559,6 +596,14 @@ async function main() {
       : null;
     const linesAdded = data.cost?.total_lines_added || 0;
     const linesRemoved = data.cost?.total_lines_removed || 0;
+    const durationMs = Number(data.cost?.total_duration_ms) || 0;
+    const cacheHitRatio = data.prompt_cache?.requests > 0 && typeof data.prompt_cache.hit_ratio === 'number'
+      ? data.prompt_cache.hit_ratio
+      : null;
+    const fastMode = data.fast_mode === true;
+    const thinking = data.thinking?.enabled === true;
+    const pr = typeof data.pr?.number === 'number' ? data.pr : null;
+    const inWorktree = Boolean(data.worktree?.name || data.workspace?.git_worktree);
 
     // Config counts
     const configs = countConfigs(rawDir);
@@ -582,6 +627,12 @@ async function main() {
       costText,
       linesAdded,
       linesRemoved,
+      durationMs,
+      cacheHitRatio,
+      fastMode,
+      thinking,
+      pr,
+      inWorktree,
       configs,
       transcript
     };

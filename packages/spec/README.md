@@ -147,8 +147,11 @@ cat .codex/cafekit.json
 The Claude statusline reads three keys from `.claude/runtime.json`:
 
 - `"statusline"`: render mode — `full` (default), `compact`, `minimal`, or `none`.
-  The default is one line, `◆ model (effort)  ◔ context%  ⧗ 5h quota% reset  ◷ weekly%  ⎇ branch ●changed ↑↓  ± +added/-removed`,
-  which drops changes, weekly, quota, then the branch as the terminal narrows. `full` adds
+  The default is one line, `◆ model (effort) ϟ✱  ◔ context%  ⧗ 5h quota% reset  ◷ weekly%  ⎇ branch ●changed ↑↓ #PR✓ ⊟  ± +added/-removed  ⏱ session  ↻ cache hit%`
+  (`ϟ` fast mode, `✱` thinking, `#PR` with ✓ approved / ✗ changes requested, `⊟` inside a git worktree;
+  each appears only when present), which drops cache, session time, changes, weekly, quota, then the
+  branch as the terminal narrows. Quota comes from the payload's `rate_limits` when Claude Code sends
+  it, otherwise from the usage cache. `full` adds
   agent and todo lines only while they exist, `compact` is the line alone, and `minimal`
   keeps model, context and branch.
 - `statuslineColors`: set `false` to disable ANSI colors (`NO_COLOR` also wins).

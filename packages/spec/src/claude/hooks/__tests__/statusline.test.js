@@ -242,3 +242,66 @@ test('statusline shows the live effort level next to the model, and nothing when
   const without = runStatus({ runtime });
   assert.equal(visible(without.stdout).trimEnd(), '◆ TestModel  ◑ 53%');
 });
+
+test('statusline reads quota from the payload rate_limits before the usage cache', () => {
+  const nowSec = Math.floor(Date.now() / 1000);
+  const payload = basePayload({ rate_limits: {
+    five_hour: { used_percentage: 36, resets_at: nowSec + 2 * 3600 + 12 * 60 + 30 },
+    seven_day: { used_percentage: 43, resets_at: nowSec + 2 * 86400 },
+  } });
+  const run = runStatus({ runtime: { statusline: 'compact', statuslineColors: false }, payload,
+    tmpFiles: { 'ck-usage-limits-cache.json': freshUsageCache() } });
+  assert.equal(visible(run.stdout).trimEnd(), '◆ TestModel  ◑ 53%  ⧗ 36% <reset>  ◷ 43%', 'payload wins over the cache (20%/45%)');
+});
+
+/** A throwaway git repo on branch `feat`, so git, PR and worktree marks have a branch to ride on. */
+function gitRepo() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-git-'));
+  cleanupDirs.push(dir);
+  for (const args of [['init', '-q', '-b', 'feat'], ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', 'init']]) {
+    const r = spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stderr);
+  }
+  return dir;
+}
+
+const stripAnsi = (text) => text.replace(ANSI, '').replace(NBSP, ' ').trimEnd();
+
+test('statusline shows fast mode, thinking, PR state, worktree, session time and cache hit only when present', () => {
+  const runtime = { statusline: 'compact', statuslineColors: false };
+  const repo = gitRepo();
+  const rich = basePayload({
+    fast_mode: true,
+    thinking: { enabled: true },
+    pr: { number: 80, review_state: 'approved' },
+    workspace: { current_dir: repo, git_worktree: 'feat-x' },
+    cost: { total_duration_ms: 28147114 },
+    prompt_cache: { requests: 77, hit_ratio: 0.986 },
+  });
+  assert.equal(stripAnsi(runStatus({ runtime, payload: rich }).stdout), '◆ TestModel ϟ✱  ◑ 53%  ⎇ feat #80✓ ⊟  ⏱ 7h49m  ↻ 99%');
+
+  const off = basePayload({
+    fast_mode: false, thinking: { enabled: false }, workspace: { current_dir: repo },
+    cost: { total_duration_ms: 30000 }, prompt_cache: { requests: 0, hit_ratio: 0 },
+  });
+  assert.equal(stripAnsi(runStatus({ runtime, payload: off }).stdout), '◆ TestModel  ◑ 53%  ⎇ feat');
+});
+
+test('statusline marks each PR review state and a GitLab merge request', () => {
+  const runtime = { statusline: 'minimal', statuslineColors: true };
+  const repo = gitRepo();
+  const line = (pr) => runStatus({ runtime: { statusline: 'compact', statuslineColors: true }, payload: basePayload({ pr, workspace: { current_dir: repo } }) }).stdout;
+  assert.match(line({ number: 7, review_state: 'approved' }), /#7\x1b\[32m✓/);
+  assert.match(line({ number: 7, review_state: 'changes_requested' }), /#7\x1b\[31m✗/);
+  assert.match(line({ number: 7, review_state: 'draft' }), /\x1b\[2m#7\x1b\[0m/);
+  assert.match(stripAnsi(line({ number: 7, review_state: 'pending' })), /⎇ feat #7$/);
+  assert.match(stripAnsi(line({ number: 12, kind: 'mr' })), /⎇ feat !12$/);
+  assert.doesNotMatch(runStatus({ runtime, payload: basePayload({ pr: { number: 7 }, workspace: { current_dir: repo } }) }).stdout, /#7/, 'minimal keeps only the branch name');
+});
+
+test('statusline drops session time and cache before changes on a narrow terminal', () => {
+  const payload = basePayload({ cost: { total_duration_ms: 28147114, total_lines_added: 5, total_lines_removed: 1 }, prompt_cache: { requests: 3, hit_ratio: 0.4 } });
+  const runtime = { statusline: 'full', statuslineColors: false };
+  assert.equal(stripAnsi(runStatus({ runtime, payload, envExtra: { COLUMNS: '34' } }).stdout), '◆ TestModel  ◑ 53%  ± +5/-1');
+  assert.equal(stripAnsi(runStatus({ runtime, payload, envExtra: { COLUMNS: '44' } }).stdout), '◆ TestModel  ◑ 53%  ± +5/-1  ⏱ 7h49m');
+});
