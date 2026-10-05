@@ -86,7 +86,10 @@
       "react-best-practices",
       "inspect",
       "hotfix",
-      "question"
+      "question",
+      "loop",
+      "route",
+      "delegate"
     ],
     "agents": {
       "claude": ["agents/god-developer.md"],

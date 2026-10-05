@@ -60,7 +60,7 @@ test('manifest separates core, optional documents, and retired skills', () => {
   assert.deepEqual(manifest.obsolete.skills, [
     'backend-development', 'frontend-development', 'frontend-design',
     'mobile-development', 'devops', 'react-best-practices',
-    'inspect', 'hotfix', 'question'
+    'inspect', 'hotfix', 'question', 'loop', 'route', 'delegate'
   ]);
 });
 
@@ -306,6 +306,43 @@ for (const platformKey of ['claude', 'codex']) {
       assert.equal(parsed.skills.find((skill) => skill.public_id === 'cf:fix').directory, 'fix');
       assert.ok(parsed.diagnostics.some((item) => item.directory === 'hotfix' && item.code === 'retired_skill'));
       assert.equal(parsed.diagnostics.some((item) => item.code === 'duplicate_public_name'), false);
+    });
+  });
+}
+
+for (const platformKey of ['claude', 'codex']) {
+  test(`${platformKey} upgrade retires the removed loop, route and delegate directories`, () => {
+    withTempProject((root) => {
+      const platform = PLATFORMS[platformKey];
+      const recordRoot = platform.ownership?.recordRoot || platform.folder;
+      const key = (file) => path.relative(recordRoot, file).replace(/\\/g, '/');
+      const ownership = { schemaVersion: 1, version: 'old', files: {} };
+      const removed = ['loop', 'route', 'delegate'];
+      for (const old of removed) {
+        const file = path.join(platform.skillsDir, old, 'SKILL.md');
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, `pristine ${old}\n`);
+        ownership.files[key(file)] = { sha256: manifestLib.hashFile(file), version: 'old' };
+      }
+      // A user-edited copy has no matching ownership hash, so it must survive the upgrade.
+      const edited = path.join(platform.skillsDir, 'route', 'references', 'my-notes.md');
+      fs.mkdirSync(path.dirname(edited), { recursive: true });
+      fs.writeFileSync(edited, 'user notes\n');
+      const ctx = {
+        manifest: loadClaudeMigrationManifest(),
+        documentSkills: { [platformKey]: { enabled: true, selectionSource: 'cli-opt-in' } },
+        ownership: { [platform.folder]: ownership },
+        trackers: { [platformKey]: manifestLib.createTracker(platform.folder, 'next', platform.ownership) },
+        dryRun: false,
+        ui: silentUi(),
+        results: { updated: 0, preserved: 0, preservedFiles: [] }
+      };
+      reconcileSkillInventory(ctx, platformKey);
+      assert.equal(fs.existsSync(path.join(root, platform.skillsDir, 'loop')), false, 'loop');
+      assert.equal(fs.existsSync(path.join(root, platform.skillsDir, 'delegate')), false, 'delegate');
+      assert.equal(fs.existsSync(path.join(root, edited)), true, 'user-edited route copy is preserved');
+      assert.equal(ctx.results.updated, 2);
+      assert.equal(ctx.results.preserved, 1);
     });
   });
 }

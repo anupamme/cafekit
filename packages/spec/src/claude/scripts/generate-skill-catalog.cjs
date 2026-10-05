@@ -18,6 +18,9 @@ const RETIRED_DIRECTORIES = new Set([
   'inspect',
   'hotfix',
   'question',
+  'loop',
+  'route',
+  'delegate',
 ]);
 
 function usage() {

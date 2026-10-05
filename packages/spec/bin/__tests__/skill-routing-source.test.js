@@ -96,8 +96,8 @@ test('skill routing consumes live catalog without fixed optional commands', () =
 test('skill catalog exposes discriminating routing metadata', () => {
   withTempRoot((root) => {
     const skills = path.join(root, 'skills');
-    writeSkill(skills, 'route', {
-      name: 'cf:route', description: 'Choose a bounded chain.',
+    writeSkill(skills, 'triage', {
+      name: 'cf:triage', description: 'Choose a bounded chain.',
       when: 'Use for ambiguous multi-step work.', category: 'utilities',
       keywords: ['routing', 'risk'],
     });
@@ -134,9 +134,9 @@ test('skill catalog exposes discriminating routing metadata', () => {
     });
 
     const catalog = runCatalog(SCANNER, root, ['--json', '--root', skills]);
-    assert.deepEqual(catalog.skills.map((skill) => skill.public_id), ['cf:ask', 'cf:route']);
-    assert.deepEqual(catalog.skills.find((skill) => skill.public_id === 'cf:route'), {
-      name: 'cf:route', public_id: 'cf:route', directory: 'route',
+    assert.deepEqual(catalog.skills.map((skill) => skill.public_id), ['cf:ask', 'cf:triage']);
+    assert.deepEqual(catalog.skills.find((skill) => skill.public_id === 'cf:triage'), {
+      name: 'cf:triage', public_id: 'cf:triage', directory: 'triage',
       description: 'Choose a bounded chain.', when_to_use: 'Use for ambiguous multi-step work.',
       category: 'utilities', keywords: ['routing', 'risk'], user_invocable: true,
       has_references: false, has_scripts: false,
