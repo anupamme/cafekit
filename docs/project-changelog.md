@@ -3,6 +3,10 @@
 All notable changes to CafeKit are documented here, following
 [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+### Changed
+- **Statusline mặc định gọn còn một dòng.** `◆ model  ◔ context%  ⧗ quota 5h% reset  ◷ tuần%  ⎇ nhánh ●file đổi ↑↓  ± +thêm/-xoá` thay cho ba dòng emoji; mỗi số có một ký hiệu một màu làm nhãn, ký hiệu context đầy dần theo phần trăm, phần trăm chuyển vàng ở 70% và đỏ ở 85%, màn hẹp bỏ dần thay đổi, tuần, quota rồi nhánh, không bao giờ bỏ model hay context. `full` chỉ thêm dòng agent và todo khi đang có, `compact` là riêng dòng đó, `minimal` giữ model, context và nhánh. `statuslineColors: false` giờ tắt cả mã màu ở phần trăm. `statuslineLayout` tự cấu hình vẫn hiển thị như cũ. `src/claude/hooks/__tests__/statusline.test.js` ghim dòng, các chế độ, thứ tự bỏ khi hẹp và công tắc màu.
+
 ## [0.16.8] - 2026-09-22
 ### Changed
 - **`cf:orca` theo hướng dẫn của Orca 1.4.220.** Yêu cầu giao việc ("hand off", "handover", "giao cho agent khác") giờ đi tới `orca skills get orca-cli` thay vì `orchestration`, vốn chỉ dành cho việc người dùng nói rõ muốn giám sát, theo dõi hay điều phối; danh sách chủ đề nêu đúng các hướng dẫn CLI này có (browser, automations, publishing artifact là reference của `orca-cli`; Linear, giả lập iOS/Android, môi trường theo workspace và điều khiển GUI qua `orca skills list`). `terminal close --all` và `worktree rm` giờ phải hỏi người dùng kể cả trong worktree hiện tại, vì chúng dừng mọi tiến trình của workspace và xoá trạng thái; nội dung trang trong browser và nội dung ticket Linear cũng được coi là không tin cậy như output terminal.

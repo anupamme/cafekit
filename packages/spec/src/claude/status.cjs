@@ -2,7 +2,7 @@
 'use strict';
 
 /**
- * Custom Claude Code statusline for Node.js - Multi-line Edition
+ * Custom Claude Code statusline for Node.js - one-line default
  * Cross-platform support: Windows, macOS, Linux
  * Features: ANSI colors, tool/agent/todo tracking, context window, session timer
  * No external dependencies - uses only Node.js built-in modules
@@ -130,77 +130,83 @@ function buildBranchPart(ctx) {
   return branchPart;
 }
 
-function renderSessionLines(ctx) {
-  const lines = [];
-  const termWidth = getTerminalWidth();
-  const threshold = Math.floor(termWidth * 0.85);
+// Default session line: one row of single-width symbols, each value labelled by
+// its glyph so the line stays short and every number says what it measures.
+//   ◆ model  ◔ context%  ⧗ 5h-quota% reset  ◷ weekly%  ⎇ branch ●changed ↑ahead ↓behind  ± +added/-removed
 
-  // Build all atomic parts for flexible composition (no colors on static text)
-  const dirPart = `📁 ${ctx.currentDir}`;
-  const branchPart = buildBranchPart(ctx);
+/** Quarter-circle glyph that fills with the percentage. */
+function fillGlyph(percent) {
+  if (percent >= 88) return '●';
+  if (percent >= 63) return '◕';
+  if (percent >= 38) return '◑';
+  if (percent >= 13) return '◔';
+  return '○';
+}
 
-  // Active plan indicator (disabled for now - code preserved)
-  // const planPart = ctx.activePlan ? `📋 ${ctx.activePlan}` : '';
-  const planPart = '';
+/** Same thresholds as the context bar; plain text when colours are off. */
+function tintPercent(percent, text) {
+  if (percent >= 85) return red(text);
+  if (percent >= 70) return yellow(text);
+  return green(text);
+}
 
-  // Combined location (dir + branch + plan)
-  let locationPart = branchPart ? `${dirPart}  ${branchPart}` : dirPart;
-  if (planPart) locationPart += `  ${planPart}`;
+/** "2h 48m until reset" → "2h48m"; anything else → null. */
+function shortReset(sessionText) {
+  const match = /^(\d+)h (\d+)m/.exec(sessionText || '');
+  return match ? `${match[1]}h${match[2]}m` : null;
+}
 
-  // Build session part: 🤖 model  contextBar%  ⌛ time left (usage%)
-  let sessionPart = `🤖 ${ctx.modelName}`;
+/**
+ * Parts of the default line in display order. `drop` ranks what goes first
+ * when the terminal is too narrow (higher drops earlier); 0 never drops.
+ */
+function buildLineParts(ctx, { minimal = false } = {}) {
+  const parts = [{ text: `◆ ${ctx.modelName}`, drop: 0 }];
+
   if (ctx.contextPercent > 0) {
-    sessionPart += `  ${coloredBar(ctx.contextPercent, 12)} ${ctx.contextPercent}%`;
-  }
-  // Add usage/reset info to session part (stays on line 1 with model - Claude Code only reads line 1)
-  const usageStr = buildUsageString(ctx);
-  if (usageStr) {
-    sessionPart += `  ⌛ ${usageStr.replace(/\)$/, ' used)')}`;
-    if (ctx.weeklyText) sessionPart += `  ${ctx.weeklyText}`;
+    parts.push({ text: tintPercent(ctx.contextPercent, `${fillGlyph(ctx.contextPercent)} ${ctx.contextPercent}%`), drop: 0 });
   }
 
-  // Build stats part (only lines changed now)
-  const statsItems = [];
-  // if (ctx.costText) statsItems.push(`💵 ${ctx.costText.replace(/(\.\d{2})\d+/, '$1')}`);
-  if (ctx.linesAdded > 0 || ctx.linesRemoved > 0) {
-    statsItems.push(`📝 ${green(`+${ctx.linesAdded}`)} ${red(`-${ctx.linesRemoved}`)}`);
-  }
-  const statsPart = statsItems.join('  ');
-
-  // Calculate lengths for layout decisions
-  const locationLen = visibleLength(locationPart);
-  const sessionLen = visibleLength(sessionPart);
-  const statsLen = visibleLength(statsPart);
-
-  // Layout priority: SESSION FIRST (Claude Code only reads line 1)
-  // Line 1: model + context + usage (most important for Claude Code)
-  // Line 2+: location, git, stats
-  const allOneLine = `${sessionPart}  ${locationPart}  ${statsPart}`;
-  const sessionLocation = `${sessionPart}  ${locationPart}`;
-  const sessionStats = `${sessionPart}  ${statsPart}`;
-
-  if (visibleLength(allOneLine) <= threshold && statsLen > 0) {
-    // Ultra-wide: everything on one line (session first)
-    lines.push(allOneLine);
-  } else if (visibleLength(sessionLocation) <= threshold) {
-    // Wide: session+location on line 1 | stats on line 2
-    lines.push(sessionLocation);
-    if (statsLen > 0) lines.push(statsPart);
-  } else if (sessionLen <= threshold) {
-    // Medium: session on line 1 | location on line 2 | stats on line 3
-    lines.push(sessionPart);
-    lines.push(locationPart);
-    if (statsLen > 0) lines.push(statsPart);
-  } else {
-    // Narrow: session | dir | branch | stats (each on own line)
-    lines.push(sessionPart);
-    lines.push(dirPart);
-    if (branchPart) lines.push(branchPart);
-    if (planPart) lines.push(planPart);
-    if (statsLen > 0) lines.push(statsPart);
+  if (!minimal && ctx.usagePercent != null) {
+    const pct = Math.round(ctx.usagePercent);
+    const reset = shortReset(ctx.sessionText);
+    parts.push({ text: `⧗ ${tintPercent(pct, `${pct}%`)}${reset ? ` ${dim(reset)}` : ''}`, drop: 2 });
   }
 
-  return lines;
+  if (!minimal && ctx.weeklyPercent != null) {
+    parts.push({ text: `◷ ${tintPercent(ctx.weeklyPercent, `${ctx.weeklyPercent}%`)}`, drop: 3 });
+  }
+
+  if (ctx.gitBranch) {
+    let git = `⎇ ${ctx.gitBranch}`;
+    if (!minimal) {
+      const changed = ctx.gitUnstaged + ctx.gitStaged;
+      if (changed > 0) git += ` ${yellow(`●${changed}`)}`;
+      if (ctx.gitAhead > 0) git += ` ↑${ctx.gitAhead}`;
+      if (ctx.gitBehind > 0) git += ` ↓${ctx.gitBehind}`;
+    }
+    parts.push({ text: git, drop: 1 });
+  }
+
+  if (!minimal && (ctx.linesAdded > 0 || ctx.linesRemoved > 0)) {
+    parts.push({ text: `± ${green(`+${ctx.linesAdded}`)}/${red(`-${ctx.linesRemoved}`)}`, drop: 4 });
+  }
+
+  return parts;
+}
+
+/** Join parts, dropping the highest-ranked ones until the line fits the terminal. */
+function fitLine(parts) {
+  const width = getTerminalWidth() - 2;
+  const kept = [...parts];
+  const join = () => kept.map((part) => part.text).join('  ');
+  while (visibleLength(join()) > width) {
+    const candidates = kept.filter((part) => part.drop > 0);
+    if (candidates.length === 0) break;
+    const victim = candidates.reduce((a, b) => (b.drop > a.drop ? b : a));
+    kept.splice(kept.indexOf(victim), 1);
+  }
+  return join();
 }
 
 /**
@@ -309,52 +315,21 @@ function renderTodosLine(transcript) {
   return `${yellow('▸')} ${display} ${dim(`(${completedCount} done, ${pendingCount} pending)`)}`;
 }
 
-/**
- * Render minimal mode - single line with emojis, no progress bar
- * Format: "🤖 opus 4.5  🔋 50%  ⏰ 2h 16m (38%)  🌿 branch  📁 ~/path"
- */
+/** minimal mode: model, context and branch only. */
 function renderMinimal(ctx) {
-  const parts = [`🤖 ${ctx.modelName}`];
-  if (ctx.contextPercent > 0) {
-    const batteryIcon = ctx.contextPercent > 70 ? red('🔋') : '🔋';
-    parts.push(`${batteryIcon} ${ctx.contextPercent}%`);
-  }
-  const usageStr = buildUsageString(ctx);
-  if (usageStr) parts.push(`⏰ ${usageStr}${ctx.weeklyText ? `  ${ctx.weeklyText}` : ''}`);
-  if (ctx.gitBranch) parts.push(`🌿 ${ctx.gitBranch}`);
-  parts.push(`📁 ${ctx.currentDir}`);
-  console.log(parts.join('  '));
+  writeStyledLines([fitLine(buildLineParts(ctx, { minimal: true }))]);
 }
 
-/**
- * Render compact mode - 2 lines: session info + location (branch + dir)
- */
+/** compact mode: the default line without the agent and todo lines. */
 function renderCompact(ctx) {
-  // Line 1: Session info (model + context + usage)
-  let line1 = `🤖 ${ctx.modelName}`;
-  if (ctx.contextPercent > 0) {
-    line1 += `  ${coloredBar(ctx.contextPercent, 12)} ${ctx.contextPercent}%`;
-  }
-  const usageStr = buildUsageString(ctx);
-  if (usageStr) line1 += `  ⌛ ${usageStr}${ctx.weeklyText ? `  ${ctx.weeklyText}` : ''}`;
-  console.log(line1.replace(/ /g, '\u00A0'));
-
-  // Line 2: Location (branch + directory)
-  let line2 = `📁 ${ctx.currentDir}`;
-  if (ctx.gitBranch) line2 += `  🌿 ${ctx.gitBranch}`;
-  console.log(line2.replace(/ /g, '\u00A0'));
+  render(ctx, true);
 }
 
 /**
- * Main render function - outputs all lines
- * Falls back to single line if multi-line fails
+ * full mode: the default line, then agent and todo lines only while they exist.
  */
 function render(ctx, singleLineMode = false) {
-  const lines = [];
-
-  // Session lines (cleaner multi-line layout)
-  const sessionLines = renderSessionLines(ctx);
-  lines.push(...sessionLines);
+  const lines = [fitLine(buildLineParts(ctx))];
 
   if (!singleLineMode) {
     // Agents lines (one per agent for clarity)
@@ -525,6 +500,7 @@ async function main() {
     // Session timer - read actual reset time from usage limits cache
     let sessionText = '';
     let weeklyText = '';
+    let weeklyPercent = null;
     const transcriptPath = data.transcript_path;
 
     // Parse transcript for tools/agents/todos
@@ -557,6 +533,7 @@ async function main() {
           }
           const sevenDay = cache.data?.seven_day;
           if (sevenDay?.utilization != null) {
+            weeklyPercent = Math.round(sevenDay.utilization);
             weeklyText = `wk ${Math.round(sevenDay.utilization)}%`;
             const wkResetAt = sevenDay.resets_at;
             if (wkResetAt) {
@@ -597,6 +574,7 @@ async function main() {
       contextPercent,
       sessionText,
       weeklyText,
+      weeklyPercent,
       usagePercent,
       costText,
       linesAdded,
@@ -636,11 +614,11 @@ async function main() {
 
   } catch (err) {
     // Fallback: output minimal single line on any error
-    console.log('📁 ' + (process.cwd() || 'unknown'));
+    console.log(`◆ ${expandHome(process.cwd() || 'unknown')}`);
   }
 }
 
 main().catch(() => {
-  console.log('📁 error');
+  console.log('◆ statusline error');
   process.exit(1);
 });

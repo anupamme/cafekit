@@ -5,6 +5,12 @@ All notable changes to @haposoft/cafekit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **The default statusline is one short line.** `◆ model  ◔ context%  ⧗ 5h quota% reset  ◷ weekly%  ⎇ branch ●changed ↑↓  ± +added/-removed` replaces the three emoji lines; each value is labelled by a single-width glyph, the context glyph fills with the percentage, percentages turn yellow at 70% and red at 85%, and a narrow terminal drops changes, weekly, quota, then the branch, never the model or context. `full` adds agent and todo lines only while they exist, `compact` is the line alone, `minimal` keeps model, context and branch. `statuslineColors: false` now also removes the colour codes from the percentages. A custom `statuslineLayout` renders as before. `src/claude/hooks/__tests__/statusline.test.js` pins the line, the modes, the narrow-width order and the colour switch.
+
 ## [0.16.8] - 2026-09-22
 
 ### Changed

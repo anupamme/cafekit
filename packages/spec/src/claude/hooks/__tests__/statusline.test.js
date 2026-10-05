@@ -10,6 +10,9 @@ const path = require('node:path');
 const STATUS_PATH = path.resolve(__dirname, '..', '..', 'status.cjs');
 const GOLDEN_PATH = path.join(__dirname, 'fixtures', 'statusline-default.golden');
 const NBSP = / /g;
+const ANSI = /\x1b\[[0-9;]*m/g;
+/** Visible text: colour codes removed, non-breaking spaces read as spaces, reset countdown masked. */
+const visible = (text) => text.replace(ANSI, '').replace(NBSP, ' ').replace(/\d+h\d+m/g, '<reset>');
 
 const cleanupDirs = [];
 process.on('exit', () => {
@@ -141,9 +144,9 @@ test('statusline empty or invalid layout falls back to the default renderers', (
 test('statusline shows five-hour and weekly windows with countdowns when the cache is fresh', () => {
   const run = runStatus({ tmpFiles: { 'ck-usage-limits-cache.json': freshUsageCache() } });
   assert.equal(run.status, 0, run.stderr);
-  const plain = run.stdout.replace(NBSP, ' ');
-  assert.match(plain, /⌛ \d+h \d+m left \(20% used\)/, plain);
-  assert.match(plain, /wk 45% \(\d+d \d+h\)/, plain);
+  const plain = visible(run.stdout);
+  assert.match(plain, /⧗ 20% <reset>/, plain);
+  assert.match(plain, /◷ 45%/, plain);
 });
 
 test('statusline hides the quota area when the cache is stale', () => {
@@ -151,8 +154,8 @@ test('statusline hides the quota area when the cache is stale', () => {
   stale.timestamp = Date.now() - 10 * 60 * 1000;
   const run = runStatus({ tmpFiles: { 'ck-usage-limits-cache.json': stale } });
   assert.equal(run.status, 0, run.stderr);
-  assert.doesNotMatch(run.stdout, /⌛/);
-  assert.doesNotMatch(run.stdout, /wk /);
+  assert.doesNotMatch(run.stdout, /⧗/);
+  assert.doesNotMatch(run.stdout, /◷/);
 });
 
 test('statusline cost renders only when the layout enables it, billing is api, and data exists', () => {
@@ -193,4 +196,39 @@ test('statusline honors NO_COLOR with no ANSI escapes in output', () => {
   const run = runStatus({ envExtra: { NO_COLOR: '1' } });
   assert.equal(run.status, 0, run.stderr);
   assert.doesNotMatch(run.stdout, /\[/);
+});
+
+test('statusline default is one labelled line and narrow terminals drop the least useful parts first', () => {
+  const tmpFiles = { 'ck-usage-limits-cache.json': freshUsageCache() };
+  const payload = basePayload({ cost: { total_lines_added: 120, total_lines_removed: 30 } });
+  const plainLines = (run) => visible(run.stdout).trimEnd().split('\n');
+  const runtime = { statusline: 'full', statuslineColors: false };
+
+  const wide = runStatus({ runtime, payload, tmpFiles });
+  assert.equal(wide.status, 0, wide.stderr);
+  assert.deepEqual(plainLines(wide), ['◆ TestModel  ◑ 53%  ⧗ 20% <reset>  ◷ 45%  ± +120/-30']);
+
+  const narrow = runStatus({ runtime, payload, tmpFiles, envExtra: { COLUMNS: '34' } });
+  assert.deepEqual(plainLines(narrow), ['◆ TestModel  ◑ 53%  ⧗ 20% <reset>']);
+  const tiny = runStatus({ runtime, payload, tmpFiles, envExtra: { COLUMNS: '10' } });
+  assert.deepEqual(plainLines(tiny), ['◆ TestModel  ◑ 53%']);
+});
+
+test('statusline compact is the default line alone and minimal keeps model and context', () => {
+  const tmpFiles = { 'ck-usage-limits-cache.json': freshUsageCache() };
+  const plain = (run) => visible(run.stdout).trimEnd();
+  const compact = runStatus({ runtime: { statusline: 'compact', statuslineColors: false }, tmpFiles });
+  assert.equal(plain(compact), '◆ TestModel  ◑ 53%  ⧗ 20% <reset>  ◷ 45%');
+  const minimal = runStatus({ runtime: { statusline: 'minimal', statuslineColors: false }, tmpFiles });
+  assert.equal(plain(minimal), '◆ TestModel  ◑ 53%');
+});
+
+test('statusline colours percentages by threshold and prints no escape when statuslineColors is false', () => {
+  const hot = freshUsageCache();
+  hot.data.five_hour.utilization = 90;
+  const coloured = runStatus({ tmpFiles: { 'ck-usage-limits-cache.json': hot } });
+  assert.match(coloured.stdout, /\x1b\[31m90%/, 'a five-hour quota at 90% is red');
+  assert.match(coloured.stdout, /\x1b\[32m◑[ \u00A0]53%/, 'context at 53% is green');
+  const plain = runStatus({ runtime: { statusline: 'full', statuslineColors: false }, tmpFiles: { 'ck-usage-limits-cache.json': hot } });
+  assert.doesNotMatch(plain.stdout, /\x1b\[/);
 });
