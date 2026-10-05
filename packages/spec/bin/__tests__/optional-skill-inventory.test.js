@@ -50,7 +50,7 @@ function silentUi() {
 
 test('manifest separates core, optional documents, and retired skills', () => {
   const manifest = loadClaudeMigrationManifest();
-  assert.equal(manifest.skills.required.includes('route'), true);
+  assert.equal(manifest.skills.required.includes('route'), false);
   assert.deepEqual(manifest.skills.bundles.documentSkills, [
     'ai-multimodal', 'docs', 'docx', 'pdf', 'pptx', 'xlsx'
   ]);
@@ -168,7 +168,7 @@ test('fresh combined install defaults optional bundle OFF', () => {
     for (const platformKey of ['claude', 'codex']) {
       const platform = PLATFORMS[platformKey];
       assert.equal(fs.existsSync(path.join(platform.skillsDir, 'docs')), false);
-      assert.equal(fs.existsSync(path.join(platform.skillsDir, 'route', 'SKILL.md')), true);
+      assert.equal(fs.existsSync(path.join(platform.skillsDir, 'route', 'SKILL.md')), false);
       const metadata = JSON.parse(fs.readFileSync(path.join(platform.folder, 'cafekit.json'), 'utf8'));
       assert.equal(metadata.schemaVersion, 2);
       assert.equal(metadata.documentSkills.enabled, false);
@@ -194,7 +194,7 @@ test('explicit opt-in installs all six optional skills on both runtimes', () => 
       ], { cwd: root, encoding: 'utf8' });
       assert.equal(catalog.status, 0, catalog.stderr);
       const catalogData = JSON.parse(catalog.stdout);
-      assert.equal(catalogData.skills.some((skill) => skill.public_id === 'cf:route'), true);
+      assert.equal(catalogData.skills.some((skill) => skill.public_id === 'cf:route'), false);
       assert.equal(catalogData.skills.some((skill) => skill.public_id === 'cf:docs'), true);
       const metadata = JSON.parse(fs.readFileSync(path.join(platform.folder, 'cafekit.json'), 'utf8'));
       assert.deepEqual(metadata.documentSkills, {

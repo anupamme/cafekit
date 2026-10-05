@@ -9,9 +9,9 @@ workflow.
 1. If the user names a valid installed skill, use it directly.
 2. If one obvious low-risk installed skill covers the intent, use it directly.
 3. For direct factual conversation, answer directly or use the installed
-   evidence-answer capability; do not invoke Route or agents for ceremony.
-4. For ambiguous, multi-step, multi-domain, or elevated/high-risk work, use the
-   installed Route capability to classify and compose the shortest valid chain.
+   evidence-answer capability; do not spawn agents for ceremony.
+4. For ambiguous, multi-step, multi-domain, or elevated/high-risk work, classify
+   it yourself and compose the shortest valid chain below.
 
 Resolve every abstract link against the current runtime catalog. An absent,
 invalid, folder-mismatched, duplicate, or retired entry is not routable. Continue

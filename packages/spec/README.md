@@ -167,7 +167,6 @@ CafeKit ships many skills, but the main release surface is:
 - `/cf:scout <search-target>`: discover relevant files locally first, delegating only for permitted broad independent scopes
 - `/cf:brainstorm <idea-or-problem>`: scout the repo, clarify exact requirements, compare approaches, and hand off to specs
 - `/cf:research <decision>`: choose proportional depth and return traceable evidence for an uncertain technical decision
-- `/cf:route <material-request>`: classify ambiguous, multi-step, multi-domain, or elevated-risk work and compose the shortest valid installed chain
 - `/cf:orca <orca-request>`: inside an Orca (onorca.dev) pane, route a request to read, wait on, or send to another agent pane, or spawn one into a worktree
 - `/cf:specs <feature-description>`: create or resume a structured spec workflow
 - `/cf:develop <feature-name>`: implement from approved spec artifacts
@@ -234,7 +233,7 @@ node .claude/scripts/generate-skill-catalog.cjs --skills
 Routing uses progressive disclosure: live catalog metadata selects a candidate,
 the selected `SKILL.md` supplies its contract, and only relevant references are
 loaded. Invoke an installed skill directly for explicit or obvious low-risk
-work; use `cf:route` only when classification or chaining is material. When a
+work; compose a short chain only when classification or chaining is material. When a
 capability or agent is absent, continue inline when safe or name the gap.
 Hooks are not a skill router and never grant capability presence or authority. Source
 and installed projections are verified; live-model adherence remains

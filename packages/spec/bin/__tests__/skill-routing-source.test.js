@@ -84,7 +84,7 @@ test('skill routing consumes live catalog without fixed optional commands', () =
   const domain = fs.readFileSync(path.join(PACKAGE_ROOT, 'src/claude/rules/skill-domain-routing.md'), 'utf8');
   const codexEntry = fs.readFileSync(path.join(PACKAGE_ROOT, 'src/codex/AGENTS.md'), 'utf8');
   assert.match(workflow, /user names a valid installed skill[\s\S]*one obvious low-risk[\s\S]*direct factual conversation/);
-  assert.match(workflow, /do not invoke Route or agents for ceremony/);
+  assert.match(workflow, /do not spawn agents for ceremony/);
   assert.doesNotMatch(`${workflow}\n${domain}`, /numeric optimization capability/);
   assert.match(domain, /examples below are intent hints, not a copied installed inventory/);
   assert.match(domain, /document\/artifact work \| use only a matching installed optional capability/);
@@ -170,8 +170,9 @@ test('skill catalog exposes discriminating routing metadata', () => {
     assert.equal(fs.existsSync(path.join(sourceSkills, renamed)), false, renamed);
   }
   assert.equal(sourceCatalog.skills.some((skill) => MANIFEST.obsolete.skills.includes(skill.directory)), false);
-  const route = sourceCatalog.skills.find((skill) => skill.public_id === 'cf:route');
-  assert.ok(route?.description && route.when_to_use && route.category && route.keywords.length > 0);
+  assert.equal(sourceCatalog.skills.some((skill) => skill.public_id === 'cf:route'), false);
+  const ask = sourceCatalog.skills.find((skill) => skill.public_id === 'cf:ask');
+  assert.ok(ask?.description && ask.when_to_use && ask.category && ask.keywords.length > 0);
 });
 
 test('skill catalog rejects a missing root value before path resolution', () => {

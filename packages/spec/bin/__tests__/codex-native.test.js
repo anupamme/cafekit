@@ -3197,26 +3197,14 @@ test('Codex scaffold resolver rejects symlink template', () => {
   });
 });
 
-test('Claude and Codex installed Route preserve proportional live-catalog semantics', () => {
+test('Claude and Codex installed routing rules preserve the live-catalog semantics and install no Route', () => {
   inTempProject((root) => {
     const result = installPlatforms(root, ['claude', 'codex']);
     assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
-    const sourceRoot = path.join(PACKAGE_ROOT, 'src/claude/skills/route');
-    const expectedFiles = [
-      'SKILL.md', 'references/task-taxonomy.md',
-      'references/chaining-patterns.md', 'references/agent-timing.md'
-    ];
     const expectedRules = ['skill-workflow-routing.md', 'skill-domain-routing.md'];
     for (const runtime of ['claude', 'codex']) {
       const installedRoot = path.join(root, runtime === 'codex' ? '.agents/skills/route' : '.claude/skills/route');
-      for (const relative of expectedFiles) {
-        const source = fs.readFileSync(path.join(sourceRoot, relative), 'utf8');
-        const installed = fs.readFileSync(path.join(installedRoot, relative), 'utf8');
-        const expected = runtime === 'codex'
-          ? normalizeCodexBody(source, path.join(sourceRoot, relative))
-          : source;
-        assert.equal(installed, expected, `${runtime}:${relative}`);
-      }
+      assert.equal(fs.existsSync(installedRoot), false, `${runtime} still installs Route`);
       for (const relative of expectedRules) {
         const sourcePath = path.join(PACKAGE_ROOT, 'src/claude/rules', relative);
         const source = fs.readFileSync(sourcePath, 'utf8');
@@ -3226,12 +3214,8 @@ test('Claude and Codex installed Route preserve proportional live-catalog semant
         const expected = runtime === 'codex' ? normalizeCodexBody(source, sourcePath) : source;
         assert.equal(installed, expected, `${runtime}:rules/${relative}`);
       }
-      const route = fs.readFileSync(path.join(installedRoot, 'SKILL.md'), 'utf8');
-      assert.match(route, /names a valid installed skill[\s\S]*one installed skill clearly covers[\s\S]*Direct factual conversation/);
-      assert.match(route, /highest-link[\s\S]*risk[\s\S]*number of material domains/);
-      assert.match(route, /never expand it/);
       const catalog = installedCatalog(root, runtime);
-      assert.ok(catalog.skills.some((skill) => skill.public_id === 'cf:route'));
+      assert.equal(catalog.skills.some((skill) => skill.public_id === 'cf:route'), false);
       assert.equal(catalog.skills.some((skill) => skill.public_id === 'cf:docs'), false);
     }
   });
@@ -3306,24 +3290,3 @@ test('Claude and Codex installed rules preserve the ported review and process gu
   });
 });
 
-test('installed Route degrades safely when an agent is absent', () => {
-  inTempProject((root) => {
-    const result = installPlatforms(root, ['claude', 'codex']);
-    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
-    const cases = [
-      ['claude', '.claude/agents/researcher.md', '.claude/skills/route'],
-      ['codex', '.codex/agents/researcher.toml', '.agents/skills/route'],
-    ];
-    for (const [runtime, agentRelative, routeRelative] of cases) {
-      fs.rmSync(path.join(root, agentRelative), { force: true });
-      assert.equal(fs.existsSync(path.join(root, agentRelative)), false);
-      const timing = fs.readFileSync(path.join(root, routeRelative, 'references/agent-timing.md'), 'utf8');
-      const route = fs.readFileSync(path.join(root, routeRelative, 'SKILL.md'), 'utf8');
-      const normalizedRoute = route.replace(/\s+/g, ' ');
-      assert.match(timing, /If the preferred agent is absent[\s\S]*never synthesize a role/);
-      assert.match(normalizedRoute, /continue inline when safe or return the named gap/);
-      assert.match(normalizedRoute, /Never synthesize an unavailable agent/);
-      assert.doesNotMatch(`${timing}\n${route}`, /researcher(?:\.md|\.toml)/i, runtime);
-    }
-  });
-});

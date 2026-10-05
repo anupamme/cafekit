@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **`cf:route` is no longer shipped.** Skills are chosen from their descriptions by the host, and a measured description change already moves selection; the routing rule now tells the agent to classify ambiguous, multi-step or elevated-risk work itself and compose the shortest chain, keeping the live-catalog, no-invention and authority limits. The skill, its three references, its packaging entry, its self-tests and its documentation are removed; packed installs are checked to contain no Route.
 - **`cf:loop` is no longer shipped.** The explicit-only bounded optimization skill, its two references, its packaging entry, the routing-rule sentences that kept it explicit-only, its self-tests and its documentation are removed; packed Claude and Codex installs are now checked to contain no Loop.
 
 ### Fixed

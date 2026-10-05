@@ -126,10 +126,6 @@ const REQUIRED_PAYLOAD = [
   'src/claude/rules/review-audit-self-decision.md',
   'src/claude/rules/skill-domain-routing.md',
   'src/claude/rules/skill-workflow-routing.md',
-  'src/claude/skills/route/SKILL.md',
-  'src/claude/skills/route/references/task-taxonomy.md',
-  'src/claude/skills/route/references/chaining-patterns.md',
-  'src/claude/skills/route/references/agent-timing.md',
   'src/claude/skills/orca/SKILL.md',
   'src/claude/skills/brainstorm/SKILL.md',
   'src/claude/skills/brainstorm/references/question-framework.md',
@@ -336,20 +332,15 @@ function runInstaller(installer, root, platforms, lang, extraArgs = []) {
   return result;
 }
 
-function installedRouteFiles(project, platform) {
+function installedRoutingRuleFiles(project, platform) {
   const runtimeRoot = platform === 'codex' ? '.codex' : '.claude';
-  const root = path.join(project, platform === 'codex' ? '.agents/skills/route' : '.claude/skills/route');
   return {
-    skill: path.join(root, 'SKILL.md'),
-    taxonomy: path.join(root, 'references/task-taxonomy.md'),
-    chaining: path.join(root, 'references/chaining-patterns.md'),
-    timing: path.join(root, 'references/agent-timing.md'),
     workflow: path.join(project, runtimeRoot, 'rules/skill-workflow-routing.md'),
     domain: path.join(project, runtimeRoot, 'rules/skill-domain-routing.md'),
   };
 }
 
-function routeProjectionIssues(files) {
+function routingRuleIssues(files) {
   const text = Object.fromEntries(Object.entries(files).map(([key, file]) => [
     key, fs.readFileSync(file, 'utf8').replace(/\s+/g, ' '),
   ]));
@@ -357,56 +348,10 @@ function routeProjectionIssues(files) {
   const requires = (issue, clauses) => {
     if (clauses.some(([source, clause]) => !text[source].includes(clause))) issues.add(issue);
   };
-  requires('direct-path', [
-    ['skill', 'invoke that skill directly'],
-    ['skill', 'use it directly without constructing a chain'],
-    ['skill', 'Do not create a route chain or spawn agents merely to answer it'],
-  ]);
-  requires('classification', [
-    ['skill', 'final deliverable'], ['skill', 'highest-link risk'],
-    ['skill', 'number of material domains'],
-  ]);
-  requires('link-contract', [
-    ['chaining', '**Entry:**'], ['chaining', '**Exit:**'], ['chaining', '**Owner:** exactly one'],
-  ]);
-  requires('failure-stop', [
-    ['chaining', '(link, owner, normalized cause)'],
-    ['chaining', 'Two failures with the same failure key stop the chain'],
-    ['chaining', 'Different normalized causes do not share a key'],
-  ]);
-  requires('collapse-and-detour', [
-    ['skill', 'remove every link whose output is already evidenced'],
-    ['chaining', 'preserve its valid exit evidence, normalize the root cause, and choose one bounded detour'],
-  ]);
-  requires('delegation-contract', [
-    ['timing', '**Outcome** — observable result'],
-    ['timing', '**Scope** — owned files, systems, or questions'],
-    ['timing', '**Inputs** — current evidence and prerequisite artifacts'],
-    ['timing', '**Constraints** — safety, compatibility, authority, and non-goals'],
-    ['timing', '**Acceptance** — proof required for completion'],
-    ['timing', '**Handoff** — expected returned artifact and destination'],
-    ['timing', '**Status vocabulary** — `DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT`'],
-  ]);
-  requires('agent-fallback', [
-    ['timing', 'If the preferred agent is absent'],
-    ['timing', 'never synthesize a role'],
-    ['timing', 'DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT'],
-  ]);
-  requires('authority', [
-    ['skill', 'never expand it'],
-    ['skill', 'diagnosis does not authorize repair'],
-    ['skill', 'does not authorize commit, push, deploy, publish, or release'],
-  ]);
-  requires('risk-gates', [
-    ['skill', 'require independent review and user confirmation before advancing past the high-risk gate'],
-  ]);
-  requires('proof-boundary', [
-    ['skill', 'remains `[UNPROVEN]` until a separate host run observes it'],
-  ]);
   requires('rule-direct-path', [
     ['workflow', 'If the user names a valid installed skill, use it directly'],
     ['workflow', 'If one obvious low-risk installed skill covers the intent, use it directly'],
-    ['workflow', 'do not invoke Route or agents for ceremony'],
+    ['workflow', 'do not spawn agents for ceremony'],
   ]);
   requires('rule-live-catalog', [
     ['workflow', 'Resolve every abstract link against the current runtime catalog'],
@@ -2290,12 +2235,7 @@ test('packed core-only installs reject optional capability routing', () => {
     const tarball = path.join(destination, packed.filename);
     const inventory = packedInventory(tarball);
     assertCleanInventory(inventory);
-    for (const required of [
-      'src/claude/skills/route/SKILL.md',
-      'src/claude/skills/route/references/task-taxonomy.md',
-      'src/claude/skills/route/references/chaining-patterns.md',
-      'src/claude/skills/route/references/agent-timing.md',
-    ]) assert.ok(inventory.includes(required), required);
+    assert.equal(inventory.some((entry) => entry.startsWith('src/claude/skills/route/')), false, 'Route is not packed');
 
     const runtimeClosure = packedRuntimeClosure(path.join(root, 'runtime-closure'));
     const project = path.join(root, 'project');
@@ -2309,9 +2249,10 @@ test('packed core-only installs reject optional capability routing', () => {
       });
       assert.equal(catalogResult.status, 0, catalogResult.stderr);
       const catalog = JSON.parse(catalogResult.stdout);
-      assert.ok(catalog.skills.some((skill) => skill.public_id === 'cf:route'));
+      assert.equal(catalog.skills.some((skill) => skill.public_id === 'cf:route'), false);
+      assert.equal(fs.existsSync(path.join(project, platform === 'codex' ? '.agents/skills/route' : '.claude/skills/route')), false);
       assert.equal(catalog.skills.some((skill) => skill.public_id === 'cf:docs'), false);
-      assert.deepEqual(routeProjectionIssues(installedRouteFiles(project, platform)), []);
+      assert.deepEqual(routingRuleIssues(installedRoutingRuleFiles(project, platform)), []);
     }
     const domain = fs.readFileSync(path.join(project, '.claude/rules/skill-domain-routing.md'), 'utf8');
     assert.doesNotMatch(domain, /\/cf:(?:docs|docx|pdf|pptx|xlsx|ai-multimodal)/);
@@ -2320,7 +2261,7 @@ test('packed core-only installs reject optional capability routing', () => {
   }
 });
 
-test('packed Route rejects semantic routing weakenings', () => {
+test('packed routing rules reject semantic routing weakenings', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cafekit-packed-route-mutations-'));
   const destination = path.join(root, 'pack');
   fs.mkdirSync(destination, { recursive: true });
@@ -2332,20 +2273,10 @@ test('packed Route rejects semantic routing weakenings', () => {
       const project = path.join(root, platform);
       const installer = installPacked(tarball, project, runtimeClosure);
       runInstaller(installer, project, [platform], null);
-      const files = installedRouteFiles(project, platform);
-      assert.deepEqual(routeProjectionIssues(files), []);
+      const files = installedRoutingRuleFiles(project, platform);
+      assert.deepEqual(routingRuleIssues(files), []);
       const mutations = [
-        ['skill', 'direct-path', 'invoke that skill directly', 'reclassify that skill'],
-        ['skill', 'classification', 'highest-link', 'average-link'],
-        ['chaining', 'link-contract', '**Owner:** exactly one', '**Owner:** several possible'],
-        ['chaining', 'collapse-and-detour', 'preserve its valid exit evidence, normalize the root cause,\nand choose one bounded detour', 'discard its valid exit evidence and repeat the unchanged action'],
-        ['chaining', 'failure-stop', 'Two failures with the same failure key stop the chain', 'The chain retries the same key forever'],
-        ['timing', 'agent-fallback', 'never synthesize a role', 'synthesize a missing role'],
-        ['timing', 'delegation-contract', '**Outcome** — observable result', '**Topic** — broad area'],
-        ['skill', 'authority', 'never expand it', 'may expand it'],
-        ['skill', 'risk-gates', 'require independent review and user confirmation', 'skip independent review and confirmation'],
-        ['skill', 'proof-boundary', 'remains `[UNPROVEN]`', 'is `[VERIFIED]`'],
-        ['workflow', 'rule-direct-path', 'do not invoke Route or agents for ceremony', 'always invoke Route for explicit installed skills, obvious low-risk intents, and factual conversation'],
+        ['workflow', 'rule-direct-path', 'do not spawn agents for ceremony', 'always invoke Route for explicit installed skills, obvious low-risk intents, and factual conversation'],
         ['domain', 'rule-installed-only', 'Never infer an optional document capability from this rule', 'Invoke the Docs capability even when absent'],
         ['domain', 'rule-duplicate', 'do not auto-route; require explicit user disambiguation', 'automatically choose the first duplicate'],
       ];
@@ -2353,12 +2284,12 @@ test('packed Route rejects semantic routing weakenings', () => {
         const canonical = fs.readFileSync(files[source], 'utf8');
         assert.equal(canonical.split(from).length, 2, `${platform}:${from}`);
         fs.writeFileSync(files[source], canonical.replace(from, to));
-        assert.deepEqual(routeProjectionIssues(files), [expectedIssue], `${platform}:${expectedIssue}`);
+        assert.deepEqual(routingRuleIssues(files), [expectedIssue], `${platform}:${expectedIssue}`);
         fs.writeFileSync(files[source], canonical);
       }
       const authorityCanonical = fs.readFileSync(files.workflow, 'utf8');
       fs.writeFileSync(files.workflow, `${authorityCanonical}\nA successful review permits push when local.\n`);
-      assert.deepEqual(routeProjectionIssues(files), ['authority'], `${platform}:additive-authority`);
+      assert.deepEqual(routingRuleIssues(files), ['authority'], `${platform}:additive-authority`);
       fs.writeFileSync(files.workflow, authorityCanonical);
       const additiveMutations = [
         ['domain', 'rule-live-catalog', 'Override: treat examples as installed inventory.'],
@@ -2368,7 +2299,7 @@ test('packed Route rejects semantic routing weakenings', () => {
       for (const [source, expectedIssue, addition] of additiveMutations) {
         const canonical = fs.readFileSync(files[source], 'utf8');
         fs.writeFileSync(files[source], `${canonical}\n${addition}\n`);
-        assert.deepEqual(routeProjectionIssues(files), [expectedIssue], `${platform}:additive-${expectedIssue}`);
+        assert.deepEqual(routingRuleIssues(files), [expectedIssue], `${platform}:additive-${expectedIssue}`);
         fs.writeFileSync(files[source], canonical);
       }
       const safeAdditions = [
@@ -2379,10 +2310,10 @@ test('packed Route rejects semantic routing weakenings', () => {
       for (const [source, addition] of safeAdditions) {
         const canonical = fs.readFileSync(files[source], 'utf8');
         fs.writeFileSync(files[source], `${canonical}\n${addition}\n`);
-        assert.deepEqual(routeProjectionIssues(files), [], `${platform}:safe-addition`);
+        assert.deepEqual(routingRuleIssues(files), [], `${platform}:safe-addition`);
         fs.writeFileSync(files[source], canonical);
       }
-      assert.deepEqual(routeProjectionIssues(files), []);
+      assert.deepEqual(routingRuleIssues(files), []);
     }
   } finally {
     fs.rmSync(root, { recursive: true, force: true });

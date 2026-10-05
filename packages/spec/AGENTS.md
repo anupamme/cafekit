@@ -64,9 +64,9 @@ Match the language the user writes in. Technical terms, code identifiers, and fi
 - For skill selection, read `.codex/rules/skill-workflow-routing.md` and
   `.codex/rules/skill-domain-routing.md`. When capability presence is uncertain,
   run `node .codex/scripts/generate-skill-catalog.cjs --skills`; its Codex-bound
-  root is `.agents/skills`. Use `$cf-route` only for ambiguous, multi-step,
-  multi-domain, or risk-elevated work; explicit, obvious, and factual intents
-  stay direct.
+  root is `.agents/skills`. Explicit, obvious, and factual intents stay
+  direct; compose a short chain only for ambiguous, multi-step, multi-domain, or
+  risk-elevated work.
 - Consult `.codex/rules/review-audit-self-decision.md` before applying audit
   feedback, reversing a verified or user decision, or cutting scope, and
   `.codex/rules/process-management.md` whenever a task starts, reuses, or ends

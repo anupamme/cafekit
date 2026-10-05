@@ -40,7 +40,6 @@ are not aliases for current Claude or Codex commands.
 | `/cf:fix` | `/hotfix` | Apply narrow diagnosed fixes. |
 | `/cf:docs` | `/docs` | Optional bundle: create, update, summarize, or reconstruct docs. |
 | `/cf:scout` | `/inspect` | Scout source files and project structure. |
-| `/cf:route` | — | Compose the shortest valid installed chain for material work. |
 
 For historical OpenCode 0.16 installs, the installer generated slash commands for the main implementation surface. The `sync` skill was shipped in the shared skill bundle, but the installer did not generate a `/sync` OpenCode wrapper.
 
@@ -49,7 +48,7 @@ For historical OpenCode 0.16 installs, the installer generated slash commands fo
 Native selection uses progressive disclosure: live catalog metadata identifies
 a candidate, the selected `SKILL.md` defines its contract, and only relevant
 references are loaded. Invoke an installed skill directly for explicit or
-obvious low-risk work. Use `cf:route` only for ambiguous, multi-step,
+obvious low-risk work; compose a short chain only for ambiguous, multi-step,
 multi-domain, or elevated-risk work. If a skill or agent is absent, continue
 inline when safe or report the gap; optional document skills are usable only
 when installed.

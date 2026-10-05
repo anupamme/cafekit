@@ -34,7 +34,6 @@ CafeKit installs a native runtime bundle for each supported coding agent:
 - `cf:scout` for fast scoped discovery of files, entrypoints, call paths, and blast radius
 - `cf:brainstorm` for unresolved product or architecture choices, with proportional routing before delivery
 - `cf:research` for proportional, traceable evidence when a technical decision remains uncertain
-- `cf:route` for ambiguous, multi-step, multi-domain, or elevated-risk work that needs the shortest valid installed chain
 - `cf:specs` for structured specification work
 - `cf:develop` for implementation after technical spec readiness and an explicit invocation
 - `cf:debug` and `cf:fix` for evidence-first diagnosis and root-cause repairs — every repair consumes the debug handoff before mutation; Quick/local stays direct; Standard and Incident/deep bound outcome, constraints, non-goals, and acceptance; complex repairs use post-diagnosis research, brainstorm, and staged planning only when the evidence leaves a real decision; all depths retain shared `PASS | PASS_WITH_WARNINGS | FAIL | BLOCKED` verdicts
@@ -49,8 +48,8 @@ using an automatic prompt-scoring hook.
 
 Skill loading uses progressive disclosure: catalog metadata identifies a
 candidate, its selected `SKILL.md` defines the contract, and only its needed
-references are read. Invoke a valid installed skill directly; escalate to
-`cf:route` only when classification or chaining is material. If a skill or
+references are read. Invoke a valid installed skill directly; compose a short
+chain only when classification or chaining is material. If a skill or
 agent is absent, continue inline when safe or name the gap—never invent it.
 Hooks are not a skill router and do not auto-select skills. Source and installed
 projection parity is tested; live-model adherence remains `UNPROVEN` and is not
