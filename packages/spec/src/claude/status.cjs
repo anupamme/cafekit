@@ -132,7 +132,7 @@ function buildBranchPart(ctx) {
 
 // Default session line: one row of single-width symbols, each value labelled by
 // its glyph so the line stays short and every number says what it measures.
-//   ◆ model  ◔ context%  ⧗ 5h-quota% reset  ◷ weekly%  ⎇ branch ●changed ↑ahead ↓behind  ± +added/-removed
+//   ◆ model (effort)  ◔ context%  ⧗ 5h-quota% reset  ◷ weekly%  ⎇ branch ●changed ↑ahead ↓behind  ± +added/-removed
 
 /** Quarter-circle glyph that fills with the percentage. */
 function fillGlyph(percent) {
@@ -161,7 +161,7 @@ function shortReset(sessionText) {
  * when the terminal is too narrow (higher drops earlier); 0 never drops.
  */
 function buildLineParts(ctx, { minimal = false } = {}) {
-  const parts = [{ text: `◆ ${ctx.modelName}`, drop: 0 }];
+  const parts = [{ text: `◆ ${ctx.modelName}${ctx.effortLevel ? ` ${dim(`(${ctx.effortLevel})`)}` : ''}`, drop: 0 }];
 
   if (ctx.contextPercent > 0) {
     parts.push({ text: tintPercent(ctx.contextPercent, `${fillGlyph(ctx.contextPercent)} ${ctx.contextPercent}%`), drop: 0 });
@@ -438,6 +438,8 @@ async function main() {
     currentDir = expandHome(currentDir);
 
     const modelName = data.model?.display_name || 'Claude';
+    // Live /effort value; absent when the model has no effort parameter.
+    const effortLevel = typeof data.effort?.level === 'string' ? data.effort.level : '';
 
     // Git detection using batched cache
     const rawDir = data.workspace?.current_dir || data.cwd || process.cwd();
@@ -564,6 +566,7 @@ async function main() {
     // Build render context
     const ctx = {
       modelName,
+      effortLevel,
       currentDir,
       gitBranch,
       gitUnstaged,

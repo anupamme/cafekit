@@ -147,7 +147,7 @@ cat .codex/cafekit.json
 The Claude statusline reads three keys from `.claude/runtime.json`:
 
 - `"statusline"`: render mode — `full` (default), `compact`, `minimal`, or `none`.
-  The default is one line, `◆ model  ◔ context%  ⧗ 5h quota% reset  ◷ weekly%  ⎇ branch ●changed ↑↓  ± +added/-removed`,
+  The default is one line, `◆ model (effort)  ◔ context%  ⧗ 5h quota% reset  ◷ weekly%  ⎇ branch ●changed ↑↓  ± +added/-removed`,
   which drops changes, weekly, quota, then the branch as the terminal narrows. `full` adds
   agent and todo lines only while they exist, `compact` is the line alone, and `minimal`
   keeps model, context and branch.

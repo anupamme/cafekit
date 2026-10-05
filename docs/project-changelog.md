@@ -5,7 +5,7 @@ All notable changes to CafeKit are documented here, following
 
 ## [Unreleased]
 ### Changed
-- **Statusline mặc định gọn còn một dòng.** `◆ model  ◔ context%  ⧗ quota 5h% reset  ◷ tuần%  ⎇ nhánh ●file đổi ↑↓  ± +thêm/-xoá` thay cho ba dòng emoji; mỗi số có một ký hiệu một màu làm nhãn, ký hiệu context đầy dần theo phần trăm, phần trăm chuyển vàng ở 70% và đỏ ở 85%, màn hẹp bỏ dần thay đổi, tuần, quota rồi nhánh, không bao giờ bỏ model hay context. `full` chỉ thêm dòng agent và todo khi đang có, `compact` là riêng dòng đó, `minimal` giữ model, context và nhánh. `statuslineColors: false` giờ tắt cả mã màu ở phần trăm. `statuslineLayout` tự cấu hình vẫn hiển thị như cũ. `src/claude/hooks/__tests__/statusline.test.js` ghim dòng, các chế độ, thứ tự bỏ khi hẹp và công tắc màu.
+- **Statusline mặc định gọn còn một dòng.** `◆ model (effort)  ◔ context%  ⧗ quota 5h% reset  ◷ tuần%  ⎇ nhánh ●file đổi ↑↓  ± +thêm/-xoá` thay cho ba dòng emoji; mỗi số có một ký hiệu một màu làm nhãn, ký hiệu context đầy dần theo phần trăm, phần trăm chuyển vàng ở 70% và đỏ ở 85%, màn hẹp bỏ dần thay đổi, tuần, quota rồi nhánh, không bao giờ bỏ model hay context; mức effort là giá trị `/effort` đang dùng, lấy từ `effort.level` của payload, chỉ hiện khi model có effort. `full` chỉ thêm dòng agent và todo khi đang có, `compact` là riêng dòng đó, `minimal` giữ model, context và nhánh. `statuslineColors: false` giờ tắt cả mã màu ở phần trăm. `statuslineLayout` tự cấu hình vẫn hiển thị như cũ. `src/claude/hooks/__tests__/statusline.test.js` ghim dòng, các chế độ, thứ tự bỏ khi hẹp và công tắc màu.
 
 ## [0.16.8] - 2026-09-22
 ### Changed

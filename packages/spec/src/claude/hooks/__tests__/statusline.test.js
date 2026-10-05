@@ -232,3 +232,13 @@ test('statusline colours percentages by threshold and prints no escape when stat
   const plain = runStatus({ runtime: { statusline: 'full', statuslineColors: false }, tmpFiles: { 'ck-usage-limits-cache.json': hot } });
   assert.doesNotMatch(plain.stdout, /\x1b\[/);
 });
+
+test('statusline shows the live effort level next to the model, and nothing when the payload has none', () => {
+  const runtime = { statusline: 'minimal', statuslineColors: false };
+  const withEffort = runStatus({ runtime, payload: basePayload({ effort: { level: 'xhigh' } }) });
+  assert.equal(visible(withEffort.stdout).trimEnd(), '◆ TestModel (xhigh)  ◑ 53%');
+  const narrow = runStatus({ runtime: { statusline: 'full', statuslineColors: false }, payload: basePayload({ effort: { level: 'high' } }), envExtra: { COLUMNS: '10' } });
+  assert.equal(visible(narrow.stdout).trimEnd(), '◆ TestModel (high)  ◑ 53%', 'effort travels with the model and never drops');
+  const without = runStatus({ runtime });
+  assert.equal(visible(without.stdout).trimEnd(), '◆ TestModel  ◑ 53%');
+});
