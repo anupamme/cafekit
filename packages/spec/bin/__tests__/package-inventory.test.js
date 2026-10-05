@@ -2601,7 +2601,7 @@ function packedHotfixIssues(files, refPrefix) {
   }
   if (!parallel.includes('Diagnosis still starts only')
     || !parallel.includes('after the required scout outputs are synthesized')
-    || !parallel.includes('Research begins only after Step 2 diagnosis')
+    || !parallel.includes('Research begins only after diagnosis')
     || parallel.includes('scout + diagnose + research together')
     || parallel.includes("You don't need to wait for scouting")) {
     issues.add('scout-before-diagnosis');
@@ -2651,7 +2651,7 @@ test('packed Claude and Codex installs reject adaptive Fix semantic weakenings',
         { group: 'deep-decision-route', file: 'SKILL.md', from: 'after diagnosis, research only unresolved external facts', to: 'research broadly before diagnosis' },
         { group: 'specialized-proof-overlays', file: 'references/workflow-specialized.md', from: 'Load only the matching section', to: 'Load every section' },
         { group: 'scout-before-diagnosis', file: 'references/parallel-patterns.md', from: 'Diagnosis still starts only', to: 'Diagnosis may start' },
-        { group: 'scout-before-diagnosis', file: 'references/parallel-patterns.md', from: 'Research begins only after Step 2 diagnosis', to: 'Research may begin before Step 2 diagnosis' },
+        { group: 'scout-before-diagnosis', file: 'references/parallel-patterns.md', from: 'Research begins only after diagnosis', to: 'Research may begin before diagnosis' },
       ];
       for (const mutation of mutations) {
         const target = path.join(project, layout.skillsRoot, mutation.file);

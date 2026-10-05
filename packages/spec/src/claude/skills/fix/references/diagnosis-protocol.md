@@ -20,7 +20,7 @@ Before any investigation, capture the current broken state as baseline:
 5. Record git status / recent changes: git log --oneline -10
 ```
 
-This baseline is required for Step 5 (Verify) — you MUST compare before/after.
+This baseline is required for verification — you MUST compare before/after.
 
 ## Diagnosis Chain (Follow in Order)
 
@@ -86,7 +86,7 @@ Symptom (where error appears)
 
 ## Exact Root-Cause Contract
 
-Before Step 4 implementation in `cf:fix`, record:
+Before implementation in `cf:fix`, record:
 
 - Symptom: exact observable failure
 - Reproduction: command, user flow, CI job, log trigger, or route

@@ -38,7 +38,7 @@ Wait for all agents to return. Merge their findings into a unified context map b
 
 ## Pattern B: Parallel Hypothesis Verification
 
-After forming 2-3 hypotheses in Step 2 (Diagnose), test them concurrently:
+After forming 2-3 hypotheses during diagnosis, test them concurrently:
 
 ```
 Agent(subagent_type="Explore", prompt="Verify hypothesis: cache returns stale data — check TTL config in src/cache/")
@@ -98,7 +98,7 @@ Agent(subagent_type="Explore", prompt="Scout scope B: map runtime/config paths a
 ```
 
 Wait for the scout evidence, synthesize the required codebase-context summary,
-then begin hypotheses and diagnosis. Research begins only after Step 2 diagnosis
+then begin hypotheses and diagnosis. Research begins only after diagnosis
 proves the root cause and identifies one unresolved external fact. It may inform
 a post-diagnosis remedy decision; it never substitutes for repository evidence
 or selects a fix early.

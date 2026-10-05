@@ -2843,7 +2843,7 @@ function hotfixProjectionIssues(files) {
   }
   if (!parallel.includes('Diagnosis still starts only')
     || !parallel.includes('after the required scout outputs are synthesized')
-    || !parallel.includes('Research begins only after Step 2 diagnosis')
+    || !parallel.includes('Research begins only after diagnosis')
     || parallel.includes('scout + diagnose + research together')
     || parallel.includes("You don't need to wait for scouting")) {
     issues.add('scout-before-diagnosis');
@@ -2954,7 +2954,7 @@ test('Codex installed Fix preserves the adaptive repair contract', () => {
       },
       {
         name: 'research-starts-before-diagnosis', file: 'references/parallel-patterns.md',
-        from: 'Research begins only after Step 2 diagnosis', to: 'Research may begin before Step 2 diagnosis',
+        from: 'Research begins only after diagnosis', to: 'Research may begin before diagnosis',
         expected: ['scout-before-diagnosis']
       }
     ];
