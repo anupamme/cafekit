@@ -2,7 +2,7 @@
 name: cf:orca
 description: 'Use when the user asks in phrases like "pane Orca", "panel Codex", "theo dõi pane", "gửi terminal bên kia", "Orca worktree", "spawn codex vào worktree", "Orca handoff", or "giao cho agent khác trong Orca", while ORCA_PANE_KEY is set and the session is inside Orca (onorca.dev). Reads, waits on, or sends input to another agent pane, creates one alongside it, or hands work off to it.'
 user-invocable: true
-when_to_use: "Use once ORCA_PANE_KEY confirms the session is inside an Orca pane and the request matches a phrase named in the description; skip outside Orca, and skip for dispatching work to an external CLI, which the delegate skill owns."
+when_to_use: "Use once ORCA_PANE_KEY confirms the session is inside an Orca pane and the request matches a phrase named in the description; skip outside Orca."
 category: utilities
 keywords: [orca, pane, terminal, worktree, onorca]
 argument-hint: "<orca-request>"
