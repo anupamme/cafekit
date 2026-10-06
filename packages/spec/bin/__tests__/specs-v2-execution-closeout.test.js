@@ -339,11 +339,11 @@ test('Claude and Codex gates require task proof at every Stop and feature proof 
       const invalidAliasSpec = JSON.parse(fs.readFileSync(invalidAliasFile, 'utf8'));
       invalidAliasSpec.status = 'completed';
       fs.writeFileSync(invalidAliasFile, `${JSON.stringify(invalidAliasSpec, null, 2)}\n`);
-      assert.match(gate(invalidAlias, kind), /spec status is invalid: completed/, `${kind} rejects legacy aliases in schema 2.1`);
+      assert.match(gate(invalidAlias, kind), /Legacy spec\.json closeout is no longer supported/, `${kind} blocks legacy 2.1 closeout with the migration message`);
       prepare(taskless, { taskless: true, specStatus: 'complete', featureReceipt: true });
-      assert.equal(gate(taskless, kind), '', `${kind} taskless closeout`);
+      assert.match(gate(taskless, kind), /Legacy spec\.json closeout is no longer supported/, `${kind} taskless 2.1 closeout is retired`);
       fs.appendFileSync(path.join(taskless, 'specs', FEATURE, 'requirements.md'), '\nSemantic mutation after review.\n');
-      assert.match(gate(taskless, kind), /validation failed|semantic digest|stale/i, `${kind} rejects stale semantics with unchanged execution provenance`);
+      assert.match(gate(taskless, kind), /Legacy spec\.json closeout is no longer supported/, `${kind} still blocks a changed 2.1 packet`);
       prepare(taskBearing, { taskReceipt: false, featureReceipt: false });
       assert.match(gate(taskBearing, kind), new RegExp(path.basename(TASK)), `${kind} unproven done task before closeout`);
       prepare(taskBearing, { taskReceipt: true, featureReceipt: false });
