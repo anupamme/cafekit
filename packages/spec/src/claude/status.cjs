@@ -26,10 +26,6 @@ const { getGitInfo } = require('./hooks/lib/git.cjs');
 // ratio so 1M-context models are not treated as if they were 200k.
 const AUTOCOMPACT_BUFFER_RATIO = 0.225;
 
-// Usage cache freshness gate: a cache older than this hides the quota area
-// instead of rendering stale numbers.
-const USAGE_CACHE_TTL_MS = 300000;
-
 /**
  * Expand home directory to ~
  */
@@ -104,7 +100,7 @@ async function readStdin() {
  * @returns {string|null} Formatted usage string or null if unavailable
  */
 function buildUsageString(ctx) {
-  if (!ctx.sessionText || ctx.sessionText === 'N/A') return null;
+  if (!ctx.sessionText) return null;
   let str = ctx.sessionText.replace(' until reset', ' left');
   if (ctx.usagePercent != null) str += ` (${Math.round(ctx.usagePercent)}%)`;
   return str;
@@ -531,7 +527,7 @@ async function main() {
       } catch {}
     }
 
-    // Session timer - read actual reset time from usage limits cache
+    // Quota text, filled from the payload's rate_limits below
     let sessionText = '';
     let weeklyText = '';
     let weeklyPercent = null;
@@ -540,8 +536,8 @@ async function main() {
     // Parse transcript for tools/agents/todos
     const transcript = transcriptPath ? await parseTranscript(transcriptPath) : { tools: [], agents: [], todos: [], sessionStart: null };
 
-    // Quota windows: Claude Code's own rate_limits when present (Pro/Max, after the
-    // first API response); otherwise the usage limits cache the usage hook writes.
+    // Quota windows come only from Claude Code's own rate_limits, sent for Pro/Max after
+    // the session's first API response; without it the quota segments stay hidden.
     let usagePercent = null;
     const applyWindows = (fiveHour, sevenDay) => {
       if (fiveHour?.percent != null) {
@@ -563,30 +559,7 @@ async function main() {
     const fromPayload = (window) => (window && typeof window.used_percentage === 'number'
       ? { percent: window.used_percentage, resetsAtMs: Number(window.resets_at) * 1000 }
       : null);
-    const payloadFive = fromPayload(data.rate_limits?.five_hour);
-    const payloadWeek = fromPayload(data.rate_limits?.seven_day);
-    if (payloadFive || payloadWeek) {
-      applyWindows(payloadFive, payloadWeek);
-    } else {
-      try {
-        const usageCachePath = path.join(os.tmpdir(), 'ck-usage-limits-cache.json');
-        if (fs.existsSync(usageCachePath)) {
-          const cache = JSON.parse(fs.readFileSync(usageCachePath, 'utf8'));
-
-          // Check status flag for fallback (non-OAuth scenarios)
-          const fresh = typeof cache.timestamp === 'number'
-            && Date.now() - cache.timestamp < USAGE_CACHE_TTL_MS;
-          if (cache.status === 'unavailable') {
-            sessionText = 'N/A';
-          } else if (cache.status === 'available' && fresh) {
-            const fromCache = (window) => (window?.utilization != null
-              ? { percent: window.utilization, resetsAtMs: window.resets_at ? new Date(window.resets_at).getTime() : NaN }
-              : null);
-            applyWindows(fromCache(cache.data?.five_hour), fromCache(cache.data?.seven_day));
-          }
-        }
-      } catch {}
-    }
+    applyWindows(fromPayload(data.rate_limits?.five_hour), fromPayload(data.rate_limits?.seven_day));
 
     // Cost and lines changed
     const billingMode = env.CLAUDE_BILLING_MODE || 'api';

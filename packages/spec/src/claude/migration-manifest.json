@@ -115,10 +115,12 @@
       "skills/specs/rules/ears-format.md",
       "skills/specs/rules/phase-decision-matrix.md",
       "skills/specs/rules/task-scoring-rubric.md",
-      "skills/specs/rules/tasks-generation.md"
+      "skills/specs/rules/tasks-generation.md",
+      "hooks/usage.cjs"
     ],
     "settingsHookCommandSubstrings": [
-      "hooks/skill-router.cjs"
+      "hooks/skill-router.cjs",
+      ".claude/hooks/usage.cjs"
     ]
   },
   "runtime": {
@@ -131,7 +133,6 @@
       "hooks/precompact.cjs",
       "hooks/docs-sync.cjs",
       "hooks/agent.cjs",
-      "hooks/usage.cjs",
       "hooks/privacy-block.cjs",
       "hooks/secret-output-guardrail.cjs",
       "hooks/inspect-block.cjs",

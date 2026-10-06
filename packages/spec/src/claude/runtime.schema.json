@@ -75,12 +75,13 @@
     "usage": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Usage and quota reporting.",
+      "deprecated": true,
+      "description": "Not honoured. The usage hook that read this key was removed; the statusline takes quota from the rate_limits Claude Code sends. Kept so existing runtime.json files stay valid.",
       "properties": {
         "enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Set false to stop fetching quota data for the statusline."
+          "description": "Not honoured. Nothing fetches quota data any more."
         }
       }
     },

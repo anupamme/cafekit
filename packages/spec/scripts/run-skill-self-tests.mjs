@@ -5368,7 +5368,7 @@ async function runStaticSemanticTests() {
         content.includes("grok --trust") &&
         content.includes("CLAUDE_PROJECT_DIR` is set by grok") &&
         content.includes("It has four control-flow channels") &&
-        content.includes("`usage.cjs` is deliberately not routed") &&
+        content.includes("No hook reads Claude Code credentials any more") &&
         content.includes("Turning off `[compat.claude] hooks` is not supported"),
     },
     {
@@ -5408,9 +5408,9 @@ async function runStaticSemanticTests() {
         content.includes("## Hook portability") &&
         content.includes("runtime-dir.cjs") &&
         content.includes("derive their runtime directory from their own location") &&
-        content.includes("Thirteen `~/.claude/` sites") &&
+        content.includes("The `~/.claude/` sites in `state.cjs`, `lib/counter.cjs` and `lib/context.cjs`") &&
         content.includes("kept as Claude Code behaviour") &&
-        content.includes("Twenty dead-code lines in `lib/context.cjs` and `lib/detect.cjs`") &&
+        content.includes("The dead code in `lib/context.cjs` and `lib/detect.cjs`") &&
         content.includes("`src/omp/hooks/` is an overlay of one file"),
     },
     {
@@ -5528,14 +5528,6 @@ async function runStaticSemanticTests() {
       },
     },
     {
-      label: "usage hook reads runtime config from hook cwd",
-      file: "src/claude/hooks/usage.cjs",
-      assert: (content) =>
-        content.includes("function readRuntime(cwd)") &&
-        content.includes("const cwd = input.cwd || process.cwd()") &&
-        content.includes("runtime.usage?.enabled === false"),
-    },
-    {
       label: "statusline layout contract keeps registry, fallback, cost gate, and weekly anchors",
       file: "src/claude/status.cjs",
       assert: (content) =>
@@ -5543,8 +5535,7 @@ async function runStaticSemanticTests() {
         content.includes("invalid layout falls back to the") &&
         content.includes("if (lines.length === 0) return null") &&
         content.includes("billingMode === 'api'") &&
-        content.includes("seven_day") &&
-        content.includes("USAGE_CACHE_TTL_MS = 300000"),
+        content.includes("rate_limits?.seven_day"),
     },
     {
       label: "repository guide documents statusline configuration",

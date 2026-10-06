@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **The `usage.cjs` hook is gone from Claude and omp (`remove-usage-hook`).** It read the Claude Code OAuth token from the macOS Keychain and called an undocumented quota endpoint on every prompt and every `Edit`/`Write`, only to feed the statusline, which now takes quota from the `rate_limits` Claude Code sends. Upgrading deletes `.claude/hooks/usage.cjs` and `.omp/hooks/usage.cjs` even when edited, and drops the two `.claude/settings.json` entries whose command contains `.claude/hooks/usage.cjs` (a hook of your own elsewhere, such as `~/my-hooks/usage.cjs`, is kept); entries in `.claude/settings.local.json` or `~/.claude/settings.json` are not managed by the installer and must be removed by hand. The statusline no longer reads the usage cache: no quota shows before a session's first API response or on a Claude Code too old to send `rate_limits`; API-key, Bedrock and Vertex sessions had no quota before either. `usage` in `runtime.json` stays valid but is deprecated and has no effect, and `hooks/lib/context.cjs` no longer reads the cache. `bin/__tests__/usage-hook-retired.test.js` pins the fresh install, the Claude and omp upgrades and the source lists.
+
 ### Changed
 
 - **`cf:brainstorm` prose is joined onto single lines (`lean-brainstorm`).** The skill was already written as constraints and output standards, so only hard-wrapped lines were joined: 221 → 121 lines with the word stream and block structure identical, the gate and frontmatter byte-identical, and `references/question-framework.md` unchanged (it had no wrapped prose). Twenty-one mutation anchors in the Codex and package-inventory tests that quoted a line break are re-spaced, and the three replay histories are regenerated. A confirmation run on the history case `ne-cau-hoi` (claude 2.1.289, sonnet and opus, 5 runs a side) gives identical grader counts before and after, and the load probe still quotes the HARD-GATE line. Spend $2.47.

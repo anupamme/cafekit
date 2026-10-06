@@ -41,9 +41,9 @@ export const DISPATCH = {
   session_start:          { event: 'SessionStart',     hooks: ['session.cjs', 'docs-sync.cjs', 'state.cjs'] },
   session_compact:        { event: 'SessionStart',     hooks: ['session.cjs'], source: 'compact' },
   session_before_compact: { event: 'PreCompact',       hooks: ['precompact.cjs'] },
-  input:                  { event: 'UserPromptSubmit', hooks: ['secret-output-guardrail.cjs', 'rules.cjs', 'completion-authority.cjs', 'spec-state.cjs', 'usage.cjs'] },
+  input:                  { event: 'UserPromptSubmit', hooks: ['secret-output-guardrail.cjs', 'rules.cjs', 'completion-authority.cjs', 'spec-state.cjs'] },
   tool_call:              { event: 'PreToolUse',       hooks: ['privacy-block.cjs', 'inspect-block.cjs', 'task-scaffold-guard.cjs'] },
-  tool_result:            { event: 'PostToolUse',      hooks: ['state.cjs', 'usage.cjs'] },
+  tool_result:            { event: 'PostToolUse',      hooks: ['state.cjs'] },
   session_stop:           { event: 'Stop',             hooks: ['spec-gate.cjs', 'completion-authority.cjs', 'state.cjs'] },
 };
 

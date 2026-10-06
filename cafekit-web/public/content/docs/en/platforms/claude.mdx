@@ -37,7 +37,6 @@ Claude Code receives event-driven hooks in `.claude/hooks/`:
 | `spec-state.cjs` | `PostToolUse` | Reject task `done` without verification receipt |
 | `docs-sync.cjs` | `SessionStart` | Flag missing docs, sync hash drift |
 | `session.cjs` | `SessionStart` | Inject session banner and context |
-| `usage.cjs` | `UserPromptSubmit` | Track token/usage hints |
 | `rules.cjs` | `UserPromptSubmit` | Inject dynamic per-prompt rules block |
 
 See [Runtime bundle](/docs/runtime) for hook contract details.

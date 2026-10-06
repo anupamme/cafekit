@@ -82,6 +82,16 @@ function runStatus({ runtime = { statusline: 'full', statuslineColors: true }, p
   }
 }
 
+/** Claude Code's own quota payload: used percentages and epoch-second resets 2h29m and 2d5h ahead. */
+function rateLimits({ fiveHour = 20, weekly = 45 } = {}) {
+  const nowSec = Math.floor(Date.now() / 1000);
+  return {
+    five_hour: { used_percentage: fiveHour, resets_at: nowSec + 2 * 3600 + 29 * 60 + 30 },
+    seven_day: { used_percentage: weekly, resets_at: nowSec + 2 * 86400 + 5 * 3600 },
+  };
+}
+
+/** The file the retired usage hook used to write; the statusline must ignore it. */
 function freshUsageCache(now = Date.now()) {
   return {
     status: 'available',
@@ -141,18 +151,16 @@ test('statusline empty or invalid layout falls back to the default renderers', (
   }
 });
 
-test('statusline shows five-hour and weekly windows with countdowns when the cache is fresh', () => {
-  const run = runStatus({ tmpFiles: { 'ck-usage-limits-cache.json': freshUsageCache() } });
+test('statusline shows five-hour and weekly windows with countdowns from the payload', () => {
+  const run = runStatus({ payload: basePayload({ rate_limits: rateLimits() }) });
   assert.equal(run.status, 0, run.stderr);
   const plain = visible(run.stdout);
   assert.match(plain, /⧗ 20% <reset>/, plain);
   assert.match(plain, /◷ 45%/, plain);
 });
 
-test('statusline hides the quota area when the cache is stale', () => {
-  const stale = freshUsageCache(Date.now() - 10 * 60 * 1000);
-  stale.timestamp = Date.now() - 10 * 60 * 1000;
-  const run = runStatus({ tmpFiles: { 'ck-usage-limits-cache.json': stale } });
+test('statusline shows no quota when the payload has no rate_limits, even with a fresh usage cache', () => {
+  const run = runStatus({ tmpFiles: { 'ck-usage-limits-cache.json': freshUsageCache() } });
   assert.equal(run.status, 0, run.stderr);
   assert.doesNotMatch(run.stdout, /⧗/);
   assert.doesNotMatch(run.stdout, /◷/);
@@ -199,37 +207,35 @@ test('statusline honors NO_COLOR with no ANSI escapes in output', () => {
 });
 
 test('statusline default is one labelled line and narrow terminals drop the least useful parts first', () => {
-  const tmpFiles = { 'ck-usage-limits-cache.json': freshUsageCache() };
-  const payload = basePayload({ cost: { total_lines_added: 120, total_lines_removed: 30 } });
+  const payload = basePayload({ rate_limits: rateLimits(), cost: { total_lines_added: 120, total_lines_removed: 30 } });
   const plainLines = (run) => visible(run.stdout).trimEnd().split('\n');
   const runtime = { statusline: 'full', statuslineColors: false };
 
-  const wide = runStatus({ runtime, payload, tmpFiles });
+  const wide = runStatus({ runtime, payload });
   assert.equal(wide.status, 0, wide.stderr);
   assert.deepEqual(plainLines(wide), ['◆ TestModel  ◑ 53%  ⧗ 20% <reset>  ◷ 45%  ± +120/-30']);
 
-  const narrow = runStatus({ runtime, payload, tmpFiles, envExtra: { COLUMNS: '34' } });
+  const narrow = runStatus({ runtime, payload, envExtra: { COLUMNS: '34' } });
   assert.deepEqual(plainLines(narrow), ['◆ TestModel  ◑ 53%  ⧗ 20% <reset>']);
-  const tiny = runStatus({ runtime, payload, tmpFiles, envExtra: { COLUMNS: '10' } });
+  const tiny = runStatus({ runtime, payload, envExtra: { COLUMNS: '10' } });
   assert.deepEqual(plainLines(tiny), ['◆ TestModel  ◑ 53%']);
 });
 
 test('statusline compact is the default line alone and minimal keeps model and context', () => {
-  const tmpFiles = { 'ck-usage-limits-cache.json': freshUsageCache() };
+  const payload = basePayload({ rate_limits: rateLimits() });
   const plain = (run) => visible(run.stdout).trimEnd();
-  const compact = runStatus({ runtime: { statusline: 'compact', statuslineColors: false }, tmpFiles });
+  const compact = runStatus({ runtime: { statusline: 'compact', statuslineColors: false }, payload });
   assert.equal(plain(compact), '◆ TestModel  ◑ 53%  ⧗ 20% <reset>  ◷ 45%');
-  const minimal = runStatus({ runtime: { statusline: 'minimal', statuslineColors: false }, tmpFiles });
+  const minimal = runStatus({ runtime: { statusline: 'minimal', statuslineColors: false }, payload });
   assert.equal(plain(minimal), '◆ TestModel  ◑ 53%');
 });
 
 test('statusline colours percentages by threshold and prints no escape when statuslineColors is false', () => {
-  const hot = freshUsageCache();
-  hot.data.five_hour.utilization = 90;
-  const coloured = runStatus({ tmpFiles: { 'ck-usage-limits-cache.json': hot } });
+  const hot = basePayload({ rate_limits: rateLimits({ fiveHour: 90 }) });
+  const coloured = runStatus({ payload: hot });
   assert.match(coloured.stdout, /\x1b\[31m90%/, 'a five-hour quota at 90% is red');
   assert.match(coloured.stdout, /\x1b\[32m◑[ \u00A0]53%/, 'context at 53% is green');
-  const plain = runStatus({ runtime: { statusline: 'full', statuslineColors: false }, tmpFiles: { 'ck-usage-limits-cache.json': hot } });
+  const plain = runStatus({ runtime: { statusline: 'full', statuslineColors: false }, payload: hot });
   assert.doesNotMatch(plain.stdout, /\x1b\[/);
 });
 
@@ -243,7 +249,7 @@ test('statusline shows the live effort level next to the model, and nothing when
   assert.equal(visible(without.stdout).trimEnd(), '◆ TestModel  ◑ 53%');
 });
 
-test('statusline reads quota from the payload rate_limits before the usage cache', () => {
+test('statusline reads quota from the payload rate_limits', () => {
   const nowSec = Math.floor(Date.now() / 1000);
   const payload = basePayload({ rate_limits: {
     five_hour: { used_percentage: 36, resets_at: nowSec + 2 * 3600 + 12 * 60 + 30 },
@@ -251,7 +257,19 @@ test('statusline reads quota from the payload rate_limits before the usage cache
   } });
   const run = runStatus({ runtime: { statusline: 'compact', statuslineColors: false }, payload,
     tmpFiles: { 'ck-usage-limits-cache.json': freshUsageCache() } });
-  assert.equal(visible(run.stdout).trimEnd(), '◆ TestModel  ◑ 53%  ⧗ 36% <reset>  ◷ 43%', 'payload wins over the cache (20%/45%)');
+  assert.equal(visible(run.stdout).trimEnd(), '◆ TestModel  ◑ 53%  ⧗ 36% <reset>  ◷ 43%', 'the payload is the only source (the cache says 20%/45%)');
+});
+
+test('statusline layout quota section renders from the payload', () => {
+  const run = runStatus({
+    runtime: { statusline: 'full', statuslineColors: false, statuslineLayout: { lines: [['quota']] } },
+    payload: basePayload({ rate_limits: rateLimits({ fiveHour: 36, weekly: 43 }) }),
+  });
+  assert.equal(run.status, 0, run.stderr);
+  // Not visible(): its mask matches only \d+h\d+m, and the layout prints "2h 29m" plus a
+  // weekly countdown that can roll over between seconds.
+  const line = run.stdout.replace(ANSI, '').replace(NBSP, ' ').trimEnd();
+  assert.match(line, /⌛ \d+h \d+m left \(36% used\)  wk 43% \(\d+d \d+h\)/, line);
 });
 
 /** A throwaway git repo on branch `feat`, so git, PR and worktree marks have a branch to ride on. */
