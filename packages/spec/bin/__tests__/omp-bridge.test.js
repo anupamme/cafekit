@@ -50,6 +50,11 @@ function registered(eventName) {
     .filter(Boolean);
 }
 
+// Deliberate, named divergences while omp is not yet updated. Each must still be a real
+// difference, so the test fails (and the entry must go) once omp catches up.
+const CLAUDE_ONLY = { PostToolUse: ['spec-state.cjs'] };
+const OMP_ONLY = { SessionStart: ['docs-sync.cjs'] };
+
 test('the dispatch table mirrors settings.json for every event omp can deliver', () => {
   const { DISPATCH } = bridge;
   const pairs = [
@@ -58,8 +63,18 @@ test('the dispatch table mirrors settings.json for every event omp can deliver',
     ['tool_result', 'PostToolUse'], ['session_stop', 'Stop'],
   ];
   for (const [omp, claude] of pairs) {
-    assert.deepEqual([...DISPATCH[omp].hooks].sort(), [...new Set(registered(claude))].sort(),
-      `${omp} must dispatch exactly the hooks settings.json registers for ${claude}`);
+    const claudeOnly = CLAUDE_ONLY[claude] || [];
+    const ompOnly = OMP_ONLY[claude] || [];
+    const claudeHooks = [...new Set(registered(claude))];
+    for (const hook of claudeOnly) {
+      assert.ok(claudeHooks.includes(hook) && !DISPATCH[omp].hooks.includes(hook), `${hook} is no longer Claude-only for ${claude}; drop it from CLAUDE_ONLY`);
+    }
+    for (const hook of ompOnly) {
+      assert.ok(!claudeHooks.includes(hook) && DISPATCH[omp].hooks.includes(hook), `${hook} is no longer omp-only for ${claude}; drop it from OMP_ONLY`);
+    }
+    const expected = [...claudeHooks.filter((hook) => !claudeOnly.includes(hook)), ...ompOnly].sort();
+    assert.deepEqual([...DISPATCH[omp].hooks].sort(), expected,
+      `${omp} must dispatch the hooks settings.json registers for ${claude}, minus CLAUDE_ONLY, plus OMP_ONLY`);
   }
   // omp has no subagent events; the gap is deliberate and documented, not forgotten.
   assert.ok(!Object.values(DISPATCH).some((e) => e.event.startsWith('Subagent')));

@@ -24,7 +24,7 @@ Refresh existing living docs after code or project-state changes without rewriti
 4. Identify update focus:
    - user-named module or doc
    - recent source diff
-   - docs-sync stale hash signal
+   - docs-sync stale hash signal (run `echo '{}' | node .claude/hooks/docs-sync.cjs` from the project root)
    - a full docs refresh only when user asks for it
 
 ### Phase 1: Source Change Scout

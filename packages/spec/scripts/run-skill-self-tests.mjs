@@ -6052,6 +6052,8 @@ async function runSettingsManifestConsistencyCheck() {
   const helperAllowlist = new Set([
     "hooks/completion-authority-check.cjs",
     "hooks/completion-authority-state.cjs",
+    // Run on demand by the docs skill (`echo '{}' | node .claude/hooks/docs-sync.cjs`), not at SessionStart.
+    "hooks/docs-sync.cjs",
   ]);
 
   const failures = [];

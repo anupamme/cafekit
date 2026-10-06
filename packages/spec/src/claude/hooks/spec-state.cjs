@@ -44,6 +44,40 @@ function canonicalPath(value) {
   try { return fs.realpathSync(value); } catch { return null; }
 }
 
+/** Real path of `value`, resolving its deepest existing ancestor (the file may not exist yet). */
+function canonicalTarget(value) {
+  if (typeof value !== 'string' || !value) return null;
+  let current = path.resolve(value);
+  const rest = [];
+  while (!fs.existsSync(current)) {
+    const parent = path.dirname(current);
+    if (parent === current) return null;
+    rest.unshift(path.basename(current));
+    current = parent;
+  }
+  const real = canonicalPath(current);
+  return real ? path.join(real, ...rest) : null;
+}
+
+function escapeRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Packets the prompt names: `specs/<name>`, a `/cf:<command> <name>` token, or the bare
+ * name when it carries `-`, `_` or a digit. A plain word such as `docs` must use `specs/`,
+ * so an ordinary sentence does not touch a packet.
+ */
+function packetsNamedIn(text, names) {
+  if (typeof text !== 'string' || !text) return [];
+  return names.filter((name) => {
+    const n = escapeRegExp(name);
+    if (new RegExp(`(^|[^\\w-])specs/${n}(?![\\w-])`).test(text)) return true;
+    if (new RegExp(`/cf:[\\w-]+\\s+(?:specs/)?${n}(?![\\w-])`).test(text)) return true;
+    return /[-_0-9]/.test(name) && new RegExp(`(^|[^\\w/-])${n}(?![\\w-])`).test(text);
+  });
+}
+
 try {
   // ── Main ──────────────────────────────────────────────────────────────────
 
@@ -51,7 +85,8 @@ try {
   if (!stdin) process.exit(0);
 
   const { normalizeHookPayload } = require('./lib/hook-payload.cjs');
-  const payload = normalizeHookPayload(JSON.parse(stdin));
+  const rawPayload = JSON.parse(stdin);
+  const payload = normalizeHookPayload(rawPayload);
   const cwd     = payload.cwd || process.cwd();
 
   let POLICY;
@@ -84,6 +119,64 @@ try {
   const baseDir   = installedRoot || process.env.PROJECT_ROOT || cwd;
   const explicitFeature = payload.featureName || payload.feature || payload.explicitFeature || null;
   const explicitPath = payload.specPath || payload.spec_path || payload.featurePath || null;
+
+  // ── Per-session touch set (Claude only) ───────────────────────────────────
+  // Several sessions can share one checkout. On Claude the tollgate speaks only about a
+  // packet this session touched. omp and Codex run their own copies, and grok sends
+  // `sessionId` before normalization, so all three keep the old behaviour.
+  const claudeSession = rawPayload && typeof rawPayload.session_id === 'string' && rawPayload.session_id
+    ? rawPayload.session_id
+    : null;
+  const touchFilter = runtimeDirName() === '.claude' && claudeSession !== null;
+  const touchFile = touchFilter
+    ? path.join(
+      require('./lib/hook-state-dir.cjs').hookStateDir(),
+      `spec-touched-${require('crypto').createHash('sha256').update(claudeSession).digest('hex')}.json`,
+    )
+    : null;
+  const readTouched = () => {
+    try {
+      const list = JSON.parse(fs.readFileSync(touchFile, 'utf8'));
+      return new Set(Array.isArray(list) ? list : []);
+    } catch { return new Set(); }
+  };
+  const addTouched = (names) => {
+    const touched = readTouched();
+    const before = touched.size;
+    for (const name of names) touched.add(name);
+    if (touched.size === before) return;
+    try {
+      fs.mkdirSync(path.dirname(touchFile), { recursive: true });
+      fs.writeFileSync(touchFile, JSON.stringify([...touched].sort()));
+    } catch { /* an unwritable state dir only loses the touch */ }
+  };
+  let specsRoot = null;
+  try { specsRoot = RESOLVER.specsDirectory(baseDir, runtime); } catch { /* resolver reports it below */ }
+
+  if (payload.hook_event_name === 'PostToolUse') {
+    // Record only; no resolve, no git, no tollgate cache.
+    if (touchFilter && specsRoot && /^(Edit|Write|MultiEdit)$/.test(payload.tool_name || '')) {
+      const realRoot = canonicalPath(specsRoot);
+      const realTarget = canonicalTarget(payload.tool_input && payload.tool_input.file_path);
+      if (realRoot && realTarget) {
+        const rel = path.relative(realRoot, realTarget);
+        const parts = rel.split(path.sep);
+        if (rel && parts[0] !== '..' && !path.isAbsolute(rel) && parts.length > 1) addTouched([parts[0]]);
+      }
+    }
+    process.exit(0);
+  }
+
+  if (touchFilter) {
+    let packets = [];
+    try {
+      packets = fs.readdirSync(specsRoot, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name);
+    } catch { /* no specs root */ }
+    const named = packetsNamedIn(payload.prompt, packets);
+    if (typeof explicitFeature === 'string' && explicitFeature) named.push(explicitFeature);
+    if (named.length) addTouched(named);
+  }
+
   const resolveWorkflow = typeof RESOLVER.resolveWorkflowCandidate === 'function'
     ? RESOLVER.resolveWorkflowCandidate
     : RESOLVER.resolveActiveSpec;
@@ -118,6 +211,7 @@ try {
   const activeSpec = resolved.spec || {};
   const processWorkflow = resolved.layoutKind === 'process-v3';
   const featureName = resolved.featureName;
+  if (touchFilter && !readTouched().has(featureName)) process.exit(0);
   const specsPath = resolved.specsDir;
   const runtimeContext = POLICY.deriveRuntimeContext({
     projectRoot: baseDir,

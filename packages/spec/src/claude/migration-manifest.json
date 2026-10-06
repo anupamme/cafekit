@@ -120,7 +120,8 @@
     ],
     "settingsHookCommandSubstrings": [
       "hooks/skill-router.cjs",
-      ".claude/hooks/usage.cjs"
+      ".claude/hooks/usage.cjs",
+      ".claude/hooks/docs-sync.cjs"
     ]
   },
   "runtime": {

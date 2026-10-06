@@ -148,6 +148,21 @@ try {
     return data;
   }
 
+  /**
+   * True when latest.md holds something beyond the filler this hook writes itself:
+   * headings, HTML comments, the three placeholder bullets and timestamp-only agent results.
+   */
+  function hasPriorContent(text) {
+    const filler = [
+      /^#{1,6}\s/,
+      /^<!--.*-->$/,
+      /^- \((No completed tasks recorded|All tasks completed|No file changes detected)\)$/,
+      /^- Completed at \d{2}:\d{2}:\d{2}$/,
+    ];
+    return text.split('\n').map((line) => line.trim())
+      .some((line) => line && !filler.some((pattern) => pattern.test(line)));
+  }
+
   function buildStateContent(data) {
     const done = data.todos.filter((todo) => todo.status === 'completed' || todo.status === 'done');
     const pending = data.todos.filter((todo) => !['completed', 'done'].includes(todo.status));
@@ -226,14 +241,18 @@ try {
     if (!stdin) process.exit(0);
 
     const { normalizeHookPayload } = require('./lib/hook-payload.cjs');
-    const data = normalizeHookPayload(JSON.parse(stdin));
+    const rawPayload = JSON.parse(stdin);
+    const data = normalizeHookPayload(rawPayload);
     const event = data.hook_event_name || '';
     const cwd = data.cwd || process.cwd();
     const dir = stateDir(cwd);
 
     if (event === 'SessionStart') {
       const previous = loadLatest(cwd);
-      if (previous) {
+      // Claude only: grok (camelCase sessionId), omp and Codex keep printing the block.
+      const claudeSession = runtimeDirName() === '.claude'
+        && typeof rawPayload.session_id === 'string' && rawPayload.session_id.length > 0;
+      if (previous && (!claudeSession || hasPriorContent(previous))) {
         console.log('\n=== Prior Execution Context ===');
         console.log(previous.trim());
         console.log('=== End of Prior Context ===\n');
