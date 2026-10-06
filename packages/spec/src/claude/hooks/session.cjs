@@ -202,7 +202,6 @@ try {
   const envFile = process.env.CLAUDE_ENV_FILE;
   const cwd     = projectRoot();
   const runtime = readRuntime(cwd);
-  try { require('./completion-authority-state.cjs').clearState(cwd, payload.session_id); } catch { /* old installs remain fail-open */ }
 
   // Check CafeKit update in parallel with project detection (async, fail-open).
   const updateCheckPromise = checkCafeKitUpdate(cwd);

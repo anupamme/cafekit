@@ -6047,11 +6047,7 @@ async function runSettingsManifestConsistencyCheck() {
   const shipped = new Set(
     (manifest.runtime?.files || []).filter((f) => /^hooks\/[a-z-]+\.cjs$/.test(f)),
   );
-  // Helpers imported by completion-authority.cjs, not executable hook entrypoints
-  // (see src/claude/hooks/completion-authority.cjs:64-65 requiring ./completion-authority-state.cjs and ./completion-authority-check.cjs)
   const helperAllowlist = new Set([
-    "hooks/completion-authority-check.cjs",
-    "hooks/completion-authority-state.cjs",
     // Run on demand by the docs skill (`echo '{}' | node .claude/hooks/docs-sync.cjs`), not at SessionStart.
     "hooks/docs-sync.cjs",
   ]);
@@ -6238,7 +6234,8 @@ async function runCodeReviewBoundaryCheck() {
     present("auditor forbids the test suite", "auditor", "Never run the project's test suite or a test file, not even as a sanity check"),
     present("auditor limits Bash", "auditor", "`Bash` is for read-only inspection only"),
     present("auditor allows a read-only reproduction", "auditor", "cited as a reproduction and never as test evidence"),
-    present("auditor allows the Strict validator", "auditor", "the attestation validator `node .claude/scripts/validate-spec-output.cjs <specDir> --semantic-digest`"),
+    absent("auditor drops the Strict attestation validator", "auditor", "the attestation validator"),
+    absent("auditor drops the attestation marker", "auditor", "CAFEKIT_SEMANTIC_REVIEW_ATTESTATION"),
     present("auditor reports no test result as evidence", "auditor", "Never report a test result, pass count, or exit code as the review's evidence"),
     present("auditor fixes the unavailable proof line", "auditor", "write the proof line exactly as `**Execution proof:** unavailable (owned by cf:test)`"),
     present("auditor reports the proof field", "auditor", "- **Execution proof:** test-proof-v1 consumed | unavailable (owned by cf:test)"),

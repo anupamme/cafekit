@@ -17,7 +17,6 @@ const RECEIPTS = require(path.join(PACKAGE_ROOT, 'src/claude/scripts/spec-receip
 const FINAL_STATE = require(path.join(PACKAGE_ROOT, 'src/claude/scripts/spec-final-state.cjs'));
 const VALIDATOR = require(path.join(PACKAGE_ROOT, 'src/claude/scripts/validate-spec-output.cjs'));
 const GROUNDER = require(path.join(PACKAGE_ROOT, 'src/claude/scripts/spec-ground.cjs'));
-const SEMANTIC_AUTHORITY = require(path.join(PACKAGE_ROOT, 'src/claude/hooks/semantic-review-authority.cjs'));
 const READINESS = require(path.join(PACKAGE_ROOT, 'src/claude/scripts/spec-readiness.cjs'));
 const AUTHORING_VALIDATOR = path.join(PACKAGE_ROOT, 'src/claude/scripts/spec-authoring-validation.cjs');
 const { copyClaudeTestRuntime } = require('./test-runtime-dependency-closure.cjs');
@@ -80,9 +79,6 @@ function installClaudeRuntimeClosure(fixtureRoot, entry = 'hooks/spec-gate.cjs')
   const hooksRoot = path.join(PACKAGE_ROOT, 'src', 'claude', 'hooks');
   for (const hook of [
     'spec-gate.cjs',
-    'completion-authority-check.cjs',
-    'completion-authority-state.cjs',
-    'semantic-review-authority.cjs',
   ]) {
     const target = path.join(destinationRoot, 'hooks', hook);
     fs.mkdirSync(path.dirname(target), { recursive: true });
@@ -818,7 +814,7 @@ test('core execution agents default to process-first state and isolate legacy pa
   assert.match(auditor, /accepted GATE-SCOPE\/GATE-REVIEW decisions/i);
   assert.match(auditor, /Only for a valid legacy adapter[\s\S]*`Related Files`[\s\S]*`## Evidence`/i);
   assert.match(auditor, /Never require those legacy artifacts from a[\s\S]*process-first packet/i);
-  assert.match(auditor, /attestation belongs only to the valid legacy/i);
+  assert.doesNotMatch(auditor, /CAFEKIT_SEMANTIC_REVIEW_ATTESTATION/);
 
   const docsKeeper = read(PROCESS_FIRST_AGENTS[3]);
   assert.match(docsKeeper, /never[\s\S]{0,80}invent or write Status, Receipt, approval, or execution proof/i);
@@ -1369,41 +1365,20 @@ test('atomic readiness preserves exact bytes on review, grounding, decision, and
     blocked.workflow_policy = POLICY.canonicalWorkflowPolicySnapshot({ planning_depth: 'Compact', assurance_level: 'Strict' });
     fs.writeFileSync(fixture.specPath, `${JSON.stringify(blocked, null, 2)}\n`);
     const strictBytes = fs.readFileSync(fixture.specPath);
-    assert.throws(() => READINESS.finalizeReadiness({ specDir: fixture.specDir, projectRoot: fixture.root, reviewResult: ordinaryReview() }), /Strict readiness/);
+    assert.throws(() => READINESS.finalizeReadiness({ specDir: fixture.specDir, projectRoot: fixture.root, reviewResult: ordinaryReview() }), /Strict assurance is no longer supported/);
     assert.equal(fs.readFileSync(fixture.specPath).equals(strictBytes), true);
   } finally { fs.rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
-test('Strict atomic readiness succeeds only after current allowlisted host observation', () => {
+test('Strict readiness is refused as no longer supported', () => {
   const fixture = createOrdinaryAuthoringFixture();
   try {
     const spec = JSON.parse(fs.readFileSync(fixture.specPath, 'utf8'));
     spec.workflow_policy = POLICY.canonicalWorkflowPolicySnapshot({ planning_depth: 'Compact', assurance_level: 'Strict' });
     fs.writeFileSync(fixture.specPath, `${JSON.stringify(spec, null, 2)}\n`);
     const before = fs.readFileSync(fixture.specPath);
-    assert.throws(() => READINESS.finalizeReadiness({ specDir: fixture.specDir, projectRoot: fixture.root, reviewResult: ordinaryReview() }), /Strict readiness/);
+    assert.throws(() => READINESS.finalizeReadiness({ specDir: fixture.specDir, projectRoot: fixture.root, reviewResult: ordinaryReview() }), /Strict assurance is no longer supported/);
     assert.equal(fs.readFileSync(fixture.specPath).equals(before), true);
-
-    const digest = VALIDATOR.computeSemanticDigest21(fixture.specDir, spec);
-    assert.equal(digest.errors.length, 0, digest.errors.join('\n'));
-    const authorityHome = path.join(fixture.root, 'authority-home');
-    const claim = `CAFEKIT_SEMANTIC_REVIEW_ATTESTATION ${JSON.stringify({ feature_name: 'ordinary', spec_file: 'specs/ordinary/spec.json', semantic_digest: digest.digest, verdict: 'PASS' })}`;
-    const observed = spawnSync(process.execPath, [path.join(PACKAGE_ROOT, 'src/claude/hooks/semantic-review-authority.cjs')], {
-      cwd: fixture.root,
-      env: { ...process.env, HOME: authorityHome, USERPROFILE: authorityHome, PROJECT_ROOT: fixture.root },
-      input: JSON.stringify({ hook_event_name: 'SubagentStop', session_id: 'host-session', agent_id: 'reviewer-1', agent_type: 'code_auditor', last_assistant_message: claim, cwd: fixture.root }),
-      encoding: 'utf8',
-    });
-    assert.equal(observed.status, 0, observed.stderr);
-    const reviewFile = path.join(fixture.root, 'review.json');
-    fs.writeFileSync(reviewFile, `${JSON.stringify(ordinaryReview())}\n`);
-    const finalized = spawnSync(process.execPath, [path.join(PACKAGE_ROOT, 'src/claude/scripts/spec-readiness.cjs'), fixture.specDir, '--review-result', reviewFile], {
-      cwd: fixture.root,
-      env: { ...process.env, HOME: authorityHome, USERPROFILE: authorityHome, PROJECT_ROOT: fixture.root },
-      encoding: 'utf8',
-    });
-    assert.equal(finalized.status, 0, `${finalized.stdout}\n${finalized.stderr}`);
-    assert.equal(JSON.parse(fs.readFileSync(fixture.specPath, 'utf8')).ready_for_implementation, true);
   } finally { fs.rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
@@ -1423,7 +1398,7 @@ test('done is a final-state request bound to current semantic model and digest',
     const dependencies = () => ({
       validator: VALIDATOR,
       grounder: GROUNDER,
-      semanticAuthority: SEMANTIC_AUTHORITY,
+      semanticAuthority: {},
     });
     const current = FINAL_STATE.validateCanonicalFinalState({
       policy: POLICY, projectRoot: fixture.root, candidate, dependencies,

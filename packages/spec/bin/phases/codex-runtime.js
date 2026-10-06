@@ -23,6 +23,29 @@ const CODEX_OWN_RUNTIME = [
   ['runtime.json', 'runtime.json']
 ];
 
+/**
+ * Delete hooks the manifest marks obsolete. Codex tracker keys are project-relative
+ * (`.codex/hooks/…`), so the record is pruned through keyFor, and always: a record whose
+ * file is already gone must still leave the manifest.
+ */
+function removeObsoleteCodexHooks(ctx, platformKey) {
+  const platform = PLATFORMS[platformKey];
+  const tracker = ctx.trackers && ctx.trackers[platformKey];
+  const obsoleteHooks = (ctx.manifest?.obsolete?.runtimeFiles || []).filter((rel) => rel.startsWith('hooks/'));
+  for (const rel of obsoleteHooks) {
+    const target = path.join(platform.folder, rel);
+    const exists = fs.existsSync(target);
+    if (!ctx.dryRun) {
+      if (exists) fs.rmSync(target, { force: true, recursive: fs.statSync(target).isDirectory() });
+      if (tracker) tracker.prune(tracker.keyFor(target));
+    }
+    if (exists) {
+      ctx.ui.detail(`  ↻ ${ctx.dryRun ? '[dry-run] ' : ''}Removed obsolete Codex runtime: ${rel}`);
+      ctx.results.updated++;
+    }
+  }
+}
+
 function writeSourceFile(ctx, platformKey, src, dest, label) {
   const platform = PLATFORMS[platformKey];
   const { action } = writeManagedFile({
@@ -64,6 +87,7 @@ function installRuntimeFiles(ctx, platformKey) {
     tracker: ctx.trackers[platformKey]
   });
   report(ctx, treeAction(agg), 'Codex native hooks');
+  removeObsoleteCodexHooks(ctx, platformKey);
   // Keep one canonical command analyzer in the Claude source tree, then
   // materialize the same bytes into the installed Codex runtime.
   // One canonical runtime schema lives in the Claude source tree; both installed

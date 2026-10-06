@@ -611,24 +611,6 @@ test('Codex inspect hook scans native shell commands and structured paths', () =
   });
 });
 
-test('Codex task scaffold hook blocks apply_patch Add File with stderr guidance', () => {
-  inHookFixture((root, hooks) => {
-    const result = runHook(path.join(hooks, 'task-scaffold-guard.cjs'), root, {
-      cwd: root,
-      session_id: 'session-a',
-      hook_event_name: 'PreToolUse',
-      tool_name: 'apply_patch',
-      tool_input: {
-        command: '*** Begin Patch\n*** Add File: specs/auth/tasks/task-R0-01-auth.md\n+x\n*** End Patch\n'
-      }
-    });
-
-    assert.equal(result.status, 2);
-    assert.match(result.stderr, /TASK SCAFFOLD REQUIRED/);
-    assert.match(result.stderr, /node \.codex\/scripts\/spec-scaffold\.cjs auth/);
-  });
-});
-
 test('Codex completion gate cannot be bypassed from a nested cwd', () => {
   inHookFixture((root, hooks) => {
     const nested = path.join(root, 'packages', 'app');
@@ -1034,24 +1016,6 @@ test('Codex state hook persists direct native event fields at project root', () 
     assert.equal(missingSession.status, 0);
     assert.equal(codexStateDir(root, ''), null);
   });
-});
-
-test('semantic review authority hook is registered only for SubagentStop on Claude and Codex', () => {
-  const configurations = [
-    JSON.parse(fs.readFileSync(path.join(PACKAGE_ROOT, 'src/claude/settings/settings.json'), 'utf8')).hooks,
-    JSON.parse(fs.readFileSync(path.join(PACKAGE_ROOT, 'src/codex/hooks.json'), 'utf8')).hooks,
-  ];
-  for (const hooks of configurations) {
-    const registrations = [];
-    for (const [event, groups] of Object.entries(hooks)) {
-      for (const group of groups) {
-        for (const hook of group.hooks || []) {
-          if (String(hook.command || '').includes('semantic-review-authority.cjs')) registrations.push(event);
-        }
-      }
-    }
-    assert.deepEqual(registrations, ['SubagentStop']);
-  }
 });
 
 test('Codex canonical receipt provenance requires both Base and Head', () => {

@@ -17,9 +17,7 @@ Never run the project's test suite or a test file, not even as a sanity check.
 `Bash` is for read-only inspection only: `git show`, `git diff`, `git log`,
 `git status`, search, and reading files; a read-only run of the reviewed code (for
 example `node -e` on the changed function) to reproduce a defect, cited as a
-reproduction and never as test evidence; and, for a Strict legacy review, the
-attestation validator `node .claude/scripts/validate-spec-output.cjs <specDir> --semantic-digest`
-or `node .codex/scripts/validate-spec-output.cjs <specDir> --semantic-digest`.
+reproduction and never as test evidence.
 Never report a test result, pass count, or exit code as the review's evidence.
 Without a `test-proof-v1` handoff, state execution proof as unavailable (owned by
 `cf:test`): write the proof line exactly as `**Execution proof:** unavailable (owned by cf:test)`,
@@ -192,27 +190,3 @@ When called from `develop` Step 4 (Quality Gate Auto-Fix):
 - Respect project conventions if `docs/code-standards.md` exists.
 - Never modify files; run only the commands the Test-Run Boundary allows.
 - Integrate with `code-review` skill for full protocol.
-
-## Strict Semantic Review Attestation (Honest-Agent Guardrail)
-
-This attestation belongs only to the valid legacy `spec.json` adapter. A
-process-first review reports findings to the controller and never fabricates a
-legacy semantic digest, separate receipt, or completion authority.
-
-This section is an honest-agent integrity guardrail, not a security boundary against same-account process tampering. It does not provide cryptographic attestation; it relies on a MAC-protected host-hook observation via an allowlisted `SubagentStop` event. Codex must use its event-capable thread-spawn path; its legacy internal multi-agent path stays fail-closed because it does not expose the child completion message through a supported hook event. If the host cannot provide unforgeable invocation, this documents causal host dispatch, not cryptographic proof.
-
-When the review request explicitly includes `assurance_level: Strict` with a `semantic_digest` and asks for an attestation marker, and you have verified that `verdict` is `PASS` and the `semantic_digest` exactly matches the current artifacts (recompute via `node .claude/scripts/validate-spec-output.cjs <specDir> --semantic-digest` or `node .codex/scripts/validate-spec-output.cjs <specDir> --semantic-digest`), emit exactly one line at the very end of your final assistant message:
-
-```
-CAFEKIT_SEMANTIC_REVIEW_ATTESTATION {"feature_name":"<feature>","spec_file":"specs/<feature>/spec.json","semantic_digest":"sha256:<64 hex>","verdict":"PASS"}
-```
-
-Requirements:
-- Emit only for `Strict` with an explicit digest; never for `Routine`/`Elevated`, never without a digest, never with `FAIL` or stale digest.
-- `spec_file` must be exactly `specs/<feature>/spec.json` relative to project root; never `scratch/spec.json` or absolute path.
-- `feature_name` must match `spec.json:feature_name` and directory name.
-- `semantic_digest` must be the literal `sha256:` plus 64 lowercase hex from the validator; do not fabricate.
-- Emit exactly one marker line, no extra markers, no surrounding prose on that line.
-- The host hook (`SubagentStop` with `agent_type` `code-auditor`/`code_auditor`) observes this marker and, if the digest matches current artifacts, persists a MAC-protected observation; only that host observation satisfies `Strict` readiness. Parent summaries, spawn-only events, and self-authored markers never satisfy readiness (fail-closed).
-
-If `Strict` is not requested, or the digest is missing/stale, or verdict is not `PASS`, do not emit any attestation marker.

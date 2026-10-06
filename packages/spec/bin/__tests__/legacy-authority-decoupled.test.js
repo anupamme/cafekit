@@ -41,8 +41,7 @@ function removeLegacyFiles(root) {
   for (const runtime of ['.claude', '.codex']) {
     for (const file of LEGACY_FILES) {
       const target = path.join(root, runtime, 'hooks', file);
-      assert.equal(fs.existsSync(target), true, `${target} is installed before removal`);
-      fs.rmSync(target);
+      fs.rmSync(target, { force: true });
     }
   }
 }

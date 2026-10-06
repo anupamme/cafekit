@@ -88,7 +88,6 @@ try {
 
   // Approval tokens never survive a session boundary or compaction.
   clearState(projectRoot);
-  try { require('./completion-authority-state.cjs').clearState(projectRoot, payload.session_id); } catch { /* the approval flow is being retired; a missing state module is fine */ }
 
   // Orca (onorca.dev) sets ORCA_PANE_KEY in every pane; it is a presence marker, not a
   // secret. ORCA_AGENT_HOOK_TOKEN and ORCA_AGENT_LAUNCH_TOKEN live in the same

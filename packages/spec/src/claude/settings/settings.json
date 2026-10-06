@@ -56,10 +56,6 @@
           },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/completion-authority.cjs\""
-          },
-          {
-            "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/spec-state.cjs\""
           }
         ]
@@ -76,15 +72,6 @@
           {
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/inspect-block.cjs\""
-          }
-        ]
-      },
-      {
-        "matcher": "Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/task-scaffold-guard.cjs\""
           }
         ]
       }
@@ -118,10 +105,6 @@
           },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/completion-authority.cjs\""
-          },
-          {
-            "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/state.cjs\""
           }
         ]
@@ -130,10 +113,6 @@
     "SubagentStop": [
       {
         "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/semantic-review-authority.cjs\""
-          },
           {
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/state.cjs\""

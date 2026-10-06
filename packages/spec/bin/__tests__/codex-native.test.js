@@ -1985,7 +1985,6 @@ test('Codex Windows hook launchers stay project-bound without Git from nested cw
     );
     const launchers = allHookLaunchers(config);
     assert.ok(launchers.length > 0, 'installed Codex config must register hook launchers');
-    const semanticReviewEvents = [];
     for (const { event, handler } of launchers) {
       assert.doesNotMatch(handler.commandWindows, /\$\(/);
       assert.doesNotMatch(handler.commandWindows, /\bgit\b/i);
@@ -1999,11 +1998,7 @@ test('Codex Windows hook launchers stay project-bound without Git from nested cw
         true,
         `missing installed hook: ${path.basename(target)}`
       );
-      if (path.basename(target) === 'semantic-review-authority.cjs') {
-        semanticReviewEvents.push(event);
-      }
     }
-    assert.deepEqual(semanticReviewEvents, ['SubagentStop']);
 
     const nested = path.join(projectRoot, 'nested', 'workspace');
     fs.mkdirSync(nested, { recursive: true });
@@ -3164,16 +3159,14 @@ test('Codex install on top of existing Claude installation preserves content and
   });
 });
 
-test('Codex installed code_auditor contains Strict conditional marker', () => {
+test('Codex installed code_auditor carries no Strict attestation marker', () => {
   inTempProject((root) => {
     const result = install(root);
     assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
     const toml = fs.readFileSync(path.join(root, '.codex', 'agents', 'code_auditor.toml'), 'utf8');
-    assert.match(toml, /Strict Semantic Review Attestation/);
-    assert.match(toml, /CAFEKIT_SEMANTIC_REVIEW_ATTESTATION/);
-    assert.match(toml, /MAC-protected host-hook observation/);
-    assert.doesNotMatch(toml, /host-signed/);
-    assert.match(toml, /specs\/<feature>\/spec\.json/);
+    assert.doesNotMatch(toml, /CAFEKIT_SEMANTIC_REVIEW_ATTESTATION/);
+    assert.doesNotMatch(toml, /Strict Semantic Review Attestation/);
+    assert.doesNotMatch(toml, /MAC-protected host-hook observation/);
   });
 });
 

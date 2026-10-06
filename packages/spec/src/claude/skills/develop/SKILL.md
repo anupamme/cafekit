@@ -174,5 +174,5 @@ If the selected feature contains `spec.json`, use its persisted `workflow_policy
 `task_registry`, nested task paths, typed boundaries, separate task receipts, and
 feature closeout receipt exactly as legacy adapters require. Preserve `planning_depth`,
 `assurance_level`, derived lane, and read-only `execution_tier`; do not project these
-fields into a new v3 packet. Keep JSON and Markdown status synchronized, and use the
-existing completion-authority path for final closeout.
+fields into a new v3 packet. Keep JSON and Markdown status synchronized. Legacy `spec.json` closeout is no longer
+supported; move the packet to `plan.md` with flat task files before closing it.

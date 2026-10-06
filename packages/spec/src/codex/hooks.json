@@ -50,11 +50,6 @@
           },
           {
             "type": "command",
-            "command": "node \".codex/hooks/completion-authority.cjs\"",
-            "commandWindows": "node \".codex/hooks/completion-authority.cjs\""
-          },
-          {
-            "type": "command",
             "command": "node \".codex/hooks/rules.cjs\"",
             "commandWindows": "node \".codex/hooks/rules.cjs\""
           },
@@ -79,11 +74,6 @@
             "type": "command",
             "command": "node \".codex/hooks/inspect-block.cjs\"",
             "commandWindows": "node \".codex/hooks/inspect-block.cjs\""
-          },
-          {
-            "type": "command",
-            "command": "node \".codex/hooks/task-scaffold-guard.cjs\"",
-            "commandWindows": "node \".codex/hooks/task-scaffold-guard.cjs\""
           }
         ]
       }
@@ -110,11 +100,6 @@
           },
           {
             "type": "command",
-            "command": "node \".codex/hooks/completion-authority.cjs\"",
-            "commandWindows": "node \".codex/hooks/completion-authority.cjs\""
-          },
-          {
-            "type": "command",
             "command": "node \".codex/hooks/state.cjs\"",
             "commandWindows": "node \".codex/hooks/state.cjs\""
           }
@@ -125,11 +110,6 @@
       {
         "matcher": "*",
         "hooks": [
-          {
-            "type": "command",
-            "command": "node \".codex/hooks/semantic-review-authority.cjs\"",
-            "commandWindows": "node \".codex/hooks/semantic-review-authority.cjs\""
-          },
           {
             "type": "command",
             "command": "node \".codex/hooks/state.cjs\"",

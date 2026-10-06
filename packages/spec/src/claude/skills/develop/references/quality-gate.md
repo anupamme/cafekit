@@ -126,5 +126,5 @@ receipt.
 
 Existing kernel packets keep their separate `receipts/<task-basename>.md`, task
 identity/path metadata, final `feature-receipt.md`, persisted independent-audit
-obligations, and completion-authority checks. The same proof/review ownership
+obligations. The same proof/review ownership
 applies. Do not copy that storage shape into a flat process-first task.
