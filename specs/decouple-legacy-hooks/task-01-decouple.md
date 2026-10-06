@@ -19,7 +19,37 @@ Claude and Codex `spec-gate.cjs` load nothing from `completion-authority-*`, and
 - Read: `src/claude/scripts/spec-final-state.cjs:98-106,239-285`, `src/claude/scripts/provenance.cjs`, `bin/__tests__/usage-hook-retired.test.js` (install helper)
 
 ## Steps
-1. Write `legacy-authority-decoupled.test.js` (install with `--platform claude,codex --yes` into temp git projects with one empty commit). Process-first fixture: `specs/demo/plan.md` and `specs/demo/task-01-demo.md` with exactly one `Status: done`, a `## Verification Plan` with `- Command: node --test`, and a final canonical `## Receipt
+1. Write `legacy-authority-decoupled.test.js` (install with `--platform claude,codex --yes` into temp git projects with one empty commit). Process-first fixture: `specs/demo/plan.md` and `specs/demo/task-01-demo.md` with exactly one `Status: done`, a `## Verification Plan` with `- Command: node --test`, and a final canonical `## Receipt` (Verification PASS, the Command, Exit 0, Base/Head from the installed `.claude/scripts/provenance.cjs`, non-empty fence); the "missing receipt" variant drops the Receipt. Legacy fixture in its own project: `specs/legacy/spec.json` = `{"schema_version":"2.1","feature_name":"legacy","status":"done"}` (and `"completed"`), plus an `in_progress` variant with one done nested task lacking a receipt. Exactly eight tests:
+   - `claude gate passes and blocks process-first with and without the legacy files`
+   - `codex gate passes and blocks process-first with and without the legacy files`
+   - `claude gate blocks legacy 2.1 closeout with the migration message`
+   - `codex gate blocks legacy 2.1 closeout with the migration message`
+   - `claude gate still receipt-checks a legacy 2.1 packet mid-execution`
+   - `codex gate still receipt-checks a legacy 2.1 packet mid-execution`
+   - `claude session starts without the legacy files`
+   - `codex session starts without the legacy files`
+2. Run the Command and expect failure.
+3. Edit the two gates and Codex `session.cjs`; update the assertion in `specs-v2-execution-closeout.test.js`.
+4. Run the Command.
+
+## Acceptance
+- AC-01..03: the eight tests pass; the existing gate, Codex hook, closeout and completion-authority suites stay green.
+
+## Dependencies
+- none
+
+## Verification Plan
+- Command: `test -f bin/__tests__/legacy-authority-decoupled.test.js && node --test bin/__tests__/legacy-authority-decoupled.test.js > /tmp/ck-3a.txt 2>&1; cat /tmp/ck-3a.txt; grep -q '^# tests 8$' /tmp/ck-3a.txt && grep -q '^# pass 8$' /tmp/ck-3a.txt && grep -q '^# fail 0$' /tmp/ck-3a.txt && node --test src/claude/hooks/__tests__/spec-gate.test.js src/claude/hooks/__tests__/completion-authority.test.js bin/__tests__/specs-v2-execution-closeout.test.js bin/__tests__/codex-hooks.test.js bin/__tests__/spec-narrowing.test.js bin/__tests__/orca-session.test.js 2>&1 | tee /dev/stderr | grep -q '^# fail 0$' && ! grep -n "require(.*completion-authority" src/claude/hooks/spec-gate.cjs src/codex/hooks/spec-gate.cjs && rm -f /tmp/ck-3a.txt`
+- Named probe: the eight tests above; `Claude and Codex gates require task proof at every Stop and feature proof only at durable closeout` (`specs-v2-execution-closeout.test.js:328`); the four session-clear cases in `completion-authority.test.js`.
+- Reachability: installed — `bin/install.js` into temp git projects; no network.
+- Oracle: exit 0; `# tests 8`, `# pass 8`, `# fail 0`; regression `# fail 0`; no `require` of `completion-authority` left in either gate.
+- Counterexample: a remaining load-time require fails the "without the legacy files" cases; blocking every 2.1 packet fails the mid-execution cases; testing `status === 'done'` only lets the `completed` case through; dropping the Codex session clear fails the existing session-clear cases.
+- Artifacts: `/tmp/ck-3a.txt`, removed on success; ephemeral temp projects.
+
+## Failure Protocol
+On a failed Step or Verification Plan run: stop; do not widen scope, change the Command, or weaken a test; record observed versus expected; repair only the cited cause; after three failed rounds, stop and ask the user.
+
+## Receipt
 
 Verification: PASS
 Command: `test -f bin/__tests__/legacy-authority-decoupled.test.js && node --test bin/__tests__/legacy-authority-decoupled.test.js > /tmp/ck-3a.txt 2>&1; cat /tmp/ck-3a.txt; grep -q '^# tests 8$' /tmp/ck-3a.txt && grep -q '^# pass 8$' /tmp/ck-3a.txt && grep -q '^# fail 0$' /tmp/ck-3a.txt && node --test src/claude/hooks/__tests__/spec-gate.test.js src/claude/hooks/__tests__/completion-authority.test.js bin/__tests__/specs-v2-execution-closeout.test.js bin/__tests__/codex-hooks.test.js bin/__tests__/spec-narrowing.test.js bin/__tests__/orca-session.test.js 2>&1 | tee /dev/stderr | grep -q '^# fail 0$' && ! grep -n "require(.*completion-authority" src/claude/hooks/spec-gate.cjs src/codex/hooks/spec-gate.cjs && rm -f /tmp/ck-3a.txt`
