@@ -57,14 +57,17 @@ Specs-Contract: process-first-ready-v1
 ## Tasks
 | # | Task | Priority | Criteria | Primary ownership | Dependencies | Status |
 |---|---|---|---|---|---|---|
-| 01 | Add the three cases and teach compare a base prefix | P1 | AC-01 | `evals/specs/{lam-thang-doi-ten,lam-thang-xoa-module,develop-auth}/`, `evals/lean/compare.mjs` | - | pending |
-| 02 | Measure the current skill and decide | P1 | AC-02 | `evals/results/specs/lean-fl-goc-*`, `evals/specs/fast-lane-decision.mjs` | task-01 | pending |
+| 01 | Add the three cases and teach compare a base prefix | P1 | AC-01 | `evals/specs/{lam-thang-doi-ten,lam-thang-xoa-module,develop-auth}/`, `evals/lean/compare.mjs` | - | done |
+| 02 | Measure the current skill and decide | P1 | AC-02 | `evals/results/specs/lean-fl-goc-*`, `evals/specs/fast-lane-decision.mjs` | task-01 | done |
 | 03 | Repair the failing surface | P1 | AC-03 | `skills/specs/SKILL.md`, `skills/develop/SKILL.md`, 3 test files, changelogs | task-02 | blocked |
 | 04 | Measure the repair | P1 | AC-04 | `evals/results/specs/lean-fl-sau-*` | task-03 | blocked |
 
 ## Known limits
 - The direct cases cover two shapes of mechanical work. A clean result does not prove that other shapes (docs-only, revert, config) route directly.
 - `lam-thang-doi-ten` renames an exported helper inside a private app. A strict reader may still call that `elevated`.
+- Under the current Step 0 text ("likely limited to one or two files", and a delete that a strict reader may call destructive), routing either direct case to specs is compliant. So `over-routing=yes` measures whether the file-count rule is too strict, not whether the model broke the rule (task 01 review).
+- `khong-goi-specs` matches any Skill input containing "specs" (for example `specs/google-login` passed to develop). The decision script therefore reads the invoked skill's name from the trace.
+- The develop rule sees only Edit and Write. A run that writes `src/` through Bash (sonnet `develop-auth` run 7: `cat > src/google-login.js`) counts as wrongly stopped, so that count can only be too high. `loaded.txt` of `develop-auth` checks specs only; develop loaded 10/10 in both models (`loaded.mjs develop`, task 02 review).
 - `develop-auth` measures whether implementation starts, not whether the task closes with a Receipt.
 - The `mo-ho-*` comparison is against `lean-re-*`, which ran on the description before `0478881`, on the same host.
 - With 20 pooled runs, the ≤16 threshold is directional.
@@ -90,3 +93,4 @@ Specs-Contract: process-first-ready-v1
   - F13: the promotion line.
   - F14: flag order.
 - Paper review closed.
+- **GATE-DONE (2026-10-06): the user accepted the packet as complete** ("XONG, commit + push"). The pre-registered decision was `over-routing=no` (direct-done 20/20 in both models), `develop-blocked=no` (`/cf:develop` implemented 10/10, one of them through Bash) and `mo-ho-drop=none`. Under C2 the direct-work rule stays as it is, and tasks 03 and 04 stay `blocked` because no failure promoted them. Spend was $14.55 for this packet and $62.38 cumulative, under the $90 cap.
