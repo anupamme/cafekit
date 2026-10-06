@@ -4571,7 +4571,9 @@ async function runStaticSemanticTests() {
         content.includes("external/current evidence") &&
         content.includes("when the optional document bundle is installed") &&
         content.includes("--with-document-skills") &&
-        content.includes("templates/question.md"),
+        content.includes("templates/question.md") &&
+        ["Repo evidence priority", "git history only when the question asks about changes or provenance", "Use focused search", "instead of broad scans", "Use `cf:scout` when the user asks where something lives", "repo evidence is absent, stale, or not authoritative", "Prefer official docs", "State clearly when an answer is inferred", "Answer directly when at least one of these is true", "repo evidence answers the question", "answers the non-project part", "a cautious answer can separate known facts from inference", "the target system/module is not named", "multiple targets are plausible", "the needed file/source is blocked or private", "business/domain judgment", "guessing customer intent", "bundles multiple unrelated topics", "Ask only one follow-up question", "Include 2-3 concrete options", "If `unclear`, ask one focused follow-up", "Use `templates/question.md`", "ask back before gathering evidence", "names no aspect or target"].every((rule) => content.includes(rule)) &&
+        !/^## Workflow|^### [0-9]|^## Examples/m.test(content),
     },
     {
       label: "cf:ask template captures answer evidence and gaps",

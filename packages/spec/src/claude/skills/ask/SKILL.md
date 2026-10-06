@@ -44,10 +44,7 @@ Do not use it when:
 - The user asks to implement, fix, debug, test, commit, or publish.
 - The user wants ideation/tradeoff exploration; use `cf:brainstorm`.
 - The user wants a formal spec; use `cf:specs`.
-- The user wants full legacy documentation reconstruction: use
-  `cf:docs --reconstruct` when the optional document bundle is installed;
-  otherwise use `cf:scout` plus source evidence, or explain how to install the
-  bundle with `npx @haposoft/cafekit --with-document-skills`.
+- The user wants full legacy documentation reconstruction: use `cf:docs --reconstruct` when the optional document bundle is installed; otherwise use `cf:scout` plus source evidence, or explain how to install the bundle with `npx @haposoft/cafekit --with-document-skills`.
 - The user wants root-cause diagnosis for a failure; use `cf:debug`.
 
 ## Modes
@@ -61,50 +58,19 @@ Do not use it when:
 
 If modes conflict, prefer the most explicit source mode in this order: `--both`, `--repo`, `--web`, then default. Apply `--brief` or `--deep` as output depth modifiers.
 
-## Workflow
+## Standards
 
-### 1. Classify The Question
+**Unclear questions.** If `unclear`, ask one focused follow-up with the minimum choices needed.
 
-Pick one primary answer type:
+**Repo evidence priority:** `README.md`, `AGENTS.md`, `CLAUDE.md`; then relevant `docs/`, `specs/`, `.claude/`; then source files, tests, scripts, package manifests, config files; git history only when the question asks about changes or provenance. Use focused search (`rg`, targeted file reads) instead of broad scans. Use `cf:scout` when the user asks where something lives or the source surface is unclear.
 
-```text
-source-code behavior | config/version | spec/docs consistency | dependency/library | workflow/process | external/current knowledge | unclear
-```
+**External evidence.** Use external/current docs when repo evidence is absent, stale, or not authoritative. Prefer official docs, standards, source repositories, or primary vendor docs. State clearly when an answer is inferred from external docs rather than confirmed in the repo.
 
-If `unclear`, ask one focused follow-up with the minimum choices needed.
+**Broad questions.** When the question names no aspect or target — "Is this system stable?", "Is the code good?" — ask back before gathering evidence, offering 2-3 aspects (for example code and tests, runtime reliability, deploy readiness), even when a cautious answer would be possible.
 
-### 2. Gather Evidence
+**Answer or ask back.** Answer directly when at least one of these is true: repo evidence answers the question, external/current evidence answers the non-project part, or a cautious answer can separate known facts from inference. Ask back when the target system/module is not named and multiple targets are plausible, the needed file/source is blocked or private, the question requires business/domain judgment not present in source, the answer would require guessing customer intent, or the question bundles multiple unrelated topics. Ask only one follow-up question. Include 2-3 concrete options if helpful.
 
-Repo evidence priority:
-1. `README.md`, `AGENTS.md`, `CLAUDE.md`
-2. relevant `docs/`, `specs/`, `.claude/`
-3. source files, tests, scripts, package manifests, config files
-4. git history only when the question asks about changes or provenance
-
-Use focused search (`rg`, targeted file reads) instead of broad scans. Use `cf:scout` when the user asks where something lives or the source surface is unclear.
-
-External evidence:
-- Use external/current docs when repo evidence is absent, stale, or not authoritative.
-- Prefer official docs, standards, source repositories, or primary vendor docs.
-- State clearly when an answer is inferred from external docs rather than confirmed in the repo.
-
-### 3. Decide Whether To Answer Or Ask Back
-
-Answer directly when at least one of these is true:
-- repo evidence answers the question,
-- external/current evidence answers the non-project part,
-- a cautious answer can separate known facts from inference.
-
-Ask back when:
-- the target system/module is not named and multiple targets are plausible,
-- the needed file/source is blocked or private,
-- the question requires business/domain judgment not present in source,
-- the answer would require guessing customer intent,
-- the question bundles multiple unrelated topics.
-
-Ask only one follow-up question. Include 2-3 concrete options if helpful.
-
-### 4. Output Contract
+## Output Contract
 
 Default output:
 
@@ -136,36 +102,3 @@ Use `templates/question.md` when the user asks to save or document the answer.
 - Keep the answer proportional: concise for simple questions, structured for complex ones.
 - If external sources were used, include source links or names.
 - If no evidence exists, say "no evidence found in the current source" and explain what was checked.
-
-## Examples
-
-### Source Question
-
-```text
-/cf:ask "In this system, which file does cafekit use to toggle skill routing?"
-```
-
-Expected behavior:
-- read runtime/config/install files,
-- answer with exact config file and relevant keys,
-- say whether it is runtime-driven or hard-coded.
-
-### Mixed Source + Web Question
-
-```text
-/cf:ask "Which React version does this project use, and does that version still match current best practice?" --both
-```
-
-Expected behavior:
-- read `package.json` or lockfile,
-- check current React docs/release info if needed,
-- separate local version from external recommendation.
-
-### Ask Back
-
-```text
-/cf:ask "Is this system stable?"
-```
-
-Expected behavior:
-- ask one narrowing question because "stable" could mean architecture, security, performance, UX, tests, or deploy readiness.
