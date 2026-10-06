@@ -24,7 +24,6 @@ Claude Code uses CommonJS hooks under `.claude/hooks/`. Codex CLI uses project h
 | `docs-sync.cjs` | Detects missing or stale project docs. |
 | `state.cjs` | Persists session state and modified-file summaries. |
 | `agent.cjs` | Gives subagents lightweight path, locale, and rule context. |
-| `usage.cjs` | Fetches Claude usage limits for the statusline cache. |
 
 ## Validators
 
@@ -46,4 +45,4 @@ New process-first Specs keep human-readable state in the plan and flat tasks:
 - `plan.md` stores C1 scope, acceptance criteria, exclusions, findings decisions, and the task map.
 - `task-NN-*.md` stores one `Status:`, outcome, ownership, dependencies, acceptance, proof command, and final inline `## Receipt`.
 
-Only the controller synchronizes observed Status and proof. Chat messages are not a source of truth. Existing legacy packets retain their separate adapter without redefining the process-first default.
+Only the controller synchronizes observed Status and proof. Chat messages are not a source of truth.

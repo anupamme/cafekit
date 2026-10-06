@@ -188,21 +188,6 @@ test('several packets claiming closeout stay ambiguous and name only those', () 
   });
 });
 
-test('codex resolveCandidate agrees with the shared resolver', () => {
-  // Codex kept its own candidate count, reachable because spec-utils did not export the
-  // shared function. A Claude-only change would leave every Codex turn blocked.
-  const codexCheck = require(path.join(PACKAGE_ROOT, 'src/codex/hooks/completion-authority-check.cjs'));
-  const utils = require(path.join(PACKAGE_ROOT, 'src/codex/hooks/lib/spec-utils.cjs'));
-  assert.equal(typeof utils.resolvePersistedSpec, 'function', 'the wrapper must be exported');
-  withProject((root) => {
-    legacyPacket(root, 'shipped', { status: 'in_progress', phase: 'execution', taskStatus: 'done' });
-    legacyPacket(root, 'closing', { status: 'done', phase: 'closeout' });
-    const shared = RESOLVER.resolvePersistedSpec({ projectRoot: root, runtime: {} });
-    const viaCodex = codexCheck.resolveCandidate({ projectRoot: root, runtime: {}, payload: {} });
-    assert.equal(viaCodex.featureName, shared.featureName);
-  });
-});
-
 // ── The recorded active feature: the escape the block told users to take ────────────
 
 test('a recorded active feature resolves two packets claiming closeout', () => {
@@ -279,18 +264,6 @@ test('an absent file leaves every project exactly as it was', () => {
     assert.equal(RESOLVER.readActiveFeatureTarget({ projectRoot: root, runtime: {} }), null);
     assert.equal(RESOLVER.resolvePersistedSpec({ projectRoot: root, runtime: {} }).featureName, 'only');
   });
-});
-
-test('the approval prompt names its feature', () => {
-  // Without the name a user types a bare nonce and cannot tell which closeout they are
-  // approving, while the recorded file can influence which packet resolves.
-  for (const runtimeDir of ['claude', 'codex']) {
-    const hook = fs.readFileSync(
-      path.join(PACKAGE_ROOT, 'src', runtimeDir, 'hooks', 'completion-authority.cjs'), 'utf8'
-    );
-    assert.match(hook, /const feature = result\.candidate\?\.featureName;/, `${runtimeDir} must read the name`);
-    assert.match(hook, /closeout approval is required for \$\{feature \?/, `${runtimeDir} must print it`);
-  }
 });
 
 test('the shared workflow resolver ignores the recorded file', () => {

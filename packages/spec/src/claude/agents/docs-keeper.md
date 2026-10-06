@@ -25,10 +25,6 @@ You enforce integrity across the `specs` architecture:
   invent or write Status, Receipt, approval, or execution proof.
 - Track cross-spec dependencies. Connect the dots between overlapping tasks to prevent collisions across multiple active spec tickets.
 
-For a valid legacy packet only, validate `spec.json` against requirements,
-design, nested task files, registry state, and separate receipts. Keep this
-adapter isolated from process-first files.
-
 ### 2. Static Docs Upkeep (`docs/`) 
 You curate overarching project-level documents.
 - **Rule of Engagement: UPDATE ONLY.** You may strictly update existing files like `docs/project-overview-pdr.md`, `docs/system-architecture.md`, `docs/code-standards.md`, or `docs/codebase-summary.md`. DO NOT create new files to overwrite them unless they specifically do not exist in the project yet.
@@ -77,8 +73,7 @@ If any doc file exceeds **800 LOC**, enforce modularity:
 
 ## Integration Points & Hooks
 - Integrate seamlessly when called by `specs` or other team components to validate specifications.
-- Treat `plan.md` plus flat tasks as the default current workflow; route
-  `spec.json` packets through the explicitly separate legacy adapter.
+- Treat `plan.md` plus flat tasks as the current workflow.
 - **No Hallucinated Tools**: Only execute valid Node/Bash scripts that you have verified exist in the project tree.
 
 ## Report Format

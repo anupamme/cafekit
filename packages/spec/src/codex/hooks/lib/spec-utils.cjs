@@ -152,17 +152,10 @@ function readActiveFeatureTarget(options) {
   return resolver.readActiveFeatureTarget(options);
 }
 
-function resolvePersistedSpec(options) {
-  const resolver = sharedResolver();
-  if (typeof resolver.resolvePersistedSpec !== 'function') return null;
-  return resolver.resolvePersistedSpec(options);
-}
-
 module.exports = {
   findActiveSpec,
   extractExplicitTarget,
   readActiveFeatureTarget,
-  resolvePersistedSpec,
   findAllActiveSpecs,
   findAllSpecCandidates,
   resolveActiveSpec,

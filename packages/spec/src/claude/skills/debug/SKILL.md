@@ -31,7 +31,7 @@ Flags are optional hints. Without one, choose the depth yourself from the eviden
 
 Quick/local and Standard reports write the root-cause contract, the confirmed hypothesis, the verification plan, and the fix direction; when the root cause is unknown, they list every hypothesis tested instead. Only Incident/deep reports add `Evidence Timeline`, the other hypotheses tested, `### Elimination Path`, and `### Recurrence-Prevention Handoff`. A shorter report omits those sections; it does not write them as skipped.
 
-Depth changes evidence breadth and report length, never the six steps, the diagnostic-only gate, or the root-cause standard. Do not make a routine local failure perform incident ceremony merely because more tools are available.
+Depth changes evidence breadth and report length, never the standards below, the diagnostic-only gate, or the root-cause standard. Do not make a routine local failure perform incident ceremony merely because more tools are available.
 
 <DIAGNOSTIC-ONLY-GATE>
 `cf:debug` is read-only for product code.
@@ -43,14 +43,7 @@ Temporary instrumentation is allowed only when it is the minimal way to observe 
 
 <HARD-GATE-SCOUT-FIRST>
 Before hypotheses, inspect the actual codebase context.
-You must identify:
-- project type, language, framework, runtime, and test runner
-- affected files/modules and exact symptom location
-- direct callers, dependents, and data/config boundaries
-- related tests and reproduction commands
-- recent commits touching affected paths
-- adjacent known-good implementation patterns
-
+You must identify the project type, language, framework, runtime, and test runner; the affected files/modules and exact symptom location; direct callers, dependents, and data/config boundaries; related tests and reproduction commands; recent commits touching affected paths; and adjacent known-good implementation patterns.
 After scout, provide a 3-6 bullet codebase-context summary before evidence capture.
 Do not ask generic questions before this step unless the issue cannot be located from the prompt or repository.
 </HARD-GATE-SCOUT-FIRST>
@@ -67,73 +60,17 @@ If any answer contains 'probably', 'I think', 'something with', or 'maybe' — i
 
 `cf:debug` stops at diagnosis unless the user explicitly asks to fix. If the user asks to fix while still inside `cf:debug`, finish the debug report first. Then hand off only the completed root-cause contract to `cf:fix`.
 
-## Step 1: Scout
+## Standards
 
-Understand the affected code before forming hypotheses.
+**Scout.** Invoke the `scout` skill (`cf:scout`) for the affected scope and fold its findings into the codebase-context summary the scout-first gate requires, including `git log --oneline -10 -- <affected-files>`. If `cf:scout` is not installed, use direct read-only reconnaissance (`rg`, file reads, test discovery, and `git log`) and say so.
 
-Invoke the `scout` skill (`cf:scout`) for the affected scope and fold its findings into the codebase-context summary the scout-first gate requires. Include recent changes: `git log --oneline -10 -- <affected-files>`.
-If `cf:scout` is not installed, use direct read-only reconnaissance (`rg`, file reads, test discovery, and `git log`) and say so.
+**Evidence baseline.** Capture what can later prove whether the issue changed: the exact command, URL, user flow, or trigger; the exact error, stack trace, failing assertion, or visual symptom; expected vs actual behavior; relevant logs with timestamps; environment facts (runtime, dependency versions, OS, browser, CI runner, config); and whether it reproduces consistently or intermittently. For Incident/deep work, build an `Evidence Timeline` from timestamped facts across relevant sources. Normalize timezones, preserve request/trace/run IDs, and distinguish observed ordering from inferred causation. When no source carries timestamps, the timeline says so in one line and names the sources checked. For frontend issues, use `.claude/references/debugger/frontend-verification.md`; for CI/log issues, `.claude/references/debugger/log-ci-analysis.md`; for performance issues, `.claude/references/debugger/performance-diagnostics.md`.
 
-## Step 2: Capture Evidence
+**Known-good comparison.** Before proposing a cause, compare against known-good patterns: a similar implementation that works, similar tests that pass, recent code that changed the same contract, config/env differences between passing and failing contexts, and dependency/API contract changes.
 
-Create a baseline that can later prove whether the issue changed.
+**Hypotheses.** When evidence does not directly confirm the first explanation, create 2-3 competing hypotheses. Test one variable at a time, each stated as `Hypothesis:`, `Confirm if:` (evidence that proves it), `Refute if:` (evidence that disproves it), `Quick test:` (command/search/log/query), and `Result: confirmed | refuted | inconclusive`. Never batch unrelated changes as a test. Prefer read-only evidence: logs, grep, stack traces, DB queries, browser traces. For flaky async tests, use `.claude/references/debugger/condition-based-waiting.md`. If 2+ hypotheses are refuted, use inversion: ask what evidence would make the current explanation impossible. Preserve an elimination path: for every confirmed, refuted, or inconclusive hypothesis, cite the observation and explain why it changes the candidate set. Quick/local and Standard reports fold it into the confirmed hypothesis's evidence; only Incident/deep reports write it under `### Elimination Path`.
 
-**Capture:**
-- Exact command, URL, user flow, or trigger
-- Exact error message, stack trace, failing assertion, or visual symptom
-- Expected vs actual behavior
-- Relevant logs with timestamps
-- Environment facts: runtime, dependency versions, OS, browser, CI runner, config
-- Whether the issue reproduces consistently or intermittently
-
-For Incident/deep work, build an `Evidence Timeline` from timestamped facts across relevant sources. Normalize timezones, preserve request/trace/run IDs, and distinguish observed ordering from inferred causation. When no source carries timestamps, the timeline says so in one line and names the sources checked.
-
-For frontend issues, use `.claude/references/debugger/frontend-verification.md`.
-For CI/log issues, use `.claude/references/debugger/log-ci-analysis.md`.
-For performance issues, use `.claude/references/debugger/performance-diagnostics.md`.
-
-## Step 3: Pattern Analysis
-
-Before proposing a cause, compare against known-good patterns.
-
-**Check:**
-- Similar implementation that works
-- Similar tests that pass
-- Recent code that changed the same contract
-- Config/env differences between passing and failing contexts
-- Dependency/API contract changes
-
-## Step 4: Hypothesis Tests
-
-When evidence does not directly confirm the first explanation, create 2-3 competing hypotheses. Test one variable at a time.
-
-```text
-Hypothesis: [statement]
-Confirm if: [evidence that proves it]
-Refute if: [evidence that disproves it]
-Quick test: [command/search/log/query]
-Result: confirmed | refuted | inconclusive
-```
-
-Rules:
-- Never batch unrelated changes as a test.
-- Prefer read-only evidence: logs, grep, stack traces, DB queries, browser traces.
-- For flaky async tests, use `.claude/references/debugger/condition-based-waiting.md`.
-- If 2+ hypotheses are refuted, use inversion: ask what evidence would make the current explanation impossible.
-- Preserve an elimination path: for every confirmed, refuted, or inconclusive hypothesis, cite the observation and explain why it changes the candidate set. Quick/local and Standard reports fold it into the confirmed hypothesis's evidence; only Incident/deep reports write it under `### Elimination Path`.
-
-## Step 5: Root Cause Trace
-
-Trace backward from symptom to origin.
-
-```text
-Symptom
-  <- immediate cause
-    <- contributing factor
-      <- ROOT CAUSE
-```
-
-**Exact root-cause contract:**
+**Root cause.** Trace backward from the symptom through the immediate cause and contributing factors to the root cause, and complete the exact root-cause contract:
 - Symptom: exact observable failure
 - Reproduction: command/user flow/log trigger
 - Expected vs actual behavior
@@ -146,19 +83,7 @@ Symptom
 
 Do not collapse correlation into causation. The root cause must explain the mechanism from trigger to symptom and identify the earliest owned invariant whose correction would prevent recurrence. Read `.claude/references/debugger/root-cause-tracing.md` for deep call/data flow or test-pollution cases.
 
-## Step 6: Blast Radius + Verification And Prevention Plan
-
-Prepare the handoff to `cf:fix` or the user.
-
-**Verification plan must include:**
-- Original failing command or reproduction path
-- Targeted regression test or scenario
-- Affected-module tests
-- Typecheck/lint/build commands when relevant
-- UI screenshot/console/network checks when relevant
-- Side-effect sweep from `.claude/references/debugger/side-effect-gate.md`
-
-For Incident/deep work, add recurrence-prevention candidates: missing invariant or validation layer, observability/alerting gap, and one regression scenario. These are evidence-backed handoff directions only; `cf:debug` does not implement them.
+**Verification and prevention plan.** Prepare the handoff to `cf:fix` or the user. Verification plan must include: the original failing command or reproduction path; a targeted regression test or scenario; affected-module tests; typecheck/lint/build commands when relevant; UI screenshot/console/network checks when relevant; and the side-effect sweep from `.claude/references/debugger/side-effect-gate.md`. For Incident/deep work, add recurrence-prevention candidates: missing invariant or validation layer, observability/alerting gap, and one regression scenario. These are evidence-backed handoff directions only; `cf:debug` does not implement them.
 
 ## Diagnostic Report Format
 

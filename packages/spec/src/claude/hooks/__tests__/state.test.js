@@ -316,3 +316,71 @@ test('Stop snapshot includes untracked files before the first commit', () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// The SessionStart block used to print even when it held only headings, placeholders and
+// timestamp-only agent results, which told a resumed Claude session nothing.
+const PLACEHOLDER_STATE = [
+  '# Session State',
+  '<!-- Generated: GENERATED -->',
+  '<!-- Branch: unknown -->',
+  '',
+  '## What Worked (Verified)',
+  '- (No completed tasks recorded)',
+  '',
+  "## What's Left",
+  '- (All tasks completed)',
+  '',
+  '## Key Files Modified',
+  '- (No file changes detected)',
+  '',
+  '## Agent Result: code-auditor (01:44:00)',
+  '- Completed at 01:44:00',
+  '',
+  '## Agent Result: code-auditor (01:44:21)',
+  '- Completed at 01:44:21',
+  '',
+  '## Agent Result: code-auditor (01:44:50)',
+  '- Completed at 01:44:50',
+  '',
+].join('\n');
+
+function sessionStartWith(content, runtimeFolder = '.claude') {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ck-state-start-'));
+  try {
+    let hook = STATE_HOOK;
+    if (runtimeFolder !== '.claude') {
+      const hooks = path.join(dir, runtimeFolder, 'hooks');
+      fs.mkdirSync(path.join(hooks, 'lib'), { recursive: true });
+      fs.copyFileSync(STATE_HOOK, path.join(hooks, 'state.cjs'));
+      for (const lib of ['parser.cjs', 'runtime-dir.cjs', 'hook-payload.cjs', 'hook-state-dir.cjs']) {
+        fs.copyFileSync(path.join(path.dirname(STATE_HOOK), 'lib', lib), path.join(hooks, 'lib', lib));
+      }
+      hook = path.join(hooks, 'state.cjs');
+    }
+    const stateFolder = path.join(dir, runtimeFolder, 'session-state');
+    fs.mkdirSync(stateFolder, { recursive: true });
+    fs.writeFileSync(path.join(stateFolder, 'latest.md'), content.replace('GENERATED', new Date().toISOString()));
+    const result = spawnSync(process.execPath, [hook], {
+      cwd: dir,
+      input: JSON.stringify({ hook_event_name: 'SessionStart', session_id: 'start-1', cwd: dir }),
+      encoding: 'utf8',
+    });
+    assert.strictEqual(result.status, 0, result.stderr);
+    return result.stdout.trim();
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test('SessionStart prints nothing when prior context is only placeholders', () => {
+  assert.strictEqual(sessionStartWith(PLACEHOLDER_STATE), '');
+});
+
+test('SessionStart prints prior context that has a completed todo', () => {
+  const withTodo = PLACEHOLDER_STATE.replace('- (No completed tasks recorded)', '- Ship the statusline');
+  assert.match(sessionStartWith(withTodo), /Prior Execution Context[\s\S]*Ship the statusline/);
+});
+
+test('SessionStart under .omp keeps printing placeholder-only context', () => {
+  assert.match(sessionStartWith(PLACEHOLDER_STATE, '.omp'), /Prior Execution Context/);
+});

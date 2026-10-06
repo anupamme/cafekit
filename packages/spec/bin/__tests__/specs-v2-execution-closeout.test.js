@@ -18,8 +18,6 @@ const VALIDATOR = path.join(SCRIPTS, 'validate-spec-output.cjs');
 const AUTHORING_VALIDATION = path.join(SCRIPTS, 'spec-authoring-validation.cjs');
 const RUNTIME_CLOSURE = require('./test-runtime-dependency-closure.cjs');
 const SEMANTIC_MODEL = require(path.join(SCRIPTS, 'spec-semantic-model.cjs'));
-const CLAUDE_CHECK = require(path.join(ROOT, 'src/claude/hooks/completion-authority-check.cjs'));
-const CODEX_CHECK = require(path.join(ROOT, 'src/codex/hooks/completion-authority-check.cjs'));
 const FEATURE = 'closeout-demo';
 const TASK = 'tasks/task-R1-01-closeout.md';
 const TEMP_RUN_ID = String(process.env.CAFEKIT_CLOSEOUT_TEMP_RUN_ID || `${process.pid}-${Date.now()}`)
@@ -267,10 +265,7 @@ function installGate(root, kind) {
     'hooks/lib/hook-payload.cjs',
   ]);
   if (kind === 'claude') {
-    for (const name of [
-      'spec-gate.cjs', 'completion-authority-check.cjs', 'completion-authority-state.cjs',
-      'semantic-review-authority.cjs',
-    ]) fs.copyFileSync(path.join(ROOT, 'src/claude/hooks', name), path.join(runtimeDir, 'hooks', name));
+    fs.copyFileSync(path.join(ROOT, 'src/claude/hooks', 'spec-gate.cjs'), path.join(runtimeDir, 'hooks', 'spec-gate.cjs'));
   } else {
     fs.cpSync(path.join(ROOT, 'src/codex/hooks'), path.join(runtimeDir, 'hooks'), { recursive: true });
   }
@@ -339,11 +334,11 @@ test('Claude and Codex gates require task proof at every Stop and feature proof 
       const invalidAliasSpec = JSON.parse(fs.readFileSync(invalidAliasFile, 'utf8'));
       invalidAliasSpec.status = 'completed';
       fs.writeFileSync(invalidAliasFile, `${JSON.stringify(invalidAliasSpec, null, 2)}\n`);
-      assert.match(gate(invalidAlias, kind), /spec status is invalid: completed/, `${kind} rejects legacy aliases in schema 2.1`);
+      assert.match(gate(invalidAlias, kind), /Legacy spec\.json closeout is no longer supported/, `${kind} blocks legacy 2.1 closeout with the migration message`);
       prepare(taskless, { taskless: true, specStatus: 'complete', featureReceipt: true });
-      assert.equal(gate(taskless, kind), '', `${kind} taskless closeout`);
+      assert.match(gate(taskless, kind), /Legacy spec\.json closeout is no longer supported/, `${kind} taskless 2.1 closeout is retired`);
       fs.appendFileSync(path.join(taskless, 'specs', FEATURE, 'requirements.md'), '\nSemantic mutation after review.\n');
-      assert.match(gate(taskless, kind), /validation failed|semantic digest|stale/i, `${kind} rejects stale semantics with unchanged execution provenance`);
+      assert.match(gate(taskless, kind), /Legacy spec\.json closeout is no longer supported/, `${kind} still blocks a changed 2.1 packet`);
       prepare(taskBearing, { taskReceipt: false, featureReceipt: false });
       assert.match(gate(taskBearing, kind), new RegExp(path.basename(TASK)), `${kind} unproven done task before closeout`);
       prepare(taskBearing, { taskReceipt: true, featureReceipt: false });
@@ -377,21 +372,6 @@ test('an unproven done dependency cannot advance a dependent task', () => {
   });
 });
 
-test('completion authority supports taskless v2 and binds task plan plus receipt bytes', () => {
-  for (const [kind, checker] of [['claude', CLAUDE_CHECK], ['codex', CODEX_CHECK]]) {
-    withTempResources((resources) => {
-      const root = gitRoot(resources);
-      resources.useHome(`${kind}-home`);
-      prepare(root, { taskless: true, specStatus: 'complete', featureReceipt: true });
-      const args = { policy: POLICY, projectRoot: root, runtime: {}, payload: { session_id: 'execution-session' } };
-      if (kind === 'claude') args.resolver = require(path.join(SCRIPTS, 'spec-resolver.cjs'));
-      const result = checker.evaluateCloseout(args);
-      assert.equal(result.ok, true, result.reason);
-      assert.match(result.binding.feature_receipt_digest, /^[a-f0-9]{64}$/);
-    });
-  }
-});
-
 test('shared taskless terminal predicate requires canonical 2.1 policy and physical tasklessness', () => {
   withTempResources((resources) => {
     const root = gitRoot(resources);
@@ -411,51 +391,6 @@ test('shared taskless terminal predicate requires canonical 2.1 policy and physi
     fs.writeFileSync(path.join(featureDir, 'tasks', 'hidden.md'), '# physical task\n');
     assert.equal(POLICY.isCanonicalTasklessTerminalSpec(canonical, featureDir), false);
   });
-});
-
-test('completion authority activates only at durable closeout and honors the Stop loop guard', () => {
-  for (const [kind, checker] of [['claude', CLAUDE_CHECK], ['codex', CODEX_CHECK]]) {
-    withTempResources((resources) => {
-      const root = gitRoot(resources);
-      resources.useHome(`${kind}-home`);
-      prepare(root, { featureReceipt: false });
-      const args = { policy: POLICY, projectRoot: root, runtime: {}, payload: { session_id: 'execution-session' } };
-      if (kind === 'claude') args.resolver = require(path.join(SCRIPTS, 'spec-resolver.cjs'));
-      const inactive = checker.evaluateCloseout(args);
-      assert.equal(inactive.ok, true, inactive.reason);
-      assert.equal(inactive.active, false);
-
-      args.payload.stop_hook_active = true;
-      const loop = checker.evaluateCloseout(args);
-      assert.equal(loop.ok, true, loop.reason);
-      assert.equal(loop.active, false);
-
-      prepare(root, { specStatus: 'complete', featureReceipt: false });
-      args.payload.stop_hook_active = false;
-      const blocked = checker.evaluateCloseout(args);
-      assert.equal(blocked.ok, false);
-      assert.match(blocked.reason, /feature-receipt\.md/);
-    });
-  }
-});
-
-test('v2 floor merge keeps axes independent, planning controls artifact profile, and risks raise assurance floor', () => {
-  const policy = {
-    PLANNING_DEPTHS: ['None', 'Compact', 'Full'], ASSURANCE_LEVELS: ['Routine', 'Elevated', 'Strict'],
-    compatibilityLane: POLICY.compatibilityLane, planningObligationsFor: POLICY.planningObligationsFor,
-    obligationsForAssurance: POLICY.obligationsForAssurance, actorNeedsFor: POLICY.actorNeedsFor,
-    classifyLane: POLICY.classifyLane,
-  };
-  const floor = { version: '2', planning_depth: 'Full', automatic_planning_depth: 'Full', assurance_level: 'Routine', automatic_assurance_level: 'Routine', lane: 'Standard', automatic_lane: 'Standard', risks: [], artifact_profile: 'strict', planning_obligations: [], proof_obligations: [], actor_needs: [] };
-  const current = { ...floor, planning_depth: 'Compact', automatic_planning_depth: 'Compact', risks: ['privacy'], artifact_profile: 'bounded' };
-  for (const checker of [CLAUDE_CHECK, CODEX_CHECK]) {
-    const merged = checker.mergePolicyFloor(policy, floor, current);
-    assert.equal(merged.planning_depth, 'Full');
-    assert.equal(merged.artifact_profile, 'strict');
-    assert.equal(merged.automatic_assurance_level, 'Elevated');
-    assert.equal(merged.assurance_level, 'Elevated');
-    assert.ok(merged.proof_obligations.includes('needsExecutionProof'));
-  }
 });
 
 test('scaffold creates planning artifacts but no task or feature receipts', () => {

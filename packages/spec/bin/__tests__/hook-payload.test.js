@@ -49,8 +49,8 @@ test('read_file path becomes file_path', () => {
     toolInput: { path: '/p/.env' },
   });
   assert.equal(out.tool_name, 'Read');
-  // privacy-block reads file_path and path, but task-scaffold-guard reads file_path first
-  // and inspect-block's path list is keyed the same way.
+  // privacy-block and inspect-block both read file_path first, so the normalized key
+  // must be file_path.
   assert.equal(out.tool_input.file_path, '/p/.env');
   assert.equal(out.tool_input.path, '/p/.env', 'the original key stays for hooks that read it');
 });
@@ -83,7 +83,6 @@ test('Stop and subagent fields map', () => {
     subagentId: 'agent-7',
     lastAssistantMessage: 'REVIEW: PASS',
   });
-  // semantic-review-authority refuses to record an attestation without agent_id.
   assert.equal(sub.hook_event_name, 'SubagentStop');
   assert.equal(sub.agent_type, 'code-auditor');
   assert.equal(sub.agent_id, 'agent-7');
@@ -102,9 +101,8 @@ test('every name reaching a Bash matcher becomes Bash', () => {
 });
 
 test('write and search_replace map to different Claude tools', () => {
-  // The scaffold guard only fires on Write. Grok creates files with `write` and edits
-  // them with `search_replace`; conflating them would either disable the guard or make it
-  // reject the Edit-fill step the guard's own message tells the model to run.
+  // Grok creates files with `write` and edits them with `search_replace`; they must stay
+  // distinct Claude tools so a hook matcher on Write or on Edit sees the event it names.
   assert.equal(normalizeToolName('write'), 'Write');
   assert.equal(normalizeToolName('delete_file'), 'Write');
   assert.equal(normalizeToolName('search_replace'), 'Edit');

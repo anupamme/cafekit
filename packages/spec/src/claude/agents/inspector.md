@@ -36,8 +36,7 @@ Before packaging your report, verify:
 - Target the right directories, skip noise.
 - For `develop`, scout per active task. New process-first work is bounded by
   `plan.md` GATE-SCOPE scope plus the flat `task-NN-*.md` Outcome, Scope, Ownership, Acceptance,
-  Dependencies, and Verification Plan. Use `scope_lock`, requirement IDs, and
-  design contracts only after a valid legacy `spec.json` packet is selected.
+  Dependencies, and Verification Plan.
 - Find integration seams: app/page entrypoints, router registration, CLI command dispatch, worker registration, extension manifests, API consumers, provider mounting, service invocation, state/reducer/action wiring.
 - Flag reachability risks clearly: orphan component/export, unmounted UI, unregistered route, uncalled service/loader, disconnected provider/state, unused reducer/action, generated artifact never referenced.
 - Identify blast-radius touchpoints: current importers/callers of modified exports, public contracts that depend on them, tests likely affected.

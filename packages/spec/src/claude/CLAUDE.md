@@ -24,10 +24,3 @@
   non-empty fenced current output.
 - At GATE-DONE, show current receipts and unresolved limitations. The user decides
   completion; no command, review, or host state may invent approval or proof.
-
-### Legacy Specs compatibility
-
-Existing packets containing `spec.json`, nested tasks, or legacy kernel
-artifacts keep their installed adapter, `task_registry`, `semantic_model`,
-`planning_depth`, lane, `execution_tier`, machine authority, separate receipts,
-and closeout contract. Do not migrate them during unrelated process-first work.

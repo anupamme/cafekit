@@ -145,8 +145,6 @@ function composeCodexHookTree(root) {
   const hooksDir = path.join(root, '.codex', 'hooks');
   fs.mkdirSync(path.join(hooksDir, 'lib'), { recursive: true });
   fs.copyFileSync(path.join(PACKAGE_ROOT, 'src/codex/hooks/session.cjs'), path.join(hooksDir, 'session.cjs'));
-  fs.copyFileSync(path.join(PACKAGE_ROOT, 'src/codex/hooks/completion-authority-state.cjs'),
-    path.join(hooksDir, 'completion-authority-state.cjs'));
   fs.copyFileSync(path.join(PACKAGE_ROOT, 'src/codex/hooks/lib/hook-context.cjs'),
     path.join(hooksDir, 'lib', 'hook-context.cjs'));
   fs.copyFileSync(path.join(PACKAGE_ROOT, 'src/codex/hooks/lib/privacy-state.cjs'),

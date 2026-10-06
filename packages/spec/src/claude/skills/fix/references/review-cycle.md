@@ -14,7 +14,7 @@ LOOP:
   2. Evaluate:
      IF verdict == PASS:
        → ACCEPT. Log: "✓ Review PASS"
-       → Proceed to Step 6 (Finalize)
+       → Proceed to Finalize
 
      ELSE IF verdict == BLOCKED:
        → TERMINAL STOP. Do not blind-retry.

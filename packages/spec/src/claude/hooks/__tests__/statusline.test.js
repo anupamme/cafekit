@@ -10,6 +10,9 @@ const path = require('node:path');
 const STATUS_PATH = path.resolve(__dirname, '..', '..', 'status.cjs');
 const GOLDEN_PATH = path.join(__dirname, 'fixtures', 'statusline-default.golden');
 const NBSP = / /g;
+const ANSI = /\x1b\[[0-9;]*m/g;
+/** Visible text: colour codes removed, non-breaking spaces read as spaces, reset countdown masked. */
+const visible = (text) => text.replace(ANSI, '').replace(NBSP, ' ').replace(/\d+h\d+m/g, '<reset>');
 
 const cleanupDirs = [];
 process.on('exit', () => {
@@ -79,6 +82,16 @@ function runStatus({ runtime = { statusline: 'full', statuslineColors: true }, p
   }
 }
 
+/** Claude Code's own quota payload: used percentages and epoch-second resets 2h29m and 2d5h ahead. */
+function rateLimits({ fiveHour = 20, weekly = 45 } = {}) {
+  const nowSec = Math.floor(Date.now() / 1000);
+  return {
+    five_hour: { used_percentage: fiveHour, resets_at: nowSec + 2 * 3600 + 29 * 60 + 30 },
+    seven_day: { used_percentage: weekly, resets_at: nowSec + 2 * 86400 + 5 * 3600 },
+  };
+}
+
+/** The file the retired usage hook used to write; the statusline must ignore it. */
 function freshUsageCache(now = Date.now()) {
   return {
     status: 'available',
@@ -138,21 +151,19 @@ test('statusline empty or invalid layout falls back to the default renderers', (
   }
 });
 
-test('statusline shows five-hour and weekly windows with countdowns when the cache is fresh', () => {
-  const run = runStatus({ tmpFiles: { 'ck-usage-limits-cache.json': freshUsageCache() } });
+test('statusline shows five-hour and weekly windows with countdowns from the payload', () => {
+  const run = runStatus({ payload: basePayload({ rate_limits: rateLimits() }) });
   assert.equal(run.status, 0, run.stderr);
-  const plain = run.stdout.replace(NBSP, ' ');
-  assert.match(plain, /⌛ \d+h \d+m left \(20% used\)/, plain);
-  assert.match(plain, /wk 45% \(\d+d \d+h\)/, plain);
+  const plain = visible(run.stdout);
+  assert.match(plain, /⧗ 20% <reset>/, plain);
+  assert.match(plain, /◷ 45%/, plain);
 });
 
-test('statusline hides the quota area when the cache is stale', () => {
-  const stale = freshUsageCache(Date.now() - 10 * 60 * 1000);
-  stale.timestamp = Date.now() - 10 * 60 * 1000;
-  const run = runStatus({ tmpFiles: { 'ck-usage-limits-cache.json': stale } });
+test('statusline shows no quota when the payload has no rate_limits, even with a fresh usage cache', () => {
+  const run = runStatus({ tmpFiles: { 'ck-usage-limits-cache.json': freshUsageCache() } });
   assert.equal(run.status, 0, run.stderr);
-  assert.doesNotMatch(run.stdout, /⌛/);
-  assert.doesNotMatch(run.stdout, /wk /);
+  assert.doesNotMatch(run.stdout, /⧗/);
+  assert.doesNotMatch(run.stdout, /◷/);
 });
 
 test('statusline cost renders only when the layout enables it, billing is api, and data exists', () => {
@@ -193,4 +204,122 @@ test('statusline honors NO_COLOR with no ANSI escapes in output', () => {
   const run = runStatus({ envExtra: { NO_COLOR: '1' } });
   assert.equal(run.status, 0, run.stderr);
   assert.doesNotMatch(run.stdout, /\[/);
+});
+
+test('statusline default is one labelled line and narrow terminals drop the least useful parts first', () => {
+  const payload = basePayload({ rate_limits: rateLimits(), cost: { total_lines_added: 120, total_lines_removed: 30 } });
+  const plainLines = (run) => visible(run.stdout).trimEnd().split('\n');
+  const runtime = { statusline: 'full', statuslineColors: false };
+
+  const wide = runStatus({ runtime, payload });
+  assert.equal(wide.status, 0, wide.stderr);
+  assert.deepEqual(plainLines(wide), ['◆ TestModel  ◑ 53%  ⧗ 20% <reset>  ◷ 45%  ± +120/-30']);
+
+  const narrow = runStatus({ runtime, payload, envExtra: { COLUMNS: '34' } });
+  assert.deepEqual(plainLines(narrow), ['◆ TestModel  ◑ 53%  ⧗ 20% <reset>']);
+  const tiny = runStatus({ runtime, payload, envExtra: { COLUMNS: '10' } });
+  assert.deepEqual(plainLines(tiny), ['◆ TestModel  ◑ 53%']);
+});
+
+test('statusline compact is the default line alone and minimal keeps model and context', () => {
+  const payload = basePayload({ rate_limits: rateLimits() });
+  const plain = (run) => visible(run.stdout).trimEnd();
+  const compact = runStatus({ runtime: { statusline: 'compact', statuslineColors: false }, payload });
+  assert.equal(plain(compact), '◆ TestModel  ◑ 53%  ⧗ 20% <reset>  ◷ 45%');
+  const minimal = runStatus({ runtime: { statusline: 'minimal', statuslineColors: false }, payload });
+  assert.equal(plain(minimal), '◆ TestModel  ◑ 53%');
+});
+
+test('statusline colours percentages by threshold and prints no escape when statuslineColors is false', () => {
+  const hot = basePayload({ rate_limits: rateLimits({ fiveHour: 90 }) });
+  const coloured = runStatus({ payload: hot });
+  assert.match(coloured.stdout, /\x1b\[31m90%/, 'a five-hour quota at 90% is red');
+  assert.match(coloured.stdout, /\x1b\[32m◑[ \u00A0]53%/, 'context at 53% is green');
+  const plain = runStatus({ runtime: { statusline: 'full', statuslineColors: false }, payload: hot });
+  assert.doesNotMatch(plain.stdout, /\x1b\[/);
+});
+
+test('statusline shows the live effort level next to the model, and nothing when the payload has none', () => {
+  const runtime = { statusline: 'minimal', statuslineColors: false };
+  const withEffort = runStatus({ runtime, payload: basePayload({ effort: { level: 'xhigh' } }) });
+  assert.equal(visible(withEffort.stdout).trimEnd(), '◆ TestModel (xhigh)  ◑ 53%');
+  const narrow = runStatus({ runtime: { statusline: 'full', statuslineColors: false }, payload: basePayload({ effort: { level: 'high' } }), envExtra: { COLUMNS: '10' } });
+  assert.equal(visible(narrow.stdout).trimEnd(), '◆ TestModel (high)  ◑ 53%', 'effort travels with the model and never drops');
+  const without = runStatus({ runtime });
+  assert.equal(visible(without.stdout).trimEnd(), '◆ TestModel  ◑ 53%');
+});
+
+test('statusline reads quota from the payload rate_limits', () => {
+  const nowSec = Math.floor(Date.now() / 1000);
+  const payload = basePayload({ rate_limits: {
+    five_hour: { used_percentage: 36, resets_at: nowSec + 2 * 3600 + 12 * 60 + 30 },
+    seven_day: { used_percentage: 43, resets_at: nowSec + 2 * 86400 },
+  } });
+  const run = runStatus({ runtime: { statusline: 'compact', statuslineColors: false }, payload,
+    tmpFiles: { 'ck-usage-limits-cache.json': freshUsageCache() } });
+  assert.equal(visible(run.stdout).trimEnd(), '◆ TestModel  ◑ 53%  ⧗ 36% <reset>  ◷ 43%', 'the payload is the only source (the cache says 20%/45%)');
+});
+
+test('statusline layout quota section renders from the payload', () => {
+  const run = runStatus({
+    runtime: { statusline: 'full', statuslineColors: false, statuslineLayout: { lines: [['quota']] } },
+    payload: basePayload({ rate_limits: rateLimits({ fiveHour: 36, weekly: 43 }) }),
+  });
+  assert.equal(run.status, 0, run.stderr);
+  // Not visible(): its mask matches only \d+h\d+m, and the layout prints "2h 29m" plus a
+  // weekly countdown that can roll over between seconds.
+  const line = run.stdout.replace(ANSI, '').replace(NBSP, ' ').trimEnd();
+  assert.match(line, /⌛ \d+h \d+m left \(36% used\)  wk 43% \(\d+d \d+h\)/, line);
+});
+
+/** A throwaway git repo on branch `feat`, so git, PR and worktree marks have a branch to ride on. */
+function gitRepo() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-git-'));
+  cleanupDirs.push(dir);
+  for (const args of [['init', '-q', '-b', 'feat'], ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', 'init']]) {
+    const r = spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stderr);
+  }
+  return dir;
+}
+
+const stripAnsi = (text) => text.replace(ANSI, '').replace(NBSP, ' ').trimEnd();
+
+test('statusline shows fast mode, thinking, PR state, worktree, session time and cache hit only when present', () => {
+  const runtime = { statusline: 'compact', statuslineColors: false };
+  const repo = gitRepo();
+  const rich = basePayload({
+    fast_mode: true,
+    thinking: { enabled: true },
+    pr: { number: 80, review_state: 'approved' },
+    workspace: { current_dir: repo, git_worktree: 'feat-x' },
+    cost: { total_duration_ms: 28147114 },
+    prompt_cache: { requests: 77, hit_ratio: 0.986 },
+  });
+  assert.equal(stripAnsi(runStatus({ runtime, payload: rich }).stdout), '◆ TestModel ϟ✱  ◑ 53%  ⎇ feat #80✓ ⊟  ⏱ 7h49m  ↻ 99%');
+
+  const off = basePayload({
+    fast_mode: false, thinking: { enabled: false }, workspace: { current_dir: repo },
+    cost: { total_duration_ms: 30000 }, prompt_cache: { requests: 0, hit_ratio: 0 },
+  });
+  assert.equal(stripAnsi(runStatus({ runtime, payload: off }).stdout), '◆ TestModel  ◑ 53%  ⎇ feat');
+});
+
+test('statusline marks each PR review state and a GitLab merge request', () => {
+  const runtime = { statusline: 'minimal', statuslineColors: true };
+  const repo = gitRepo();
+  const line = (pr) => runStatus({ runtime: { statusline: 'compact', statuslineColors: true }, payload: basePayload({ pr, workspace: { current_dir: repo } }) }).stdout;
+  assert.match(line({ number: 7, review_state: 'approved' }), /#7\x1b\[32m✓/);
+  assert.match(line({ number: 7, review_state: 'changes_requested' }), /#7\x1b\[31m✗/);
+  assert.match(line({ number: 7, review_state: 'draft' }), /\x1b\[2m#7\x1b\[0m/);
+  assert.match(stripAnsi(line({ number: 7, review_state: 'pending' })), /⎇ feat #7$/);
+  assert.match(stripAnsi(line({ number: 12, kind: 'mr' })), /⎇ feat !12$/);
+  assert.doesNotMatch(runStatus({ runtime, payload: basePayload({ pr: { number: 7 }, workspace: { current_dir: repo } }) }).stdout, /#7/, 'minimal keeps only the branch name');
+});
+
+test('statusline drops session time and cache before changes on a narrow terminal', () => {
+  const payload = basePayload({ cost: { total_duration_ms: 28147114, total_lines_added: 5, total_lines_removed: 1 }, prompt_cache: { requests: 3, hit_ratio: 0.4 } });
+  const runtime = { statusline: 'full', statuslineColors: false };
+  assert.equal(stripAnsi(runStatus({ runtime, payload, envExtra: { COLUMNS: '34' } }).stdout), '◆ TestModel  ◑ 53%  ± +5/-1');
+  assert.equal(stripAnsi(runStatus({ runtime, payload, envExtra: { COLUMNS: '44' } }).stdout), '◆ TestModel  ◑ 53%  ± +5/-1  ⏱ 7h49m');
 });

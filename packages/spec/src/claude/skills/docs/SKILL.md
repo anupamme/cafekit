@@ -125,7 +125,7 @@ Create the standard project docs set from the current source code.
 Use when:
 - the repository has code but no useful docs
 - the user asks to create project docs
-- SessionStart docs-sync reports missing documentation
+- `echo '{}' | node .claude/hooks/docs-sync.cjs` reports missing documentation
 
 Load:
 - `references/standard-docs-workflow.md`
@@ -138,7 +138,7 @@ Refresh existing docs after code changes.
 Use when:
 - docs exist and source code changed
 - the user asks to update or refresh docs
-- docs-sync reports stale docs
+- `echo '{}' | node .claude/hooks/docs-sync.cjs` reports stale docs
 
 Load:
 - `references/standard-docs-workflow.md`

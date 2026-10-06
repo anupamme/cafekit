@@ -17,7 +17,6 @@ const RECEIPTS = require(path.join(PACKAGE_ROOT, 'src/claude/scripts/spec-receip
 const FINAL_STATE = require(path.join(PACKAGE_ROOT, 'src/claude/scripts/spec-final-state.cjs'));
 const VALIDATOR = require(path.join(PACKAGE_ROOT, 'src/claude/scripts/validate-spec-output.cjs'));
 const GROUNDER = require(path.join(PACKAGE_ROOT, 'src/claude/scripts/spec-ground.cjs'));
-const SEMANTIC_AUTHORITY = require(path.join(PACKAGE_ROOT, 'src/claude/hooks/semantic-review-authority.cjs'));
 const READINESS = require(path.join(PACKAGE_ROOT, 'src/claude/scripts/spec-readiness.cjs'));
 const AUTHORING_VALIDATOR = path.join(PACKAGE_ROOT, 'src/claude/scripts/spec-authoring-validation.cjs');
 const { copyClaudeTestRuntime } = require('./test-runtime-dependency-closure.cjs');
@@ -80,9 +79,6 @@ function installClaudeRuntimeClosure(fixtureRoot, entry = 'hooks/spec-gate.cjs')
   const hooksRoot = path.join(PACKAGE_ROOT, 'src', 'claude', 'hooks');
   for (const hook of [
     'spec-gate.cjs',
-    'completion-authority-check.cjs',
-    'completion-authority-state.cjs',
-    'semantic-review-authority.cjs',
   ]) {
     const target = path.join(destinationRoot, 'hooks', hook);
     fs.mkdirSync(path.dirname(target), { recursive: true });
@@ -759,10 +755,7 @@ test('CLI exposes a derived lane without making it primary Develop authority', (
   const regions = markdownLegacyRegions(develop);
   assert.doesNotMatch(develop, /DO NOT write implementation code until an approved spec exists/i);
   assert.doesNotMatch(regions.primary, /planning_depth|assurance_level|execution_tier|\blane\b/i);
-  assert.match(regions.legacy, /planning_depth/);
-  assert.match(regions.legacy, /assurance_level/);
-  assert.match(regions.legacy, /execution_tier/);
-  assert.match(regions.legacy, /derived lane/i);
+  assert.doesNotMatch(develop, /## Legacy workflow compatibility|Also supports existing legacy Specs packets/);
   assert.match(regions.primary, /specs\/<feature>\/plan\.md[\s\S]*task-NN-\*\.md/i);
   assert.match(regions.primary, /one unblocked task at a time/i);
   assert.match(regions.primary, /Verification Plan/);
@@ -789,36 +782,33 @@ test('Specs primary output is a flat process-first packet with isolated legacy c
   const specs = read(SPECS);
   const regions = markdownLegacyRegions(specs);
   const legacyHeadings = regions.headings.filter(({ text }) => /legacy/i.test(text));
-  assert.equal(legacyHeadings.length, 1);
+  assert.equal(legacyHeadings.length, 0);
   assert.match(regions.primary, /specs\/<feature>\/[\s\S]*plan\.md[\s\S]*task-01-<slug>\.md[\s\S]*task-02-<slug>\.md/i);
   assert.match(regions.primary, /Task files are flat beside `plan\.md`/i);
   assert.match(regions.primary, /one task at a time/i);
   assert.match(regions.primary, /inline `## Receipt`/i);
   assert.match(regions.primary, /GATE-SCOPE[\s\S]*GATE-REVIEW[\s\S]*GATE-DONE/i);
-  assert.match(regions.legacy, /spec\.json/i);
-  assert.match(regions.legacy, /never requires the legacy kernel/i);
+  assert.doesNotMatch(specs, /installed legacy adapters?/i);
   assertVocabularyIsLegacyOnly(SPECS, regions);
 });
 
-test('core execution agents default to process-first state and isolate legacy packets', () => {
+test('core execution agents default to process-first state and carry no legacy adapter', () => {
   for (const filePath of PROCESS_FIRST_AGENTS) {
     const content = read(filePath);
     const name = path.basename(filePath);
     assert.match(content, /plan\.md/i, `${name} must read the process-first plan`);
     assert.match(content, /task-NN-\*\.md|task-NN-<slug>\.md/i, `${name} must understand flat tasks`);
-    assert.match(content, /legacy/i, `${name} must isolate legacy compatibility`);
+    assert.doesNotMatch(content, /legacy|spec\.json|scope_lock/i, `${name} must not teach a legacy adapter`);
   }
 
   const implementer = read(PROCESS_FIRST_AGENTS[0]);
   assert.match(implementer, /Under every dispatch mode[\s\S]{0,160}do NOT edit[\s\S]{0,80}`plan\.md`[\s\S]{0,80}`Status:`[\s\S]{0,80}`## Receipt`/i);
   assert.match(implementer, /controller/i);
-  assert.match(implementer, /process-first work[\s\S]{0,100}Ownership[\s\S]{0,100}`Related Files` only for a valid legacy adapter/i);
+  assert.match(implementer, /process-first work[\s\S]{0,100}Ownership\s+boundary\./i);
 
   const auditor = read(PROCESS_FIRST_AGENTS[2]);
   assert.match(auditor, /accepted GATE-SCOPE\/GATE-REVIEW decisions/i);
-  assert.match(auditor, /Only for a valid legacy adapter[\s\S]*`Related Files`[\s\S]*`## Evidence`/i);
-  assert.match(auditor, /Never require those legacy artifacts from a[\s\S]*process-first packet/i);
-  assert.match(auditor, /attestation belongs only to the valid legacy/i);
+  assert.doesNotMatch(auditor, /CAFEKIT_SEMANTIC_REVIEW_ATTESTATION/);
 
   const docsKeeper = read(PROCESS_FIRST_AGENTS[3]);
   assert.match(docsKeeper, /never[\s\S]{0,80}invent or write Status, Receipt, approval, or execution proof/i);
@@ -831,24 +821,24 @@ test('core execution agents default to process-first state and isolate legacy pa
 
 test('R7 Develop and Sync surfaces teach process-v3 and isolate hierarchical Legacy sections', () => {
   const surfaces = [
-    ['develop', DEVELOP],
-    ['parallel waves', PARALLEL_WAVES],
-    ['sync', SYNC_SKILL],
-    ['sync protocols', SYNC_PROTOCOLS],
+    ['develop', DEVELOP, 0],
+    ['parallel waves', PARALLEL_WAVES, 0],
+    ['sync', SYNC_SKILL, 0],
+    ['sync protocols', SYNC_PROTOCOLS, 0],
   ];
   const regionsByName = new Map();
-  let legacyCorpus = '';
 
-  for (const [name, filePath] of surfaces) {
+  for (const [name, filePath, expectedLegacy] of surfaces) {
     const regions = markdownLegacyRegions(read(filePath));
     const legacyHeadings = regions.headings.filter(({ text }) => /legacy/i.test(text));
-    assert.equal(legacyHeadings.length, 1, `${name} must have exactly one Legacy heading`);
+    assert.equal(legacyHeadings.length, expectedLegacy, `${name} must have exactly ${expectedLegacy} Legacy heading(s)`);
     assert.match(regions.primary, /inline (?:`## )?Receipts?/i, `${name} must teach inline Receipts`);
-    assert.match(regions.legacy, /spec\.json/i, `${name} must retain the spec.json adapter`);
-    assert.match(regions.legacy, /task_registry/i, `${name} must retain task_registry compatibility`);
+    if (expectedLegacy === 1) {
+      assert.match(regions.legacy, /spec\.json/i, `${name} must retain the spec.json adapter`);
+      assert.match(regions.legacy, /task_registry/i, `${name} must retain task_registry compatibility`);
+    }
     assertVocabularyIsLegacyOnly(filePath, regions);
     regionsByName.set(name, regions);
-    legacyCorpus += `\n${regions.legacy}`;
   }
 
   const develop = regionsByName.get('develop').primary;
@@ -874,7 +864,7 @@ test('R7 Develop and Sync surfaces teach process-v3 and isolate hierarchical Leg
   assert.match(protocols, /`plan\.md` and flat `task-\*\.md` files/i);
   assert.match(protocols, /acceptance IDs/i);
   assert.match(protocols, /current inline Receipt/i);
-  assert.match(legacyCorpus, /sync-finalize/i);
+  assert.match(regionsByName.get('sync').primary, /sync-finalize/i);
 });
 
 test('Develop process-first source contract preserves selection, recovery, final-Head, parallel, and Flash boundaries', () => {
@@ -1369,41 +1359,20 @@ test('atomic readiness preserves exact bytes on review, grounding, decision, and
     blocked.workflow_policy = POLICY.canonicalWorkflowPolicySnapshot({ planning_depth: 'Compact', assurance_level: 'Strict' });
     fs.writeFileSync(fixture.specPath, `${JSON.stringify(blocked, null, 2)}\n`);
     const strictBytes = fs.readFileSync(fixture.specPath);
-    assert.throws(() => READINESS.finalizeReadiness({ specDir: fixture.specDir, projectRoot: fixture.root, reviewResult: ordinaryReview() }), /Strict readiness/);
+    assert.throws(() => READINESS.finalizeReadiness({ specDir: fixture.specDir, projectRoot: fixture.root, reviewResult: ordinaryReview() }), /Strict assurance is no longer supported/);
     assert.equal(fs.readFileSync(fixture.specPath).equals(strictBytes), true);
   } finally { fs.rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
-test('Strict atomic readiness succeeds only after current allowlisted host observation', () => {
+test('Strict readiness is refused as no longer supported', () => {
   const fixture = createOrdinaryAuthoringFixture();
   try {
     const spec = JSON.parse(fs.readFileSync(fixture.specPath, 'utf8'));
     spec.workflow_policy = POLICY.canonicalWorkflowPolicySnapshot({ planning_depth: 'Compact', assurance_level: 'Strict' });
     fs.writeFileSync(fixture.specPath, `${JSON.stringify(spec, null, 2)}\n`);
     const before = fs.readFileSync(fixture.specPath);
-    assert.throws(() => READINESS.finalizeReadiness({ specDir: fixture.specDir, projectRoot: fixture.root, reviewResult: ordinaryReview() }), /Strict readiness/);
+    assert.throws(() => READINESS.finalizeReadiness({ specDir: fixture.specDir, projectRoot: fixture.root, reviewResult: ordinaryReview() }), /Strict assurance is no longer supported/);
     assert.equal(fs.readFileSync(fixture.specPath).equals(before), true);
-
-    const digest = VALIDATOR.computeSemanticDigest21(fixture.specDir, spec);
-    assert.equal(digest.errors.length, 0, digest.errors.join('\n'));
-    const authorityHome = path.join(fixture.root, 'authority-home');
-    const claim = `CAFEKIT_SEMANTIC_REVIEW_ATTESTATION ${JSON.stringify({ feature_name: 'ordinary', spec_file: 'specs/ordinary/spec.json', semantic_digest: digest.digest, verdict: 'PASS' })}`;
-    const observed = spawnSync(process.execPath, [path.join(PACKAGE_ROOT, 'src/claude/hooks/semantic-review-authority.cjs')], {
-      cwd: fixture.root,
-      env: { ...process.env, HOME: authorityHome, USERPROFILE: authorityHome, PROJECT_ROOT: fixture.root },
-      input: JSON.stringify({ hook_event_name: 'SubagentStop', session_id: 'host-session', agent_id: 'reviewer-1', agent_type: 'code_auditor', last_assistant_message: claim, cwd: fixture.root }),
-      encoding: 'utf8',
-    });
-    assert.equal(observed.status, 0, observed.stderr);
-    const reviewFile = path.join(fixture.root, 'review.json');
-    fs.writeFileSync(reviewFile, `${JSON.stringify(ordinaryReview())}\n`);
-    const finalized = spawnSync(process.execPath, [path.join(PACKAGE_ROOT, 'src/claude/scripts/spec-readiness.cjs'), fixture.specDir, '--review-result', reviewFile], {
-      cwd: fixture.root,
-      env: { ...process.env, HOME: authorityHome, USERPROFILE: authorityHome, PROJECT_ROOT: fixture.root },
-      encoding: 'utf8',
-    });
-    assert.equal(finalized.status, 0, `${finalized.stdout}\n${finalized.stderr}`);
-    assert.equal(JSON.parse(fs.readFileSync(fixture.specPath, 'utf8')).ready_for_implementation, true);
   } finally { fs.rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
@@ -1423,7 +1392,7 @@ test('done is a final-state request bound to current semantic model and digest',
     const dependencies = () => ({
       validator: VALIDATOR,
       grounder: GROUNDER,
-      semanticAuthority: SEMANTIC_AUTHORITY,
+      semanticAuthority: {},
     });
     const current = FINAL_STATE.validateCanonicalFinalState({
       policy: POLICY, projectRoot: fixture.root, candidate, dependencies,

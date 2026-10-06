@@ -10,7 +10,6 @@ const {
   readPayload
 } = require('./lib/hook-context.cjs');
 const { clearState } = require('./lib/privacy-state.cjs');
-const { clearState: clearCompletionState } = require('./completion-authority-state.cjs');
 
 function readPackage(projectRoot) {
   try {
@@ -89,7 +88,6 @@ try {
 
   // Approval tokens never survive a session boundary or compaction.
   clearState(projectRoot);
-  clearCompletionState(projectRoot, payload.session_id);
 
   // Orca (onorca.dev) sets ORCA_PANE_KEY in every pane; it is a presence marker, not a
   // secret. ORCA_AGENT_HOOK_TOKEN and ORCA_AGENT_LAUNCH_TOKEN live in the same

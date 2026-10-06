@@ -134,36 +134,6 @@ test('a broad glob is denied with its full reason in JSON', () => {
   });
 });
 
-test('a nested task write is denied under the grok write tool', () => {
-  withInstall((root) => {
-    const target = path.join(root, 'specs', 'demo', 'tasks', 'task-R0-01-x.md');
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    // grok creates files with `write`; `search_replace` edits an existing one. The guard
-    // fires on Write only, so the alias has to keep those two apart.
-    const r = runHook(root, 'task-scaffold-guard.cjs', {
-      hookEventName: 'pre_tool_use',
-      cwd: root,
-      toolName: 'write',
-      toolInput: { path: target, content: '# x' },
-    });
-    const { decision, reason } = decisionOf(r.stdout);
-    assert.equal(decision, 'deny');
-    assert.match(reason, /TASK SCAFFOLD REQUIRED/);
-    assert.match(reason, /spec-scaffold\.cjs/, 'the command the model must run has to reach it');
-    assert.equal(r.code, 2);
-
-    // The escape route the message names must stay open: an edit is not a create.
-    const edit = runHook(root, 'task-scaffold-guard.cjs', {
-      hookEventName: 'pre_tool_use',
-      cwd: root,
-      toolName: 'search_replace',
-      toolInput: { path: target, old_string: 'a', new_string: 'b' },
-    });
-    assert.equal(decisionOf(edit.stdout).decision, null, 'search_replace must not be treated as a create');
-    assert.equal(edit.code, 0);
-  });
-});
-
 /** A packet the Stop gate will block: one done task with no receipt. */
 function unprovenPacket(root) {
   const feature = path.join(root, 'specs', 'demo');
@@ -203,32 +173,6 @@ test('the Stop gate still blocks an unproven done task', () => {
     });
     const body = decisionOf(r.stdout);
     assert.equal(body.decision, 'block', 'a done task without a receipt must still be blocked');
-  }, { git: true });
-});
-
-test('the approval hook takes its approve path on a grok prompt', () => {
-  withInstall((root) => {
-    // Registered without an argv mode, this hook picks its mode from the event name, and
-    // approve() returns immediately unless that name is exactly 'UserPromptSubmit'. An
-    // approval phrase with no pending request is therefore the oracle: only the approve
-    // path can print a rejection line, so the line proves the event name was translated.
-    // Under an unreadable envelope the mode fell back to the stop path on every prompt.
-    const nonce = 'a'.repeat(24);
-    const r = runHook(root, 'completion-authority.cjs', {
-      hookEventName: 'user_prompt_submit',
-      sessionId: 'grok-1',
-      cwd: root,
-      prompt: `APPROVE CAFEKIT COMPLETION ${nonce}`,
-    });
-    assert.match(r.stdout, /CafeKit completion approval rejected/,
-      'the approve path must run and refuse an approval that matches no pending request');
-    assert.equal(decisionOf(r.stdout).decision, null, 'and it must not block the prompt');
-
-    // An ordinary prompt stays silent on both counts.
-    const plain = runHook(root, 'completion-authority.cjs', {
-      hookEventName: 'user_prompt_submit', sessionId: 'grok-1', cwd: root, prompt: 'please continue',
-    });
-    assert.equal(plain.stdout.trim(), '', 'an ordinary prompt produces nothing');
   }, { git: true });
 });
 

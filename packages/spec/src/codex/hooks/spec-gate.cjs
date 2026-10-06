@@ -19,7 +19,6 @@ const {
   receiptFixHint,
 } = require('./lib/spec-receipt.cjs');
 const { taskStatusMap } = require('./lib/spec-utils.cjs');
-const FINAL_STATE = require('./completion-authority-check.cjs');
 
 function emitBlock(reason) {
   process.stdout.write(`${JSON.stringify({ decision: 'block', reason })}\n`);
@@ -54,9 +53,7 @@ try {
   // the payload leaves, which is what made the block unescapable on this runtime too.
   const target = resolver.extractExplicitTarget(payload)
     || resolver.readActiveFeatureTarget({ projectRoot, runtime });
-  let resolved = typeof resolver.resolveWorkflowCandidate === 'function'
-    ? resolver.resolveWorkflowCandidate({ projectRoot, runtime, target, includeCompleted: true })
-    : FINAL_STATE.resolveCandidate({ resolver, projectRoot, runtime, payload });
+  let resolved = resolver.resolveWorkflowCandidate({ projectRoot, runtime, target, includeCompleted: true });
   if (typeof resolver.refineWorkflowGateResolution === 'function') {
     resolved = resolver.refineWorkflowGateResolution(resolved);
   }
@@ -109,18 +106,10 @@ try {
   const lifecyclePhase = activeSpec.current_phase || activeSpec.phase;
   const explicitCloseout = ['done', 'completed', 'complete'].includes(activeSpec.status)
     || ['closeout', 'completion', 'completed', 'complete'].includes(lifecyclePhase);
-  if (!processWorkflow && activeSpec.schema_version === '2.1') {
-    const finalState = FINAL_STATE.evaluateCloseout({
-      policy: POLICY,
-      projectRoot,
-      runtime,
-      payload: { ...payload, session_id: sessionIdentity(payload) },
-    });
-    if (!finalState.ok) {
-      emitBlock(`Completion gate: ${finalState.reason}`);
-      process.exit(0);
-    }
-    if (finalState.active) process.exit(0);
+  // Legacy 2.1 closeout is retired; a 2.1 packet mid-execution keeps the ordinary receipt checks.
+  if (!processWorkflow && activeSpec.schema_version === '2.1' && explicitCloseout) {
+    emitBlock('Completion gate: Legacy spec.json closeout is no longer supported; move the packet to plan.md with flat task files');
+    process.exit(0);
   }
   const runtimeContext = POLICY.deriveRuntimeContext({
     projectRoot,

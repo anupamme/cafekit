@@ -143,9 +143,6 @@ test('advice names the directory the hook lives in', () => {
       const rt = installTreeAs(project, folder);
       fs.mkdirSync(path.join(project, 'specs', 'demo'), { recursive: true });
       fs.writeFileSync(path.join(rt, 'runtime.json'), '{}');
-      // task-scaffold-guard: a raw Write into a nested task path is refused with scaffold advice
-      const guard = runHook(rt, 'task-scaffold-guard.cjs', { tool_name: 'Write', tool_input: { file_path: path.join(project, 'specs', 'demo', 'tasks', 'task-R0-01-x.md'), content: '# x' }, cwd: project });
-      assert.match(guard.out, new RegExp(`node ${folder.replace('.', '\\.')}/scripts/spec-scaffold\\.cjs`), `scaffold advice must name ${folder}`);
       // inspect-block: header hint names the runtime file (static check on the installed copy)
       const src = fs.readFileSync(path.join(rt, 'hooks', 'inspect-block.cjs'), 'utf8');
       assert.match(src, /<runtime>\/runtime\.json/, 'the disable hint no longer hardcodes a platform');

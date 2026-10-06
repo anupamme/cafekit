@@ -28,7 +28,7 @@ is `BLOCKED`; review never migrates it.
 
 For process-first proof consumption, this skill's `## Execution-proof boundary`
 is authoritative. Do not load or follow legacy separate-receipt paragraphs from
-references; they apply only after the Legacy route below is selected.
+references; they apply only to a legacy packet.
 
 Select review depth from `assurance_level`, risk, and blast radius. Lane is a
 derived view:
@@ -165,14 +165,6 @@ language.
 
 Do not add a test command, a fabricated receipt, or an `Audit: PASS` marker to
 make the review look complete. Return unresolved questions at the end.
-
-## Legacy workflow compatibility
-
-For a valid legacy packet only, retain its current spec/task resolution,
-separate `receipts/<task-basename>.md` fallback, feature receipt, persisted audit
-obligations, and legacy verdict normalization. If separate and embedded legacy
-proof identities conflict, fail closed. Never copy that adapter into a flat
-process-first packet.
 
 ## References
 

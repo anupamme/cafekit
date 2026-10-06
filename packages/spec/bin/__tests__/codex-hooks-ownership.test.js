@@ -136,8 +136,8 @@ test('repeated installs never duplicate a CafeKit hook', () => {
     const config = readHooks(root);
     assert.equal(allHandlers(config).length, afterFirst, 'a reinstall added handlers that were already registered');
 
-    // Uniqueness is per event, not global: state.cjs and completion-authority.cjs each
-    // register under several events by design.
+    // Uniqueness is per event, not global: state.cjs registers under several events by
+    // design.
     for (const [eventName, groups] of Object.entries(config.hooks)) {
       const scripts = groups
         .flatMap((group) => group.hooks || [])

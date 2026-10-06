@@ -147,6 +147,13 @@ cat .codex/cafekit.json
 The Claude statusline reads three keys from `.claude/runtime.json`:
 
 - `"statusline"`: render mode — `full` (default), `compact`, `minimal`, or `none`.
+  The default is one line, `◆ model (effort) ϟ✱  ◔ context%  ⧗ 5h quota% reset  ◷ weekly%  ⎇ branch ●changed ↑↓ #PR✓ ⊟  ± +added/-removed  ⏱ session  ↻ cache hit%`
+  (`ϟ` fast mode, `✱` thinking, `#PR` with ✓ approved / ✗ changes requested, `⊟` inside a git worktree;
+  each appears only when present), which drops cache, session time, changes, weekly, quota, then the
+  branch as the terminal narrows. Quota comes only from the `rate_limits` Claude Code sends (Pro/Max,
+  after a session's first API response); without it the quota segments are hidden. `full` adds
+  agent and todo lines only while they exist, `compact` is the line alone, and `minimal`
+  keeps model, context and branch.
 - `statuslineColors`: set `false` to disable ANSI colors (`NO_COLOR` also wins).
 - `statuslineLayout`: optional custom layout. Global shape
   `{ "lines": [["model", "context"], ["directory", "git"]] }` — each inner
@@ -156,8 +163,8 @@ The Claude statusline reads three keys from `.claude/runtime.json`:
   ids are ignored; an empty or invalid layout falls back to the default
   renderers, and leaving the key out keeps the default output unchanged. The
   `cost` section renders only when enabled here, billing mode is API, and cost
-  data exists. Quota shows five-hour and weekly windows only while the usage
-  cache is fresh.
+  data exists. Quota shows five-hour and weekly windows only while Claude Code
+  sends `rate_limits`. The `usage` key is deprecated and has no effect.
 
 ## Core Skills
 
@@ -305,10 +312,6 @@ presents GATE-DONE for closeout only after real execution proof. Each task has o
 `Status:` field and keeps its canonical `## Receipt` inline, including the
 exact Verification Plan command, `Exit: 0`, `Verification: PASS`,
 runtime-derived Base and Head, and current command output.
-
-Existing packets with `spec.json`, nested `tasks/task-R*.md`, or separate
-receipts remain supported through the legacy compatibility adapter. New Specs
-work does not author those legacy artifacts.
 
 ## Development
 
