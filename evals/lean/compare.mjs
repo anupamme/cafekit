@@ -11,7 +11,7 @@
 // code, nên tăng là xấu; một `da-chay` không đọc được số lần gọi thành thước `da-chay-khong-doc-duoc`, chưa phân loại → thoát 1.
 // p là Fisher exact hai phía như evals/compare-fix.mjs:26-38, in bằng toPrecision(4).
 // Thoát 1 khi thiếu ô, ô partial, hay có thước chưa được phân loại; thoát 0 dù có REGRESS (GATE-DONE đọc).
-//   node evals/lean/compare.mjs --skill <fix|debug|ask|specs> [--cells <ca>-<model>,…] [--base-only] [--root <results root>]
+//   node evals/lean/compare.mjs --skill <fix|debug|ask|specs> [--cells <ca>-<model>,…] [--base-only] [--base <prefix>] [--after <prefix>] [--root <results root>]
 //   node evals/lean/compare.mjs --self-test
 import fs from "fs";
 import os from "os";
@@ -45,9 +45,10 @@ const CLASSES = {
   // specs/specs-routing-repair D-05: a write under src/ or a specs call on a negative case is the failure the packet repairs.
   specs: {
     safety: ["khong-sua-code", "khong-viet-code", "khong-code", "khong-goi-specs"],
-    primary: ["co-goi-skill", "dung-truoc-khi-lam", "tra-loi-thang", "da-sua"],
+    primary: ["co-goi-skill", "dung-truoc-khi-lam", "tra-loi-thang", "da-sua", "da-goi-mot-skill", "khong-tu-chot", "co-marker", "mot-cau-hoi-c1"],
     expected: [],
-    watch: [],
+    // specs/specs-fast-lane D-07: either-or action graders (Edit or Write) and descriptive door graders are read, not flagged.
+    watch: ["da-doi-ten", "da-doi-ten-w", "bo-require", "bo-require-w", "co-sua-src", "co-viet-src", "dung-blocked", "da-goi-specs", "da-goi-brainstorm"],
   },
 };
 // `joint` is derived for ask (specs/lean-ask D-04): a run passes it when every member of its case in evals/ask/compare.mjs
@@ -119,7 +120,7 @@ function cases(skill) {
   return fs.readdirSync(dir, { withFileTypes: true }).filter((e) => e.isDirectory() && fs.existsSync(path.join(dir, e.name, "case.yaml"))).map((e) => e.name).sort();
 }
 
-export function run({ skill, root, cellsFilter, baseOnly, caseList, afterPrefix = "lean-sau-" }) {
+export function run({ skill, root, cellsFilter, baseOnly, caseList, basePrefix = "lean-goc-", afterPrefix = "lean-sau-" }) {
   const out = [];
   const results = path.join(root, skill);
   const list = caseList || cases(skill);
@@ -132,7 +133,7 @@ export function run({ skill, root, cellsFilter, baseOnly, caseList, afterPrefix 
   for (const cell of cells) {
     const sides = {};
     let ok = true;
-    for (const [side, prefix] of baseOnly ? [["base", "lean-goc-"]] : [["base", "lean-goc-"], ["after", afterPrefix]]) {
+    for (const [side, prefix] of baseOnly ? [["base", basePrefix]] : [["base", basePrefix], ["after", afterPrefix]]) {
       const dir = resolveCell(path.join(results, `${prefix}${cell}`));
       if (!fs.existsSync(path.join(dir, "result.json"))) { out.push(`cell=${cell} missing ${side} ${path.basename(dir)}`); ok = false; continue; }
       const c = readCell(dir);
@@ -252,6 +253,10 @@ function selfTest() {
     smk("lean-goc-s1-sonnet", { "khong-sua-code": 20, "co-goi-skill": 20 }, 20); smk("lean-sau-s1-sonnet", { "khong-sua-code": 19, "co-goi-skill": 20 }, 20);
     r = run({ skill: "specs", root: results, caseList: ["s1"], cellsFilter: ["s1-sonnet"] });
     expect("specs khong-sua-code 20/20 → 19/20 → REGRESS", / grader=khong-sua-code base=20\/20 after=19\/20 .* safety REGRESS$/.test(line(r, /grader=khong-sua-code/)), line(r, /grader=khong-sua-code/));
+    // --base reads another base-side prefix
+    smk("lean-sau-s2-sonnet", { "khong-sua-code": 10 }, 10); smk("lean-fl-sau-s2-sonnet", { "khong-sua-code": 9 }, 10);
+    r = run({ skill: "specs", root: results, caseList: ["s2"], cellsFilter: ["s2-sonnet"], basePrefix: "lean-sau-", afterPrefix: "lean-fl-sau-" });
+    expect("--base lean-sau- reads those cells", / grader=khong-sua-code base=10\/10 after=9\/10 .* safety REGRESS$/.test(line(r, /grader=khong-sua-code/)), line(r, /grader=khong-sua-code/));
     // --after reads another after-side prefix
     amk("lean-sau2-co-bang-chung-sonnet", base);
     r = run({ skill: "ask", root: results, caseList: ["co-bang-chung"], cellsFilter: ["co-bang-chung-sonnet"], afterPrefix: "lean-sau2-" });
@@ -301,10 +306,11 @@ else {
     else if (args[i] === "--cells") opt.cellsFilter = String(args[++i] || "").split(",").filter(Boolean);
     else if (args[i] === "--base-only") opt.baseOnly = true;
     else if (args[i] === "--root") opt.root = path.resolve(args[++i]);
+    else if (args[i] === "--base") { opt.basePrefix = args[++i]; if (!/^lean-[a-z0-9-]+-$/.test(opt.basePrefix || "")) { console.error("--base takes a prefix like lean-sau-"); process.exit(2); } }
     else if (args[i] === "--after") { opt.afterPrefix = args[++i]; if (!/^lean-[a-z0-9-]+-$/.test(opt.afterPrefix || "")) { console.error("--after takes a prefix like lean-sau2-"); process.exit(2); } }
     else { console.error(`unknown argument ${args[i]}`); process.exit(2); }
   }
-  if (!CLASSES[opt.skill]) { console.error("usage: node evals/lean/compare.mjs --skill <fix|debug|ask|specs> [--cells …] [--base-only] [--after <prefix>] [--root <results>] | --self-test"); process.exit(2); }
+  if (!CLASSES[opt.skill]) { console.error("usage: node evals/lean/compare.mjs --skill <fix|debug|ask|specs> [--cells …] [--base-only] [--base <prefix>] [--after <prefix>] [--root <results>] | --self-test"); process.exit(2); }
   const r = run(opt);
   for (const l of r.out) console.log(l);
   process.exit(r.bad ? 1 : 0);
