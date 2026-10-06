@@ -3,18 +3,20 @@
 // result.json nằm ngay dưới một thư mục evals/results/{fix,debug}/lean-* (pilot, ô và các ô -lan1 đều tính).
 //   node evals/lean/budget.mjs spent [--root <results root>]         in `budget: spent=<x> cap=150`; thoát 1 khi vượt trần
 //   node evals/lean/budget.mjs check <next> [--root <results root>]  in thêm next= total=; thoát 1 khi spent + next vượt trần
+//   --skills <a,b> (default fix,debug) and --cap <n> (default 150) may sit anywhere (specs/lean-ask D-04).
 //   node evals/lean/budget.mjs --self-test
 import fs from "fs";
 import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
 
-const CAP = 150;
+const DEFAULT_CAP = 150;
+const DEFAULT_SKILLS = ["fix", "debug"];
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
-export function spent(root) {
+export function spent(root, skills = DEFAULT_SKILLS) {
   let total = 0;
-  for (const skill of ["fix", "debug"]) {
+  for (const skill of skills) {
     const dir = path.join(root, skill);
     let entries = [];
     try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { continue; }
@@ -32,9 +34,16 @@ export function spent(root) {
 
 function main(args) {
   let root = path.join(repo, "evals", "results");
-  const i = args.indexOf("--root");
-  if (i >= 0) { root = path.resolve(args[i + 1]); args = args.filter((_, k) => k !== i && k !== i + 1); }
-  const s = spent(root);
+  let skills = DEFAULT_SKILLS;
+  let CAP = DEFAULT_CAP;
+  // Flags may sit anywhere; each is removed from the positional list before it is read.
+  const take = (flag) => { const i = args.indexOf(flag); if (i < 0) return null; const v = args[i + 1]; args = args.filter((_, k) => k !== i && k !== i + 1); if (v === undefined || v === "") throw new Error(`${flag} takes a value`); return v; };
+  try {
+  const r = take("--root"); if (r !== null) root = path.resolve(r);
+  const sk = take("--skills"); if (sk !== null) skills = sk.split(",").filter(Boolean);
+  const cp = take("--cap"); if (cp !== null) { CAP = Number(cp); if (!Number.isFinite(CAP) || CAP < 0) { console.error("--cap takes a number"); return 2; } }
+  } catch (err) { console.error(err.message); return 2; }
+  const s = spent(root, skills);
   if (args[0] === "spent" && args.length === 1) {
     console.log(`budget: spent=${s} cap=${CAP}`);
     return s > CAP ? 1 : 0;
@@ -45,7 +54,7 @@ function main(args) {
     console.log(`budget: spent=${s} next=${next} total=${total} cap=${CAP}`);
     return total > CAP ? 1 : 0;
   }
-  console.error("usage: node evals/lean/budget.mjs spent | check <next> [--root <results root>] | --self-test");
+  console.error("usage: node evals/lean/budget.mjs spent | check <next> [--root <results root>] [--skills <a,b>] [--cap <n>] | --self-test");
   return 2;
 }
 
@@ -73,6 +82,12 @@ function selfTest() {
     mk("debug", "lean-sau-big-opus", 200, []);
     expect("spent above cap → 1", main(["spent", "--root", tmp]) === 1, "exit");
     expect("bad usage → 2", main(["check", "-1", "--root", tmp]) === 2, "exit");
+    mk("ask", "lean-goc-x-sonnet-2", 3, [0.5]);
+    expect("--skills ask sums ask only", spent(tmp, ["ask"]) === 53.5, spent(tmp, ["ask"]));
+    expect("--skills ask --cap 60 after check → 1 above 60", main(["check", "7", "--skills", "ask", "--cap", "60", "--root", tmp]) === 1, "exit");
+    expect("--skills without a value → 2", main(["spent", "--skills"]) === 2, "exit");
+    expect("--cap empty → 2", main(["spent", "--cap", ""]) === 2, "exit");
+    expect("--skills ask --cap 60 spent within → 0", main(["spent", "--skills", "ask", "--cap", "60", "--root", tmp]) === 0, "exit");
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

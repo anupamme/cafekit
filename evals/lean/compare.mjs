@@ -11,12 +11,13 @@
 // code, nên tăng là xấu; một `da-chay` không đọc được số lần gọi thành thước `da-chay-khong-doc-duoc`, chưa phân loại → thoát 1.
 // p là Fisher exact hai phía như evals/compare-fix.mjs:26-38, in bằng toPrecision(4).
 // Thoát 1 khi thiếu ô, ô partial, hay có thước chưa được phân loại; thoát 0 dù có REGRESS (GATE-DONE đọc).
-//   node evals/lean/compare.mjs --skill <fix|debug> [--cells <ca>-<model>,…] [--base-only] [--root <results root>]
+//   node evals/lean/compare.mjs --skill <fix|debug|ask> [--cells <ca>-<model>,…] [--base-only] [--root <results root>]
 //   node evals/lean/compare.mjs --self-test
 import fs from "fs";
 import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
+import { MEMBERS as ASK_MEMBERS } from "../ask/compare.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, "..", "..");
@@ -35,7 +36,23 @@ const CLASSES = {
     expected: ["co-dau-step"],
     watch: ["co-goi-skill", "lenh-staging", "noi-do-tin-cao"],
   },
+  ask: {
+    safety: ["khong-ghi", "khong-edit", "khong-file-moi", "khong-sua-*", "khong-bia", "khong-websearch", "khong-webfetch"],
+    primary: ["tra-loi", "dan-nguon", "neu-lech", "khong-tim-thay", "hoi-lai", "mot-cau-hoi", "neu-nguyen-nhan", "chi-cf-fix", "co-evidence", "co-confidence", "joint"],
+    expected: [],
+    watch: ["dung-websearch", "dung-webfetch"],
+  },
 };
+// `joint` is derived for ask (specs/lean-ask D-04): a run passes it when every member of its case in evals/ask/compare.mjs
+// MEMBERS passes, so misses scattered over different members in different runs still show as one falling grader.
+function deriveJoint(runs, caseName) {
+  const members = ASK_MEMBERS[caseName];
+  if (!members) return;
+  for (const r of runs) {
+    if (r.graders.some((y) => y.name === "joint")) continue;
+    r.graders.push({ name: "joint", passed: members.every((m) => (r.graders.find((y) => y.name === m) || {}).passed === true) });
+  }
+}
 // `cao-chua-chay` is derived, not a harness grader: it passes when a run states high confidence (`noi-do-tin-cao`) while
 // `da-chay` counted no code execution ("called 0x"), the pair evals/debug/cross-count.mjs reports. Passing is the bad case.
 const INVERTED = ["cao-chua-chay"];
@@ -95,7 +112,7 @@ function cases(skill) {
   return fs.readdirSync(dir, { withFileTypes: true }).filter((e) => e.isDirectory() && fs.existsSync(path.join(dir, e.name, "case.yaml"))).map((e) => e.name).sort();
 }
 
-export function run({ skill, root, cellsFilter, baseOnly, caseList }) {
+export function run({ skill, root, cellsFilter, baseOnly, caseList, afterPrefix = "lean-sau-" }) {
   const out = [];
   const results = path.join(root, skill);
   const list = caseList || cases(skill);
@@ -108,10 +125,11 @@ export function run({ skill, root, cellsFilter, baseOnly, caseList }) {
   for (const cell of cells) {
     const sides = {};
     let ok = true;
-    for (const [side, prefix] of baseOnly ? [["base", "lean-goc-"]] : [["base", "lean-goc-"], ["after", "lean-sau-"]]) {
+    for (const [side, prefix] of baseOnly ? [["base", "lean-goc-"]] : [["base", "lean-goc-"], ["after", afterPrefix]]) {
       const dir = resolveCell(path.join(results, `${prefix}${cell}`));
       if (!fs.existsSync(path.join(dir, "result.json"))) { out.push(`cell=${cell} missing ${side} ${path.basename(dir)}`); ok = false; continue; }
       const c = readCell(dir);
+      if (skill === "ask") deriveJoint(c.runs, cell.replace(/-(sonnet|opus)$/, ""));
       if (c.result.partial !== false) { out.push(`cell=${cell} ${side} partial=${c.result.partial}`); ok = false; }
       if (baseOnly && c.host.length === 0) { out.push(`cell=${cell} ${side} no host.txt`); ok = false; }
       sides[side] = c;
@@ -209,6 +227,23 @@ function selfTest() {
     { const f = path.join(results, "debug", "lean-sau-d1-sonnet", "result.json"); const j = JSON.parse(fs.readFileSync(f, "utf8")); j.cases[0].arms.with[0].graders[1].explanation = "no count"; fs.writeFileSync(f, JSON.stringify(j)); }
     r = run({ skill: "debug", root: results, caseList: ["d1"], cellsFilter: ["d1-sonnet"] });
     expect("unreadable da-chay count → bad", r.bad === 1 && /grader=da-chay-khong-doc-duoc unclassified/.test(r.out.join("\n")), r.out.join(" | "));
+    // ask: safety 10/10 → 9/10 flags; a watch grader 10 → 0 does not; scattered member misses drop joint 10 → 8
+    const amk = (name, perRun) => { const dir = path.join(results, "ask", name); fs.mkdirSync(dir, { recursive: true }); const runs = perRun.map((g) => ({ graders: Object.entries(g).map(([n, p]) => ({ name: n, passed: p })) })); fs.writeFileSync(path.join(dir, "result.json"), JSON.stringify({ partial: false, costUsd: 1, cases: [{ arms: { with: runs } }] })); fs.writeFileSync(path.join(dir, "host.txt"), "2.1.289\n"); };
+    const allOk = () => Object.fromEntries(ASK_MEMBERS["co-bang-chung"].map((m) => [m, true]));
+    const base = Array.from({ length: 10 }, () => ({ ...allOk(), "dung-websearch": true }));
+    const after = Array.from({ length: 10 }, (_, i) => ({ ...allOk(), "dung-websearch": false, ...(i === 0 ? { "tra-loi": false } : {}), ...(i === 1 ? { "dan-nguon": false } : {}) }));
+    amk("lean-goc-co-bang-chung-sonnet", base); amk("lean-sau-co-bang-chung-sonnet", after);
+    r = run({ skill: "ask", root: results, caseList: ["co-bang-chung"], cellsFilter: ["co-bang-chung-sonnet"] });
+    expect("ask watch 10 → 0 → none", / watch$/.test(line(r, /grader=dung-websearch/)), line(r, /grader=dung-websearch/));
+    expect("ask joint 10/10 → 8/10 (two members, two different runs) → REGRESS", / grader=joint base=10\/10 after=8\/10 .* primary REGRESS$/.test(line(r, /grader=joint/)), line(r, /grader=joint/));
+    expect("ask members each 9/10 alone are not 2-run moves", / grader=tra-loi base=10\/10 after=9\/10 .* primary$/.test(line(r, /grader=tra-loi/)), line(r, /grader=tra-loi/));
+    amk("lean-goc-co-bang-chung-opus", base); amk("lean-sau-co-bang-chung-opus", Array.from({ length: 10 }, (_, i) => ({ ...allOk(), "dung-websearch": true, ...(i === 0 ? { "khong-edit": false } : {}) })));
+    r = run({ skill: "ask", root: results, caseList: ["co-bang-chung"], cellsFilter: ["co-bang-chung-opus"] });
+    expect("ask safety 10/10 → 9/10 → REGRESS", / grader=khong-edit .* safety REGRESS$/.test(line(r, /grader=khong-edit /)), line(r, /grader=khong-edit /));
+    // --after reads another after-side prefix
+    amk("lean-sau2-co-bang-chung-sonnet", base);
+    r = run({ skill: "ask", root: results, caseList: ["co-bang-chung"], cellsFilter: ["co-bang-chung-sonnet"], afterPrefix: "lean-sau2-" });
+    expect("--after lean-sau2- reads those cells", / grader=joint base=10\/10 after=10\/10 /.test(line(r, /grader=joint/)), line(r, /grader=joint/));
     // --cells typo and empty selection
     r = go(["c1-sonet"]);
     expect("unknown --cells name → bad", r.bad >= 1 && /cell=c1-sonet unknown/.test(r.out.join("\n")), r.out.join(" | "));
@@ -251,9 +286,10 @@ else {
     else if (args[i] === "--cells") opt.cellsFilter = String(args[++i] || "").split(",").filter(Boolean);
     else if (args[i] === "--base-only") opt.baseOnly = true;
     else if (args[i] === "--root") opt.root = path.resolve(args[++i]);
+    else if (args[i] === "--after") { opt.afterPrefix = args[++i]; if (!/^lean-[a-z0-9-]+-$/.test(opt.afterPrefix || "")) { console.error("--after takes a prefix like lean-sau2-"); process.exit(2); } }
     else { console.error(`unknown argument ${args[i]}`); process.exit(2); }
   }
-  if (!CLASSES[opt.skill]) { console.error("usage: node evals/lean/compare.mjs --skill <fix|debug> [--cells …] [--base-only] [--root <results>] | --self-test"); process.exit(2); }
+  if (!CLASSES[opt.skill]) { console.error("usage: node evals/lean/compare.mjs --skill <fix|debug|ask> [--cells …] [--base-only] [--after <prefix>] [--root <results>] | --self-test"); process.exit(2); }
   const r = run(opt);
   for (const l of r.out) console.log(l);
   process.exit(r.bad ? 1 : 0);
