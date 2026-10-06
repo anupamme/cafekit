@@ -1,6 +1,6 @@
 ---
 name: cf:develop
-description: "Implement an explicitly requested process-first feature or task, run its real verification, and close it with one evidence owner. Also supports existing legacy Specs packets."
+description: "Implement an explicitly requested process-first feature or task, run its real verification, and close it with one evidence owner."
 user-invocable: true
 when_to_use: "Use to implement a ready feature packet, one named task, or a clear low-risk change."
 category: utilities
@@ -167,12 +167,3 @@ stable Base/Head binding, resolved blocking review findings, and no scope substi
 - `references/parallel-waves.md` — opt-in isolated worktree waves.
 - `references/subagent-patterns.md` — task-local briefs and controller-only handoff.
 - `references/implementation-notes-template.html` — only with `--notes`.
-
-## Legacy workflow compatibility
-
-If the selected feature contains `spec.json`, use its persisted `workflow_policy`,
-`task_registry`, nested task paths, typed boundaries, separate task receipts, and
-feature closeout receipt exactly as legacy adapters require. Preserve `planning_depth`,
-`assurance_level`, derived lane, and read-only `execution_tier`; do not project these
-fields into a new v3 packet. Keep JSON and Markdown status synchronized. Legacy `spec.json` closeout is no longer
-supported; move the packet to `plan.md` with flat task files before closing it.

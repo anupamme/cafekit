@@ -755,10 +755,7 @@ test('CLI exposes a derived lane without making it primary Develop authority', (
   const regions = markdownLegacyRegions(develop);
   assert.doesNotMatch(develop, /DO NOT write implementation code until an approved spec exists/i);
   assert.doesNotMatch(regions.primary, /planning_depth|assurance_level|execution_tier|\blane\b/i);
-  assert.match(regions.legacy, /planning_depth/);
-  assert.match(regions.legacy, /assurance_level/);
-  assert.match(regions.legacy, /execution_tier/);
-  assert.match(regions.legacy, /derived lane/i);
+  assert.doesNotMatch(develop, /## Legacy workflow compatibility|Also supports existing legacy Specs packets/);
   assert.match(regions.primary, /specs\/<feature>\/plan\.md[\s\S]*task-NN-\*\.md/i);
   assert.match(regions.primary, /one unblocked task at a time/i);
   assert.match(regions.primary, /Verification Plan/);
@@ -785,14 +782,13 @@ test('Specs primary output is a flat process-first packet with isolated legacy c
   const specs = read(SPECS);
   const regions = markdownLegacyRegions(specs);
   const legacyHeadings = regions.headings.filter(({ text }) => /legacy/i.test(text));
-  assert.equal(legacyHeadings.length, 1);
+  assert.equal(legacyHeadings.length, 0);
   assert.match(regions.primary, /specs\/<feature>\/[\s\S]*plan\.md[\s\S]*task-01-<slug>\.md[\s\S]*task-02-<slug>\.md/i);
   assert.match(regions.primary, /Task files are flat beside `plan\.md`/i);
   assert.match(regions.primary, /one task at a time/i);
   assert.match(regions.primary, /inline `## Receipt`/i);
   assert.match(regions.primary, /GATE-SCOPE[\s\S]*GATE-REVIEW[\s\S]*GATE-DONE/i);
-  assert.match(regions.legacy, /spec\.json/i);
-  assert.match(regions.legacy, /never requires the legacy kernel/i);
+  assert.doesNotMatch(specs, /installed legacy adapters?/i);
   assertVocabularyIsLegacyOnly(SPECS, regions);
 });
 
@@ -827,24 +823,24 @@ test('core execution agents default to process-first state and isolate legacy pa
 
 test('R7 Develop and Sync surfaces teach process-v3 and isolate hierarchical Legacy sections', () => {
   const surfaces = [
-    ['develop', DEVELOP],
-    ['parallel waves', PARALLEL_WAVES],
-    ['sync', SYNC_SKILL],
-    ['sync protocols', SYNC_PROTOCOLS],
+    ['develop', DEVELOP, 0],
+    ['parallel waves', PARALLEL_WAVES, 0],
+    ['sync', SYNC_SKILL, 0],
+    ['sync protocols', SYNC_PROTOCOLS, 0],
   ];
   const regionsByName = new Map();
-  let legacyCorpus = '';
 
-  for (const [name, filePath] of surfaces) {
+  for (const [name, filePath, expectedLegacy] of surfaces) {
     const regions = markdownLegacyRegions(read(filePath));
     const legacyHeadings = regions.headings.filter(({ text }) => /legacy/i.test(text));
-    assert.equal(legacyHeadings.length, 1, `${name} must have exactly one Legacy heading`);
+    assert.equal(legacyHeadings.length, expectedLegacy, `${name} must have exactly ${expectedLegacy} Legacy heading(s)`);
     assert.match(regions.primary, /inline (?:`## )?Receipts?/i, `${name} must teach inline Receipts`);
-    assert.match(regions.legacy, /spec\.json/i, `${name} must retain the spec.json adapter`);
-    assert.match(regions.legacy, /task_registry/i, `${name} must retain task_registry compatibility`);
+    if (expectedLegacy === 1) {
+      assert.match(regions.legacy, /spec\.json/i, `${name} must retain the spec.json adapter`);
+      assert.match(regions.legacy, /task_registry/i, `${name} must retain task_registry compatibility`);
+    }
     assertVocabularyIsLegacyOnly(filePath, regions);
     regionsByName.set(name, regions);
-    legacyCorpus += `\n${regions.legacy}`;
   }
 
   const develop = regionsByName.get('develop').primary;
@@ -870,7 +866,7 @@ test('R7 Develop and Sync surfaces teach process-v3 and isolate hierarchical Leg
   assert.match(protocols, /`plan\.md` and flat `task-\*\.md` files/i);
   assert.match(protocols, /acceptance IDs/i);
   assert.match(protocols, /current inline Receipt/i);
-  assert.match(legacyCorpus, /sync-finalize/i);
+  assert.match(regionsByName.get('sync').primary, /sync-finalize/i);
 });
 
 test('Develop process-first source contract preserves selection, recovery, final-Head, parallel, and Flash boundaries', () => {

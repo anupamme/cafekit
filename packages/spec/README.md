@@ -313,10 +313,6 @@ presents GATE-DONE for closeout only after real execution proof. Each task has o
 exact Verification Plan command, `Exit: 0`, `Verification: PASS`,
 runtime-derived Base and Head, and current command output.
 
-Existing packets with `spec.json`, nested `tasks/task-R*.md`, or separate
-receipts remain supported through the legacy compatibility adapter. New Specs
-work does not author those legacy artifacts.
-
 ## Development
 
 Run package self-tests:

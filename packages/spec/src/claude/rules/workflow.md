@@ -75,12 +75,3 @@ Use the CafeKit loop: **Understand -> Plan -> Execute -> Verify -> Sync**.
 5. Review before syncing or shipping.
 
 Do not patch symptoms before diagnosis unless the issue is a trivial syntax/type/lint failure with an obvious local cause.
-
-## Legacy compatibility
-
-When an existing feature contains `spec.json`, nested `tasks/task-R*.md`, or
-other legacy kernel artifacts, keep using the installed adapter. Preserve its
-`task_registry`, `semantic_model`, `planning_depth`, lane,
-`execution_tier`, typed boundaries, separate receipts, and final feature
-receipt. Do not project that machine authority or storage shape into a new
-process-first packet.

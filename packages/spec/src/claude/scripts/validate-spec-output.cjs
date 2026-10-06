@@ -724,11 +724,9 @@ function taskDeclaresParallel(content, taskPath, errors) {
 }
 
 /**
- * Task files are created from the scaffold template (the scaffold-guard hook
- * forces creation through it), so every task starts as a stub full of `{{...}}`
- * placeholders. The hook guarantees the stub is CREATED via scaffold, but
- * nothing guaranteed the model FILLED it. An unfilled `{{...}}` is an
- * incomplete task — SKILL.md: "Leave NO {{...}} placeholder ... fails DoCT" —
+ * Task files are usually created from the scaffold template, so a task can start as
+ * a stub full of `{{...}}` placeholders, and nothing guarantees the model FILLED it.
+ * An unfilled `{{...}}` is an incomplete task — SKILL.md: "Leave NO {{...}} placeholder ... fails DoCT" —
  * so it is a hard error here. A `.../` path fragment is a not-yet-resolved path
  * placeholder; it is only a warning, because it usually survives in prose Steps
  * while the Related Files table (which spec-ground.cjs does verify) is already

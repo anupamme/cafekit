@@ -5,7 +5,7 @@ description: Legacy proof consumption. Defines what supplied execution proof con
 
 # Verification Gate: legacy proof consumption
 
-This reference applies only after the Legacy route in `SKILL.md` is selected. A
+This reference applies only to a legacy packet. A
 review never runs tests, builds, or linters to produce proof; `cf:test` owns
 execution, and the test-run boundary in `SKILL.md` applies here as well.
 
@@ -24,9 +24,9 @@ For Specs v2, accepted proof must be persisted by the test owner at
 `receipts/<task-basename>.md`; legacy `## Evidence` remains fallback-only. The
 receipt includes identity/path, exact command, exit/result, expected versus
 observed behavior, applicable negative/reachability/artifact proof, and bound
-Base/Head. Final integration uses `feature-receipt.md`. Missing final receipt is
-normal before closeout, but mandatory at closeout. Neither receipt grants
-approval, readiness, audit status, or product semantics.
+Base/Head. Closing a legacy `spec.json` packet that has no `schema_version` still
+requires `feature-receipt.md`. A receipt never grants approval, readiness, audit
+status, or product semantics.
 
 For v2.1, the semantic receipt is reviewed input, not execution proof. It binds
 exact criteria and counterexamples shaped as `criterion`, `case_kind`,

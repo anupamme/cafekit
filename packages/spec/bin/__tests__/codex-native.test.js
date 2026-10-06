@@ -1985,7 +1985,7 @@ test('Codex Windows hook launchers stay project-bound without Git from nested cw
     );
     const launchers = allHookLaunchers(config);
     assert.ok(launchers.length > 0, 'installed Codex config must register hook launchers');
-    for (const { event, handler } of launchers) {
+    for (const { handler } of launchers) {
       assert.doesNotMatch(handler.commandWindows, /\$\(/);
       assert.doesNotMatch(handler.commandWindows, /\bgit\b/i);
       assert.doesNotMatch(handler.commandWindows, /process\.cwd\(\)|existsSync/);

@@ -1,6 +1,6 @@
 ---
 name: cf:sync
-description: "Synchronize process-first task Status and inline Receipts without inventing proof; also preserves existing legacy Specs state."
+description: "Synchronize process-first task Status and inline Receipts without inventing proof."
 user-invocable: true
 when_to_use: "Invoke after implementation or verification changes a task's real state, or to audit a feature packet for drift."
 category: utilities
@@ -70,11 +70,3 @@ report, and `references/sync-protocols.md` for surgical update and audit rules.
 
 When a task becomes done, report `Docs impact: none|minor|major`. Create no docs
 work for `none`; update only affected existing docs for minor or major.
-
-## Legacy workflow compatibility
-
-If `specs/<feature>/spec.json` exists, use the legacy adapter instead: preserve
-its machine authority, `task_registry`, nested `tasks/task-R*.md`, timestamps,
-typed topology, separate receipts, `workflow_policy`, `planning_depth`, lane,
-and `execution_tier`. Keep JSON and Markdown synchronized, retain the exact
-legacy sync-finalize contract, and require its feature receipt at closeout.

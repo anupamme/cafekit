@@ -2598,7 +2598,7 @@ function developPlanNativeContractIssues(input) {
 
   const legacyHeadingCount = [skill, quality, parallel, dispatch]
     .filter((value) => value.includes("## Legacy workflow compatibility")).length;
-  if (legacyHeadingCount !== 4
+  if (legacyHeadingCount !== 1 || !dispatch.includes("## Legacy workflow compatibility")
     || /semantic_model|semantic-model|machine authority|task_registry|planning_depth|execution_tier|\blane\b/i.test(primaryCorpus)) {
     issues.add("legacy-isolation");
   }
@@ -5063,7 +5063,8 @@ async function runStaticSemanticTests() {
         content.includes("specs/<feature>/plan.md") &&
         content.includes("task-NN-*.md") &&
         content.includes("inline `## Receipt`") &&
-        content.includes("### Legacy Specs compatibility") &&
+        !content.includes("Legacy Specs compatibility") &&
+        !content.includes("installed adapter") &&
         !/semantic_model|semantic-model|machine authority|task_registry|planning_depth|execution_tier|\blane\b/i.test(outsideLegacySections(content)),
     },
     {
@@ -5075,7 +5076,8 @@ async function runStaticSemanticTests() {
         content.includes("specs/<feature>/plan.md") &&
         content.includes("task-NN-*.md") &&
         content.includes("inline `## Receipt`") &&
-        content.includes("### Legacy Specs compatibility") &&
+        !content.includes("Legacy Specs compatibility") &&
+        !content.includes("installed adapter") &&
         !/semantic_model|semantic-model|machine authority|task_registry|planning_depth|execution_tier|\blane\b/i.test(outsideLegacySections(content)),
     },
     {
@@ -5355,7 +5357,8 @@ async function runStaticSemanticTests() {
         content.includes("## Oh My Pi (omp)") &&
         content.includes(".omp/extensions/cafekit-bridge.mjs") &&
         content.includes("omp discovers `.claude/skills` and `.agents/skills` on its own") &&
-        content.includes("Not carried: `agent.cjs` (SubagentStart) and `semantic-review-authority.cjs` (SubagentStop)") &&
+        content.includes("Not carried: `agent.cjs` (SubagentStart) and `state.cjs` (SubagentStop)") &&
+        !content.includes("semantic-review-authority") &&
         content.includes("`.omp/` is added to the root ignore rules"),
     },
     {
@@ -5377,7 +5380,9 @@ async function runStaticSemanticTests() {
       assert: (content) =>
         content.includes("## Completion gate identity") &&
         content.includes("which packet still has unfinished work") &&
-        content.includes("which packet is claiming closeout") &&
+        !content.includes("Two Stop hooks") &&
+        !content.includes("semantic-digest") &&
+        content.includes("Strict assurance is no longer supported") &&
         content.includes("specs/_shared/active-feature.json") &&
         content.includes("A target supplied by the host always wins") &&
         content.includes("only while its own task file has a copy in") &&
@@ -5478,7 +5483,7 @@ async function runStaticSemanticTests() {
     {
       label: "cf:specs SKILL stays lean after slim-flow diet",
       file: "src/claude/skills/specs/SKILL.md",
-      assert: (content) => content.trimEnd().split("\n").length >= 150 && content.trimEnd().split("\n").length <= 230,
+      assert: (content) => content.trimEnd().split("\n").length >= 140 && content.trimEnd().split("\n").length <= 230,
     },
     {
       label: "cf:develop SKILL stays within directional context budget",
@@ -5744,7 +5749,8 @@ async function runStaticSemanticTests() {
       assert: (content) =>
         content.includes("## Develop và Sync") &&
         content.includes("sync-finalize") &&
-        content.includes("## Legacy compatibility") &&
+        !content.includes("## Legacy compatibility") &&
+        !content.includes("legacy adapter đang cài sẵn") &&
         !/semantic_model|semantic-model|machine authority|task_registry|planning_depth|execution_tier|\blane\b/i.test(outsideLegacySections(content)),
     },
     {
@@ -5832,7 +5838,8 @@ async function runStaticSemanticTests() {
       file: "src/claude/skills/specs/SKILL.md",
       assert: (content) =>
         content.includes("Files are state") &&
-        content.includes("## Legacy compatibility") &&
+        !content.includes("## Legacy compatibility") &&
+        !content.includes("installed legacy adapters") &&
         !/semantic_model|semantic-model|machine authority|task_registry|planning_depth|execution_tier|\blane\b/i.test(outsideLegacySections(content)),
     },
   ];

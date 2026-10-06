@@ -35,7 +35,6 @@ Claude Code は `.claude/hooks/` の event-driven hooks を持ちます。
 | `privacy-block.cjs` | `PreToolUse` | User 承認まで sensitive path の read をブロック |
 | `inspect-block.cjs` | `PreToolUse` | 広範な inspection scan を gate |
 | `spec-state.cjs` | `PostToolUse` | Verification receipt なしの task `done` を拒否 |
-| `docs-sync.cjs` | `SessionStart` | Missing docs と sync hash drift を flag |
 | `session.cjs` | `SessionStart` | Session banner と context を inject |
 | `rules.cjs` | `UserPromptSubmit` | Per-prompt の dynamic rules block を inject |
 

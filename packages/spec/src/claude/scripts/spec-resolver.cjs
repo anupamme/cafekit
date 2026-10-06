@@ -860,8 +860,7 @@ function explicitWorkflowFeatureName({ projectRoot, specsDir, explicitFeature, e
 
 /**
  * Resolve the authoring/execution workflow visible to prompt and Stop hooks.
- * Persisted spec resolution remains unchanged; process-v3 is an additive adapter
- * and never becomes completion-authority input by way of findAllSpecCandidates.
+ * Persisted spec resolution remains unchanged; process-v3 is an additive adapter.
  */
 function resolveWorkflowCandidate({ projectRoot, runtime, explicitFeature, explicitPath, target, includeCompleted = false } = {}) {
   if (!projectRoot) throw new TypeError('projectRoot required');

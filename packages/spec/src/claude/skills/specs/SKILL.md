@@ -135,13 +135,6 @@ mode. GATE-DONE is where a human weighs the evidence. These checks are a final s
 not a substitute for human judgment at the three gates. Do not add a new schema, approval field,
 readiness bit, or review state to make the Markdown look more authoritative.
 
-## Legacy compatibility
-
-Existing features that contain `spec.json`, nested task files, or separate
-receipt files stay on the installed legacy adapters. Do not migrate or rewrite
-them while authoring an unrelated v3 feature. New Specs output always uses the
-flat layout above and never requires the legacy kernel.
-
 ## Maintenance
 
 Keep this entrypoint focused on routing and invariants. Put templates and

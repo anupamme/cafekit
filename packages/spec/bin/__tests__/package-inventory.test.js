@@ -2564,8 +2564,7 @@ test('website keeps process-first docs, canonical public names, and historical l
     const relative = path.relative(docsRoot, file).split(path.sep).join('/');
     return file.endsWith('.mdx')
       && !relative.endsWith('/reference.mdx')
-      && !relative.endsWith('/platforms/opencode.mdx')
-      && !relative.endsWith('/spec-lifecycle.mdx');
+      && !relative.endsWith('/platforms/opencode.mdx');
   });
   const currentSources = walk(sourceRoot).filter((file) => /\.(?:ts|tsx)$/.test(file));
   const currentCorpus = [...currentDocs, ...currentSources]
@@ -2613,10 +2612,7 @@ test('website keeps process-first docs, canonical public names, and historical l
 
   for (const locale of ['en', 'vi', 'ja']) {
     const lifecycle = fs.readFileSync(path.join(docsRoot, locale, 'spec-lifecycle.mdx'), 'utf8');
-    const legacyIndex = lifecycle.search(/^## Legacy compatibility$/m);
-    assert.ok(legacyIndex >= 0, `${locale} spec lifecycle must isolate legacy compatibility`);
-    assert.doesNotMatch(lifecycle.slice(0, legacyIndex), /\bspec\.json\b|\btask_registry\b|tasks\/task-R/);
-    assert.match(lifecycle.slice(legacyIndex), /\bspec\.json\b/);
+    assert.doesNotMatch(lifecycle, /^## Legacy compatibility$/m, `${locale} spec lifecycle must not promise a legacy adapter`);
 
     const opencode = fs.readFileSync(path.join(docsRoot, locale, 'platforms/opencode.mdx'), 'utf8');
     assert.match(opencode, /0\.17/);
