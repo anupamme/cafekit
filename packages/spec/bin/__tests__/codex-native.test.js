@@ -2428,7 +2428,7 @@ test('Codex installed Brainstorm skill reference and agent preserve proportional
     const mutations = [
       {
         name: 'adaptive-direct-precedence-removed', source: 'skill',
-        from: 'Route Direct first, then\napply controls only to requests that remain in Brainstorm.',
+        from: 'Route Direct first, then apply controls only to requests that remain in Brainstorm.',
         to: 'Apply controls before Direct classification.', expected: ['adaptive-direct-precedence']
       },
       {
@@ -2443,37 +2443,37 @@ test('Codex installed Brainstorm skill reference and agent preserve proportional
       },
       {
         name: 'adaptive-failure-isolation-removed', source: 'skill',
-        from: 'failure isolation for partial or cascading failure\nacross boundaries',
+        from: 'failure isolation for partial or cascading failure across boundaries',
         to: 'generic failure notes', expected: ['adaptive-lens-trigger-skip']
       },
       {
         name: 'adaptive-evidence-fallback-removed', source: 'skill',
-        from: 'Missing evidence\nforces feasibility `unknown` and confidence `low`.',
+        from: 'Missing evidence forces feasibility `unknown` and confidence `low`.',
         to: 'Missing evidence permits a confident guess.', expected: ['adaptive-evidence-semantics']
       },
       {
         name: 'adaptive-numeric-evidence-removed', source: 'skill',
-        from: 'A numeric estimate requires\nrange, unit, basis, evidence, and assumptions; otherwise report `unknown`.',
+        from: 'A numeric estimate requires range, unit, basis, evidence, and assumptions; otherwise report `unknown`.',
         to: 'A numeric estimate may be a best-effort number.', expected: ['adaptive-numeric-estimates']
       },
       {
         name: 'adaptive-pre-tool-redaction-removed', source: 'skill',
-        from: 'Before an\nexternal visual tool or adviser handoff, minimize context and redact secrets,\ncredentials, private keys, access tokens, and unnecessary PII.',
+        from: 'Before an external visual tool or adviser handoff, minimize context and redact secrets, credentials, private keys, access tokens, and unnecessary PII.',
         to: 'Forward full context to every external tool and adviser.', expected: ['adaptive-pre-tool-redaction']
       },
       {
         name: 'adaptive-adviser-gate-removed', source: 'skill',
-        from: '`--advice` invokes\n`brainstormer` only after the material-choice gate;',
+        from: '`--advice` invokes `brainstormer` only after the material-choice gate;',
         to: '`--advice` invokes `brainstormer` before routing;', expected: ['adaptive-adviser-gate']
       },
       {
         name: 'adaptive-decision-freshness-removed', source: 'skill',
-        from: 'The first section records target\nidentity, current source revision and worktree state or `[UNVERIFIED]`, an\nevidence-as-of value, and what change invalidates the brief.',
+        from: 'The first section records target identity, current source revision and worktree state or `[UNVERIFIED]`, an evidence-as-of value, and what change invalidates the brief.',
         to: 'The handoff has no revision or freshness binding.', expected: ['adaptive-decision-freshness']
       },
       {
         name: 'adaptive-overlay-authority-removed', source: 'skill',
-        from: 'Neither overlay\nwrites, approves, persists, dispatches, or completes work.',
+        from: 'Neither overlay writes, approves, persists, dispatches, or completes work.',
         to: 'Overlays may persist, approve, dispatch, and complete work.', expected: ['adaptive-non-authority']
       },
       {
@@ -2493,7 +2493,7 @@ test('Codex installed Brainstorm skill reference and agent preserve proportional
       {
         name: 'exploration-stop-removed',
         source: 'skill',
-        from: 'Do not request design approval, persist a report, or\n   invoke another workflow without a new explicit request.',
+        from: 'Do not request design approval, persist a report, or invoke another workflow without a new explicit request.',
         to: 'Request approval, persist a report, and invoke another workflow.',
         expected: ['exploration-stop']
       },

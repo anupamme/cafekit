@@ -198,7 +198,7 @@ const REQUIRED_ADAPTIVE_BRAINSTORM_GROUPS = [
 ];
 const ADAPTIVE_BRAINSTORM_INSTALLED_RULES = [
   { group: 'direct-precedence', mutations: [
-    { from: 'Route Direct first, then\napply controls only to requests that remain in Brainstorm.', to: 'Apply controls before Direct classification.', clause: 'Route Direct first, then apply controls only to requests that remain in Brainstorm.' },
+    { from: 'Route Direct first, then apply controls only to requests that remain in Brainstorm.', to: 'Apply controls before Direct classification.', clause: 'Route Direct first, then apply controls only to requests that remain in Brainstorm.' },
   ] },
   { group: 'ordered-depth', mutations: [
     { from: 'With no Deep signal, use Standard.', to: 'Deep is always the default.', clause: 'With no Deep signal, use Standard. `--deep` raises Standard to Deep.' },
@@ -206,32 +206,32 @@ const ADAPTIVE_BRAINSTORM_INSTALLED_RULES = [
   { group: 'leading-flags', mutations: [
     { from: 'Parse controls only from the leading consecutive token segment.', to: 'Parse flag-like tokens anywhere.', clause: 'Parse controls only from the leading consecutive token segment.' },
     { from: '`--deep`, `--visual`, and `--advice` in any order, each at most once.', to: '`--deep`, `--visual`, and `--advice` may repeat.', clause: '`--deep`, `--visual`, and `--advice` in any order, each at most once.' },
-    { from: '`--` ends\nthe control segment.', to: '`--` is treated as another control.', clause: '`--` ends the control segment.' },
+    { from: '`--` ends the control segment.', to: '`--` is treated as another control.', clause: '`--` ends the control segment.' },
     { from: 'An unknown or duplicate `--*` inside the leading segment returns usage', to: 'An unknown or duplicate `--*` is ignored', clause: 'An unknown or duplicate `--*` inside the leading segment returns usage and performs no scout, question, tool call, write, or workflow action.' },
   ] },
   { group: 'lens-trigger-skip', mutations: [
-    { from: 'failure isolation for partial or cascading failure\nacross boundaries', to: 'generic failure notes', clause: 'failure isolation for partial or cascading failure across boundaries' },
+    { from: 'failure isolation for partial or cascading failure across boundaries', to: 'generic failure notes', clause: 'failure isolation for partial or cascading failure across boundaries' },
   ] },
   { group: 'evidence-semantics', mutations: [
-    { from: 'Missing evidence\nforces feasibility `unknown` and confidence `low`.', to: 'Missing evidence permits a confident guess.', clause: 'Missing evidence forces feasibility `unknown` and confidence `low`.' },
+    { from: 'Missing evidence forces feasibility `unknown` and confidence `low`.', to: 'Missing evidence permits a confident guess.', clause: 'Missing evidence forces feasibility `unknown` and confidence `low`.' },
   ] },
   { group: 'numeric-estimates', mutations: [
-    { from: 'A numeric estimate requires\nrange, unit, basis, evidence, and assumptions; otherwise report `unknown`.', to: 'A numeric estimate may be a best-effort number.', clause: 'A numeric estimate requires range, unit, basis, evidence, and assumptions; otherwise report `unknown`.' },
+    { from: 'A numeric estimate requires range, unit, basis, evidence, and assumptions; otherwise report `unknown`.', to: 'A numeric estimate may be a best-effort number.', clause: 'A numeric estimate requires range, unit, basis, evidence, and assumptions; otherwise report `unknown`.' },
   ] },
   { group: 'pre-tool-authority-redaction', mutations: [
-    { from: 'Before an\nexternal visual tool or adviser handoff, minimize context and redact secrets,\ncredentials, private keys, access tokens, and unnecessary PII.', to: 'Forward full context to every external tool and adviser.', clause: 'Before an external visual tool or adviser handoff, minimize context and redact secrets, credentials, private keys, access tokens, and unnecessary PII.' },
-    { from: '`--visual` may present inline Mermaid or ASCII for any non-direct analysis and\nfalls back to equivalent text when rendering is unavailable.', to: '`--visual` fails when rendering is unavailable.', clause: '`--visual` may present inline Mermaid or ASCII for any non-direct analysis and falls back to equivalent text when rendering is unavailable.' },
-    { from: 'Durable or external\nrendering requires explicit user authority before invocation.', to: 'Durable or external rendering may run without consent.', clause: 'Durable or external rendering requires explicit user authority before invocation.' },
+    { from: 'Before an external visual tool or adviser handoff, minimize context and redact secrets, credentials, private keys, access tokens, and unnecessary PII.', to: 'Forward full context to every external tool and adviser.', clause: 'Before an external visual tool or adviser handoff, minimize context and redact secrets, credentials, private keys, access tokens, and unnecessary PII.' },
+    { from: '`--visual` may present inline Mermaid or ASCII for any non-direct analysis and falls back to equivalent text when rendering is unavailable.', to: '`--visual` fails when rendering is unavailable.', clause: '`--visual` may present inline Mermaid or ASCII for any non-direct analysis and falls back to equivalent text when rendering is unavailable.' },
+    { from: 'Durable or external rendering requires explicit user authority before invocation.', to: 'Durable or external rendering may run without consent.', clause: 'Durable or external rendering requires explicit user authority before invocation.' },
   ] },
   { group: 'adviser-gate-fallback', mutations: [
-    { from: '`--advice` invokes\n`brainstormer` only after the material-choice gate;', to: '`--advice` invokes `brainstormer` before routing;', clause: '`--advice` invokes `brainstormer` only after the material-choice gate;' },
-    { from: 'if advice is unavailable or\nfails, label it unavailable and continue with controller analysis.', to: 'if advice is unavailable, stop the workflow.', clause: 'if advice is unavailable or fails, label it unavailable and continue with controller analysis.' },
+    { from: '`--advice` invokes `brainstormer` only after the material-choice gate;', to: '`--advice` invokes `brainstormer` before routing;', clause: '`--advice` invokes `brainstormer` only after the material-choice gate;' },
+    { from: 'if advice is unavailable or fails, label it unavailable and continue with controller analysis.', to: 'if advice is unavailable, stop the workflow.', clause: 'if advice is unavailable or fails, label it unavailable and continue with controller analysis.' },
   ] },
   { group: 'decision-brief', mutations: [
-    { from: 'The first section records target\nidentity, current source revision and worktree state or `[UNVERIFIED]`, an\nevidence-as-of value, and what change invalidates the brief.', to: 'The handoff has no revision or freshness binding.', clause: 'The first section records target identity, current source revision and worktree state or `[UNVERIFIED]`, an evidence-as-of value, and what change invalidates the brief.' },
+    { from: 'The first section records target identity, current source revision and worktree state or `[UNVERIFIED]`, an evidence-as-of value, and what change invalidates the brief.', to: 'The handoff has no revision or freshness binding.', clause: 'The first section records target identity, current source revision and worktree state or `[UNVERIFIED]`, an evidence-as-of value, and what change invalidates the brief.' },
   ] },
   { group: 'no-persistence-dispatch', mutations: [
-    { from: 'Neither overlay\nwrites, approves, persists, dispatches, or completes work.', to: 'Overlays may persist, approve, dispatch, and complete work.', clause: 'Neither overlay writes, approves, persists, dispatches, or completes work.' },
+    { from: 'Neither overlay writes, approves, persists, dispatches, or completes work.', to: 'Overlays may persist, approve, dispatch, and complete work.', clause: 'Neither overlay writes, approves, persists, dispatches, or completes work.' },
   ] },
 ];
 
