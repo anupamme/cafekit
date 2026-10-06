@@ -58,10 +58,10 @@ Specs-Contract: process-first-ready-v1
 ## Tasks
 | # | Task | Priority | Criteria | Primary ownership | Dependencies | Status |
 |---|---|---|---|---|---|---|
-| 01 | Give the routed cases file-write sight | P1 | AC-01 | `evals/specs/*/graders/khong-{sua,viet}-code.md`, `evals/specs/sua-nho-lam-luon/`, `evals/specs/check-write-graders.mjs` | - | pending |
-| 02 | Measure the current description | P1 | AC-02 | `evals/results/specs/lean-goc-*` | task-01 | pending |
-| 03 | Rewrite the specs description | P1 | AC-03 | `skills/specs/SKILL.md`, `packages/spec/CHANGELOG.md`, `docs/project-changelog.md` | task-02 | pending |
-| 04 | Measure the new description and compare | P1 | AC-04 | `evals/lean/compare.mjs`, `evals/results/specs/lean-sau-*` | task-01, task-03 | pending |
+| 01 | Give the routed cases file-write sight | P1 | AC-01 | `evals/specs/*/graders/khong-{sua,viet}-code.md`, `evals/specs/sua-nho-lam-luon/`, `evals/specs/check-write-graders.mjs` | - | done |
+| 02 | Measure the current description | P1 | AC-02 | `evals/results/specs/lean-goc-*` | task-01 | done |
+| 03 | Rewrite the specs description | P1 | AC-03 | `skills/specs/SKILL.md`, `packages/spec/CHANGELOG.md`, `docs/project-changelog.md` | task-02 | done |
+| 04 | Measure the new description and compare | P1 | AC-04 | `evals/lean/compare.mjs`, `evals/results/specs/lean-sau-*` | task-01, task-03 | done |
 
 ## Known limits
 - With about a 10% baseline miss, 40 sonnet runs per side show direction, not significance (D-05).
@@ -90,3 +90,16 @@ The `lean-re` cells cost $0.33–2.15 each, judge included. One side is about $1
   - F13: byte check;
   - F14: citations and cost.
 - Paper review closed.
+- **GATE-DONE (2026-10-06): the user accepted the packet as complete** ("XONG, commit (chưa push)"). Every condition of the D-05 keep/revert rule held:
+  - sonnet `union-miss` went 14/40 → 0/40 (p=0.00003078);
+  - pooled sonnet build `co-goi-skill` went 26/40 → 40/40;
+  - every negative cell stayed at 10/10;
+  - `regress=0`.
+
+  The new description is kept. Spend was $47.8331 of $75.
+
+  Limitations carried forward:
+  - the result is in-sample;
+  - `mo-ho-c1` and `mo-ho-du-cua` were not re-measured;
+  - the unscoped "do not implement it yourself" is unmeasured under an explicit `/cf:develop`;
+  - the installed `.claude/` copy keeps the old text until reinstall.
