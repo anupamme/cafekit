@@ -86,8 +86,9 @@ test('every documented property carries a description a reader can act on', () =
 test('keys the runtime does not honour are marked deprecated, not documented as working', () => {
   // develop.parallel and the hooks toggle map are still shipped for compatibility, but
   // nothing reads them. The schema must say so rather than imply they work.
-  for (const dead of ['hooks', 'develop']) {
-    const node = SCHEMA.properties[dead];
+  for (const dead of ['hooks', 'develop', 'usage', 'spec.scaffold_guard']) {
+    // A dotted path walks nested `properties`: `spec.scaffold_guard` is spec.properties.scaffold_guard.
+    const node = dead.split('.').reduce((schema, key) => schema && schema.properties && schema.properties[key], SCHEMA);
     assert.ok(node, `${dead} is shipped in runtime.json and must appear in the schema`);
     assert.equal(node.deprecated, true, `${dead} is not honoured and must be marked deprecated`);
     assert.match(node.description, /[Nn]ot honoured/, `${dead} must say plainly that it does nothing`);

@@ -724,11 +724,9 @@ function taskDeclaresParallel(content, taskPath, errors) {
 }
 
 /**
- * Task files are created from the scaffold template (the scaffold-guard hook
- * forces creation through it), so every task starts as a stub full of `{{...}}`
- * placeholders. The hook guarantees the stub is CREATED via scaffold, but
- * nothing guaranteed the model FILLED it. An unfilled `{{...}}` is an
- * incomplete task — SKILL.md: "Leave NO {{...}} placeholder ... fails DoCT" —
+ * Task files are usually created from the scaffold template, so a task can start as
+ * a stub full of `{{...}}` placeholders, and nothing guarantees the model FILLED it.
+ * An unfilled `{{...}}` is an incomplete task — SKILL.md: "Leave NO {{...}} placeholder ... fails DoCT" —
  * so it is a hard error here. A `.../` path fragment is a not-yet-resolved path
  * placeholder; it is only a warning, because it usually survives in prose Steps
  * while the Related Files table (which spec-ground.cjs does verify) is already
@@ -2471,23 +2469,7 @@ function validateSemanticReview(specDir, spec, context, subCriteriaIds, designTe
       errors.push('spec.json.validation.semantic_review.reviewed_artifact_digest: stale or does not match final artifacts and canonical state');
     }
   }
-  if (context.policy?.assurance_level === 'Strict' && SHA256_RE.test(review.reviewed_artifact_digest || '')) {
-    try {
-      const authority = require('../hooks/semantic-review-authority.cjs');
-      const canonicalSpecDir = fs.realpathSync(specDir);
-      let root = fs.realpathSync(process.cwd());
-      if (!isPathInside(root, canonicalSpecDir)) root = path.dirname(path.dirname(canonicalSpecDir));
-      const attestation = authority.verifyAttestation(
-        root,
-        path.join(canonicalSpecDir, 'spec.json'),
-        spec.feature_name,
-        review.reviewed_artifact_digest,
-      );
-      if (!attestation.ok) errors.push(`spec.json.validation.semantic_review: Strict assurance requires matching host-observed reviewer PASS attestation (${attestation.reason})`);
-    } catch (error) {
-      errors.push(`spec.json.validation.semantic_review: Strict assurance attestation is unavailable (${error.message})`);
-    }
-  }
+  if (context.policy?.assurance_level === 'Strict') errors.push('spec.json.validation.semantic_review: Strict assurance is no longer supported (its reviewer attestation hook was removed); move the packet to plan.md with flat task files');
 
   const criteria = Array.isArray(review.reviewed_criteria) ? review.reviewed_criteria : [];
   const criterionSet = new Set(criteria);
@@ -2901,16 +2883,7 @@ function validateSemanticReview21(specDir, spec, criteria, designIds, verificati
     }
   }
   for (const criterion of criteria) if (!covered.has(criterion)) errors.push(`semantic review counterexamples missing criterion ${criterion}`);
-  if (spec.workflow_policy?.assurance_level === 'Strict' && SHA256_RE.test(review.semantic_digest || '')) {
-    try {
-      const authority = require('../hooks/semantic-review-authority.cjs');
-      const root = canonicalProjectRoot(specDir);
-      const attestation = authority.verifyAttestation(root, path.join(specDir, 'spec.json'), spec.feature_name, review.semantic_digest);
-      if (!attestation.ok) errors.push(`spec.json.validation.semantic_review: Strict readiness requires matching allowlisted host-observed reviewer PASS attestation (${attestation.reason})`);
-    } catch (error) {
-      errors.push(`spec.json.validation.semantic_review: Strict readiness attestation is unavailable (${error.message})`);
-    }
-  }
+  if (spec.workflow_policy?.assurance_level === 'Strict') errors.push('spec.json.validation.semantic_review: Strict assurance is no longer supported (its reviewer attestation hook was removed); move the packet to plan.md with flat task files');
 }
 
 function computeLineageId(featureName, createdAt) {

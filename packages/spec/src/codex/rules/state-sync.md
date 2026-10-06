@@ -58,12 +58,3 @@ proves only the boundary it executed.
 - Sync changes only observed file state and never starts implementation.
 - GATE-DONE occurs after current receipts and limitations are shown; the user decides
   whether the requested feature is complete.
-
-## Legacy compatibility
-
-Existing packets containing `spec.json`, nested `tasks/task-R*.md`, or other
-legacy kernel artifacts stay on their installed adapters. Preserve their
-`task_registry`, `semantic_model`, `planning_depth`, lane,
-`execution_tier`, typed topology, separate receipts, and feature closeout
-contract. Do not migrate that machine authority or storage shape while syncing
-an unrelated process-first packet.

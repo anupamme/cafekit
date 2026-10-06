@@ -150,7 +150,7 @@ function semanticDigest(specDir) {
   return result.stdout.trim();
 }
 
-function completeSemanticReview(specDir, independence = 'same-session') {
+function completeSemanticReview(specDir) {
   const statePath = path.join(specDir, 'spec.json');
   const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
   state.validation = isPlainObjectForTest(state.validation) ? state.validation : {};
@@ -166,24 +166,6 @@ function completeSemanticReview(specDir, independence = 'same-session') {
     }],
   };
   write(statePath, JSON.stringify(state, null, 2));
-  if (independence === 'independent') {
-    const root = path.dirname(path.dirname(specDir));
-    const featureName = state.feature_name;
-    const claim = `CAFEKIT_SEMANTIC_REVIEW_ATTESTATION ${JSON.stringify({
-      feature_name: featureName,
-      spec_file: path.relative(root, statePath),
-      semantic_digest: state.validation.semantic_review.reviewed_artifact_digest,
-      verdict: 'PASS',
-    })}`;
-    const result = spawnSync(process.execPath, [path.join(ROOT, 'src/claude/hooks/semantic-review-authority.cjs')], {
-      cwd: root,
-      env: { ...process.env, HOME: path.join(root, '.home'), USERPROFILE: path.join(root, '.home'), PROJECT_ROOT: root },
-      input: JSON.stringify({ hook_event_name: 'SubagentStop', session_id: 'host-session', agent_id: 'review-agent', agent_type: 'code_auditor', last_assistant_message: claim, cwd: root }),
-      encoding: 'utf8',
-    });
-    assert.equal(result.status, 0, output(result));
-    assert.equal(result.stderr, '');
-  }
   return state;
 }
 
@@ -1496,10 +1478,7 @@ test('all ready non-Direct specs require semantic design and coherent authoring 
     state.timestamps = lifecycleTimestamps();
     mutate(state, specDir);
     write(specPath, JSON.stringify(state, null, 2));
-    completeSemanticReview(
-      specDir,
-      state.workflow_policy.assurance_level === 'Strict' ? 'independent' : 'same-session',
-    );
+    completeSemanticReview(specDir);
     return specDir;
   }
 
@@ -1519,7 +1498,8 @@ test('all ready non-Direct specs require semantic design and coherent authoring 
       write(path.join(specDir, 'design.md'), criticalNoObligationDesign());
     });
     result = run(VALIDATOR, [strictAuthoring], ROOT);
-    assert.equal(result.status, 0, output(result));
+    assert.notEqual(result.status, 0);
+    assert.match(output(result), /Strict assurance is no longer supported/);
 
     const invalidCases = [
       ['boolean-created-at', (state) => { state.created_at = true; }, /created_at: must be an ISO 8601 timestamp|created_at: ready handoff requires/],
@@ -1562,7 +1542,7 @@ test('all ready non-Direct specs require semantic design and coherent authoring 
   }
 });
 
-test('spec-ready excludes execution receipts while preserving Strict review state', () => {
+test('spec-ready excludes execution receipts and refuses Strict as no longer supported', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cafekit-validator-spec-ready-'));
   try {
     const standardDir = createSpec(root, {
@@ -1602,9 +1582,10 @@ test('spec-ready excludes execution receipts while preserving Strict review stat
         timestamps: lifecycleTimestamps({ research: true, review: true }),
       },
     });
-    completeSemanticReview(criticalDir, 'independent');
+    completeSemanticReview(criticalDir);
     const criticalResult = run(VALIDATOR, [criticalDir], ROOT);
-    assert.equal(criticalResult.status, 0, output(criticalResult));
+    assert.notEqual(criticalResult.status, 0);
+    assert.match(output(criticalResult), /Strict assurance is no longer supported/);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

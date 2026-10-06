@@ -121,10 +121,3 @@ After proof and review, classify docs impact as `none`, `minor`, or `major`.
 Update only affected existing docs when impact is not none. Show the user the
 current command evidence and limitations at GATE-DONE; do not infer approval from a
 receipt.
-
-## Legacy workflow compatibility
-
-Existing kernel packets keep their separate `receipts/<task-basename>.md`, task
-identity/path metadata, final `feature-receipt.md`, persisted independent-audit
-obligations, and completion-authority checks. The same proof/review ownership
-applies. Do not copy that storage shape into a flat process-first task.

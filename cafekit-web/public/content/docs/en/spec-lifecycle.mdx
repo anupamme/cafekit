@@ -72,7 +72,3 @@ A done task requires a current final inline Receipt containing:
 ## Sync boundary
 
 `/cf:sync` performs surgical updates to observed task Status and inline Receipts. It does not invent execution, approval, readiness, or completion.
-
-## Legacy compatibility
-
-Existing packets with `spec.json`, nested `tasks/task-R*.md`, task registries, or separate receipts stay on the installed legacy adapter. Those artifacts are not authored for new process-first Specs and must not redefine the default workflow.

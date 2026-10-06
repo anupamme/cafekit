@@ -138,13 +138,6 @@ its inline canonical `## Receipt` is current and contains the exact command,
 `Exit: 0`, `Verification: PASS`, runtime-derived `Base` and `Head`, and a
 fenced block with current command output.
 
-### Legacy compatibility
-
-Existing features that already have `spec.json`, nested `tasks/task-R*.md`, or
-separate receipt files stay on the installed legacy adapter. Keep `spec.json`,
-`task_registry`, `planning_depth`, `assurance_level`, `lane`, `execution_tier`,
-and `semantic_model` there only; new Specs output does not author them.
-
 Claude Code and Codex CLI are the primary Specs v2 acceptance targets.
 
 ## Platform Status

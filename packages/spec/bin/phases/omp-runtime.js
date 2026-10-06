@@ -128,9 +128,31 @@ function installBridge(ctx, platformKey) {
   }
 }
 
+/**
+ * Delete hooks the manifest marks obsolete. Mirrors removeObsoleteClaudeRuntimeFiles, but the
+ * omp tracker records keys relative to the project root (`.omp/hooks/…`), so the record is
+ * pruned through keyFor rather than by the bare `hooks/…` path.
+ */
+function removeObsoleteOmpHooks(ctx, platformKey) {
+  const platform = PLATFORMS[platformKey];
+  const tracker = ctx.trackers && ctx.trackers[platformKey];
+  const obsoleteHooks = (ctx.manifest?.obsolete?.runtimeFiles || []).filter((rel) => rel.startsWith('hooks/'));
+  for (const rel of obsoleteHooks) {
+    const target = path.join(platform.folder, rel);
+    if (!fs.existsSync(target)) continue;
+    if (!ctx.dryRun) {
+      fs.rmSync(target, { force: true, recursive: fs.statSync(target).isDirectory() });
+      if (tracker) tracker.prune(tracker.keyFor(target));
+    }
+    ctx.ui.detail(`  ↻ ${ctx.dryRun ? '[dry-run] ' : ''}Removed obsolete omp runtime: ${rel}`);
+    ctx.results.updated++;
+  }
+}
+
 function installOmpRuntime(ctx, platformKey) {
   if (platformKey !== 'omp') return;
   installHooks(ctx, platformKey);
+  removeObsoleteOmpHooks(ctx, platformKey);
   installRuntimeFiles(ctx, platformKey);
   installBridge(ctx, platformKey);
   copyRulesDirectory(ctx, platformKey);

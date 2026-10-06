@@ -61,11 +61,3 @@ Before you declare any phase complete or issue a final status report, you must i
   2. **Context Intake:** Pull strict operational boundaries using `TaskGet`.
   3. **Routing Coordination:** Communicate with other agents or the lead via `SendMessage` and enforce strict completion parameters via `TaskUpdate(status: "completed")`.
   4. **Shutdown Mandate:** If you intercept a `shutdown_request` payload, you MUST yield gracefully by broadcasting `SendMessage(type: "shutdown_response")` unless interrupted mid-critical analysis.
-
-## Legacy compatibility
-
-For an existing packet containing `spec.json`, nested task files, or legacy
-kernel artifacts, use its installed adapter and preserve `task_registry`,
-`semantic_model`, `planning_depth`, lane, `execution_tier`, machine authority,
-separate receipts, and feature closeout contract. Keep that aggregation path
-separate from process-first files.

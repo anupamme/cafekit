@@ -51,12 +51,3 @@ provenance, and path or artifact mismatch.
 
 After a repair, re-read every changed file and print a concise mismatch/fix/
 unresolved summary. Never claim execution proof from the audit itself.
-
-## Legacy workflow compatibility
-
-For `spec.json` packets, resolve exact `task_registry` paths and synchronize
-registry timestamps plus nested task Markdown. Validate the canonical separate
-receipt (with legacy inline Evidence only as the supported fallback), reject
-conflicting proof identities, preserve classified minimum and planning_depth,
-and use the installed legacy policy for lane, execution_tier, Flash promotion,
-and final feature closeout.

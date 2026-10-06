@@ -31,9 +31,8 @@ Do not attempt a standard text-based review if the project includes Visual Specs
 
 Execution proof is separate from the task plan. Consume
 `receipts/<task-basename>.md` first and legacy `## Evidence` only as fallback;
-conflicting proof identities fail closed. At final integration, consume
-`feature-receipt.md`. Review never creates either receipt and never treats a
-receipt as approval, readiness, audit status, or semantic judgment.
+conflicting proof identities fail closed. Review never creates a receipt and
+never treats a receipt as approval, readiness, audit status, or semantic judgment.
 
 ## 3. Verdict Scale
 

@@ -100,12 +100,3 @@ task changes user-facing behavior, architecture, API contracts, operations, or
 project status, classify docs impact and update only affected existing docs.
 
 Comply with the overarching rules in `./rules/ai-dev-rules.md`.
-
-## Legacy specification layout
-
-Existing features containing `spec.json`, nested `tasks/task-R*.md`, or other
-legacy kernel artifacts keep their installed adapters and original layout.
-Preserve `task_registry`, `semantic_model`, `planning_depth`, lane,
-`execution_tier`, machine authority, typed topology, separate receipts, and
-feature closeout files. Do not migrate them as part of unrelated documentation
-work.

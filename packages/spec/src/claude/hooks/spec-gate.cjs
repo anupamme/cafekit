@@ -90,19 +90,17 @@ try {
   let POLICY;
   let RESOLVER;
   let RECEIPT;
-  let FINAL_STATE;
   try {
     POLICY = require(policyPath);
     // One gate run checks every done receipt against the same checkout; capture it once.
     require(path.join(__dirname, '..', 'scripts', 'provenance.cjs')).enableSnapshotMemo();
     RESOLVER = require(path.join(__dirname, '..', 'scripts', 'spec-resolver.cjs'));
     RECEIPT = require(path.join(__dirname, '..', 'scripts', 'spec-receipt.cjs'));
-    FINAL_STATE = require('./completion-authority-check.cjs');
     if (typeof POLICY.validateCanonicalReceipt !== 'function'
       || typeof POLICY.completionDecisionForSpec !== 'function'
       || typeof RECEIPT.checkTaskReceipt !== 'function'
       || typeof RECEIPT.checkWorkflowReceiptSet !== 'function'
-      || typeof FINAL_STATE.evaluateCloseout !== 'function') {
+      || typeof RESOLVER.resolveWorkflowCandidate !== 'function') {
       throw new Error('shared workflow policy lacks completion authority functions');
     }
   } catch (error) {
@@ -129,9 +127,7 @@ try {
     || (typeof RESOLVER.readActiveFeatureTarget === 'function'
       ? RESOLVER.readActiveFeatureTarget({ projectRoot: baseDir, runtime })
       : null);
-  let resolved = typeof RESOLVER.resolveWorkflowCandidate === 'function'
-    ? RESOLVER.resolveWorkflowCandidate({ projectRoot: baseDir, runtime, target, includeCompleted: true })
-    : FINAL_STATE.resolveCandidate({ resolver: RESOLVER, projectRoot: baseDir, runtime, payload });
+  let resolved = RESOLVER.resolveWorkflowCandidate({ projectRoot: baseDir, runtime, target, includeCompleted: true });
   if (typeof RESOLVER.refineWorkflowGateResolution === 'function') {
     resolved = RESOLVER.refineWorkflowGateResolution(resolved);
   }
@@ -188,19 +184,10 @@ try {
   const lifecyclePhase = activeSpec.current_phase || activeSpec.phase;
   const explicitCloseout = ['done', 'completed', 'complete'].includes(activeSpec.status)
     || ['closeout', 'completion', 'completed', 'complete'].includes(lifecyclePhase);
-  if (!processWorkflow && activeSpec.schema_version === '2.1') {
-    const finalState = FINAL_STATE.evaluateCloseout({
-      resolver: RESOLVER,
-      policy: POLICY,
-      projectRoot: baseDir,
-      runtime,
-      payload: { ...payload, session_id: sessionIdentity(payload) },
-    });
-    if (!finalState.ok) {
-      emitBlock(`Completion gate: ${finalState.reason}`);
-      process.exit(0);
-    }
-    if (finalState.active) process.exit(0);
+  // Legacy 2.1 closeout is retired; a 2.1 packet mid-execution keeps the ordinary receipt checks.
+  if (!processWorkflow && activeSpec.schema_version === '2.1' && explicitCloseout) {
+    emitBlock('Completion gate: Legacy spec.json closeout is no longer supported; move the packet to plan.md with flat task files');
+    process.exit(0);
   }
   const runtimeContext = POLICY.deriveRuntimeContext({
     projectRoot: baseDir,

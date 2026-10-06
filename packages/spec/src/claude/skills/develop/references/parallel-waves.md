@@ -70,11 +70,3 @@ After the final wave, run feature integration and reachability proof. The contro
 then writes inline Receipts and Status one task at a time. Worker reports and range
 metadata are inputs, not completion authority; incomplete workers cannot be hidden
 by successful siblings.
-
-## Legacy workflow compatibility
-
-For an existing `spec.json` feature, readiness and dependencies come from the
-persisted `task_registry` and typed `coordination.boundaries`. Workers still do
-not edit that state. The controller writes the legacy separate task receipt,
-synchronizes registry plus nested task Markdown, and creates the required final
-feature receipt only after integrated proof.

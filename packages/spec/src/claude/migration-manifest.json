@@ -21,6 +21,7 @@
       "specs",
       "sync",
       "test",
+      "ui-ux",
       "ui-ux-pro-max",
       "web-testing"
     ],
@@ -115,10 +116,27 @@
       "skills/specs/rules/ears-format.md",
       "skills/specs/rules/phase-decision-matrix.md",
       "skills/specs/rules/task-scoring-rubric.md",
-      "skills/specs/rules/tasks-generation.md"
+      "skills/specs/rules/tasks-generation.md",
+      "hooks/usage.cjs",
+      "hooks/completion-authority.cjs",
+      "hooks/completion-authority-check.cjs",
+      "hooks/completion-authority-state.cjs",
+      "hooks/semantic-review-authority.cjs",
+      "hooks/task-scaffold-guard.cjs"
     ],
     "settingsHookCommandSubstrings": [
-      "hooks/skill-router.cjs"
+      "hooks/skill-router.cjs",
+      ".claude/hooks/usage.cjs",
+      ".claude/hooks/docs-sync.cjs",
+      ".claude/hooks/completion-authority.cjs",
+      ".codex/hooks/completion-authority.cjs",
+      ".codex\\hooks\\completion-authority.cjs",
+      ".claude/hooks/semantic-review-authority.cjs",
+      ".codex/hooks/semantic-review-authority.cjs",
+      ".codex\\hooks\\semantic-review-authority.cjs",
+      ".claude/hooks/task-scaffold-guard.cjs",
+      ".codex/hooks/task-scaffold-guard.cjs",
+      ".codex\\hooks\\task-scaffold-guard.cjs"
     ]
   },
   "runtime": {
@@ -131,18 +149,12 @@
       "hooks/precompact.cjs",
       "hooks/docs-sync.cjs",
       "hooks/agent.cjs",
-      "hooks/usage.cjs",
       "hooks/privacy-block.cjs",
       "hooks/secret-output-guardrail.cjs",
       "hooks/inspect-block.cjs",
-      "hooks/task-scaffold-guard.cjs",
       "hooks/rules.cjs",
       "hooks/spec-state.cjs",
       "hooks/spec-gate.cjs",
-      "hooks/completion-authority.cjs",
-      "hooks/completion-authority-check.cjs",
-      "hooks/completion-authority-state.cjs",
-      "hooks/semantic-review-authority.cjs",
       "hooks/state.cjs",
       "hooks/lib/color.cjs",
       "hooks/lib/parser.cjs",

@@ -17,7 +17,6 @@ const PACKAGE_ROOT = path.join(__dirname, '../..');
 const BRIDGE = path.join(PACKAGE_ROOT, 'src/omp/extensions/cafekit-bridge.mjs');
 const SETTINGS = require(path.join(PACKAGE_ROOT, 'src/claude/settings/settings.json'));
 const MANIFEST = require(path.join(PACKAGE_ROOT, 'src/claude/migration-manifest.json'));
-const { PREFIX } = require(path.join(PACKAGE_ROOT, 'src/claude/hooks/completion-authority-state.cjs'));
 
 /**
  * The hooks an omp install runs: the Claude set the manifest ships, then `src/omp/hooks/`
@@ -50,6 +49,11 @@ function registered(eventName) {
     .filter(Boolean);
 }
 
+// Deliberate, named divergences while omp is not yet updated. Each must still be a real
+// difference, so the test fails (and the entry must go) once omp catches up.
+const CLAUDE_ONLY = { PostToolUse: ['spec-state.cjs'] };
+const OMP_ONLY = { SessionStart: ['docs-sync.cjs'] };
+
 test('the dispatch table mirrors settings.json for every event omp can deliver', () => {
   const { DISPATCH } = bridge;
   const pairs = [
@@ -58,8 +62,18 @@ test('the dispatch table mirrors settings.json for every event omp can deliver',
     ['tool_result', 'PostToolUse'], ['session_stop', 'Stop'],
   ];
   for (const [omp, claude] of pairs) {
-    assert.deepEqual([...DISPATCH[omp].hooks].sort(), [...new Set(registered(claude))].sort(),
-      `${omp} must dispatch exactly the hooks settings.json registers for ${claude}`);
+    const claudeOnly = CLAUDE_ONLY[claude] || [];
+    const ompOnly = OMP_ONLY[claude] || [];
+    const claudeHooks = [...new Set(registered(claude))];
+    for (const hook of claudeOnly) {
+      assert.ok(claudeHooks.includes(hook) && !DISPATCH[omp].hooks.includes(hook), `${hook} is no longer Claude-only for ${claude}; drop it from CLAUDE_ONLY`);
+    }
+    for (const hook of ompOnly) {
+      assert.ok(!claudeHooks.includes(hook) && DISPATCH[omp].hooks.includes(hook), `${hook} is no longer omp-only for ${claude}; drop it from OMP_ONLY`);
+    }
+    const expected = [...claudeHooks.filter((hook) => !claudeOnly.includes(hook)), ...ompOnly].sort();
+    assert.deepEqual([...DISPATCH[omp].hooks].sort(), expected,
+      `${omp} must dispatch the hooks settings.json registers for ${claude}, minus CLAUDE_ONLY, plus OMP_ONLY`);
   }
   // omp has no subagent events; the gap is deliberate and documented, not forgotten.
   assert.ok(!Object.values(DISPATCH).some((e) => e.event.startsWith('Subagent')));
@@ -83,7 +97,7 @@ test('each denial mechanism becomes an omp block carrying the hook reason', () =
   assert.deepEqual([stop.block, stop.reason], [true, 'R1']);
   const deny = interpretVerdict({ code: 0, stdout: JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: 'R2' } }) }, 'privacy-block.cjs');
   assert.deepEqual([deny.block, deny.reason], [true, 'R2']);
-  // inspect-block / task-scaffold-guard exit 2 and write the reason on STDOUT, not stderr.
+  // inspect-block exits 2 and writes the reason on STDOUT, not stderr.
   const exit2 = interpretVerdict({ code: 2, stdout: 'SCOPE LIMIT EXCEEDED\nRestricted zones: node_modules', stderr: '' }, 'inspect-block.cjs');
   assert.equal(exit2.block, true);
   assert.match(exit2.reason, /SCOPE LIMIT EXCEEDED/, 'a stderr-only reader would drop this reason');
@@ -127,10 +141,10 @@ test('a slow hook blocks with its own name before omp cuts it off', async () => 
 test('a crashing or missing gate blocks on gating events instead of silently allowing', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cafekit-omp-crash-'));
   try {
-    // Only the crashing gate is under test; the other two PreToolUse gates get allow stubs,
+    // Only the crashing gate is under test; the other PreToolUse gate gets an allow stub,
     // otherwise their absence is what blocks (see the missing-gate case below).
     fs.writeFileSync(path.join(dir, 'privacy-block.cjs'), 'throw new Error("boom");');
-    for (const stub of ['inspect-block.cjs', 'task-scaffold-guard.cjs']) fs.writeFileSync(path.join(dir, stub), 'process.exit(0);');
+    fs.writeFileSync(path.join(dir, 'inspect-block.cjs'), 'process.exit(0);');
     const crash = await bridge.runEvent('tool_call', { toolName: 'bash', input: { command: 'ls' } }, { cwd: dir }, { dir });
     // A bare exit 1 with no verdict is an allow under the hooks' own contract. Real gates
     // never surface a crash this way: the fork's privacy-block catch-all converts its own
@@ -145,17 +159,6 @@ test('a crashing or missing gate blocks on gating events instead of silently all
 test('stop_hook_active short-circuits the gate so a blocked turn cannot loop forever', async () => {
   const r = await bridge.runEvent('session_stop', { stop_hook_active: true, session_id: 's1' }, { cwd: os.tmpdir() }, { dir: HOOKS });
   assert.deepEqual([r.block, r.skipped], [false, 'stop_hook_active']);
-});
-
-test('the approval phrase reaches completion-authority through the input event', async () => {
-  const { DISPATCH, shapePayload } = bridge;
-  assert.ok(DISPATCH.input.hooks.includes('completion-authority.cjs'),
-    'the --approve path only runs on UserPromptSubmit; without this routing a blocked turn has no exit');
-  const phrase = `${PREFIX}${'a'.repeat(24)}`;
-  const p = shapePayload('input', { text: phrase, source: 'user' }, { cwd: '/tmp/p' });
-  assert.equal(p.hook_event_name, 'UserPromptSubmit', 'completion-authority selects --approve from this field');
-  assert.equal(p.prompt, phrase, 'the phrase must arrive byte-exact; the hook compares it exactly');
-  assert.ok(p.session_id, 'approve() returns early without a session id');
 });
 
 test('input injections flow back as a transform that keeps the user text intact', async () => {

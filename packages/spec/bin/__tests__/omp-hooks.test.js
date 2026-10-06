@@ -117,25 +117,6 @@ test('an unevaluable access denies rather than allows', () => {
   }
 });
 
-test('a write to a scaffolded task path is guarded under omp lowercase names too', () => {
-  // The guard is no longer an overlay file, so this is a behaviour case on the tree an
-  // install produces: omp sends `write`, and the shared reader has to make it reach the
-  // rule that was authored against Claude's `Write`.
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cafekit-omp-guard-'));
-  try {
-    const target = path.join(root, 'specs', 'demo', 'tasks', 'task-R0-01-x.md');
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.cpSync(path.join(PACKAGE_ROOT, 'src/claude/scripts'), path.join(INSTALLED_ROOT, '.omp', 'scripts'),
-      { recursive: true, force: true });
-    const r = verdict(path.join(INSTALLED, 'task-scaffold-guard.cjs'),
-      { tool_name: 'write', tool_input: { file_path: target }, cwd: root });
-    assert.equal(r.code, 2, "omp sends `write`; an exact 'Write' comparison would skip the guard entirely");
-    assert.equal(r.decision, 'deny');
-  } finally {
-    fs.rmSync(root, { recursive: true, force: true });
-  }
-});
-
 /** Every file under a directory, relative and sorted. */
 function walk(dir, prefix = '') {
   return fs.readdirSync(dir).flatMap((name) => {

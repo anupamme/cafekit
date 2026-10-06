@@ -2598,7 +2598,7 @@ function developPlanNativeContractIssues(input) {
 
   const legacyHeadingCount = [skill, quality, parallel, dispatch]
     .filter((value) => value.includes("## Legacy workflow compatibility")).length;
-  if (legacyHeadingCount !== 4
+  if (legacyHeadingCount !== 1 || !dispatch.includes("## Legacy workflow compatibility")
     || /semantic_model|semantic-model|machine authority|task_registry|planning_depth|execution_tier|\blane\b/i.test(primaryCorpus)) {
     issues.add("legacy-isolation");
   }
@@ -4659,12 +4659,12 @@ async function runStaticSemanticTests() {
         content.includes("one unblocked task at a time"),
     },
     {
-      label: "implementer is single-track with process-first and legacy state prohibition",
+      label: "implementer is single-track with process-first state prohibition",
       file: "src/claude/agents/implementer.md",
       assert: (content) =>
         content.includes("within its workspace") &&
         content.includes("Do NOT edit `plan.md`, task `Status:`, or inline `## Receipt`") &&
-        content.includes("For legacy packets, do not edit\n  `spec.json`"),
+        !content.includes("For legacy packets"),
     },
     {
       label: "orchestrator sanctions worktree parallelism with single-writer rule and cap",
@@ -5063,7 +5063,8 @@ async function runStaticSemanticTests() {
         content.includes("specs/<feature>/plan.md") &&
         content.includes("task-NN-*.md") &&
         content.includes("inline `## Receipt`") &&
-        content.includes("### Legacy Specs compatibility") &&
+        !content.includes("Legacy Specs compatibility") &&
+        !content.includes("installed adapter") &&
         !/semantic_model|semantic-model|machine authority|task_registry|planning_depth|execution_tier|\blane\b/i.test(outsideLegacySections(content)),
     },
     {
@@ -5075,7 +5076,8 @@ async function runStaticSemanticTests() {
         content.includes("specs/<feature>/plan.md") &&
         content.includes("task-NN-*.md") &&
         content.includes("inline `## Receipt`") &&
-        content.includes("### Legacy Specs compatibility") &&
+        !content.includes("Legacy Specs compatibility") &&
+        !content.includes("installed adapter") &&
         !/semantic_model|semantic-model|machine authority|task_registry|planning_depth|execution_tier|\blane\b/i.test(outsideLegacySections(content)),
     },
     {
@@ -5355,7 +5357,8 @@ async function runStaticSemanticTests() {
         content.includes("## Oh My Pi (omp)") &&
         content.includes(".omp/extensions/cafekit-bridge.mjs") &&
         content.includes("omp discovers `.claude/skills` and `.agents/skills` on its own") &&
-        content.includes("Not carried: `agent.cjs` (SubagentStart) and `semantic-review-authority.cjs` (SubagentStop)") &&
+        content.includes("Not carried: `agent.cjs` (SubagentStart) and `state.cjs` (SubagentStop)") &&
+        !content.includes("semantic-review-authority") &&
         content.includes("`.omp/` is added to the root ignore rules"),
     },
     {
@@ -5368,7 +5371,7 @@ async function runStaticSemanticTests() {
         content.includes("grok --trust") &&
         content.includes("CLAUDE_PROJECT_DIR` is set by grok") &&
         content.includes("It has four control-flow channels") &&
-        content.includes("`usage.cjs` is deliberately not routed") &&
+        content.includes("No hook reads Claude Code credentials any more") &&
         content.includes("Turning off `[compat.claude] hooks` is not supported"),
     },
     {
@@ -5377,7 +5380,9 @@ async function runStaticSemanticTests() {
       assert: (content) =>
         content.includes("## Completion gate identity") &&
         content.includes("which packet still has unfinished work") &&
-        content.includes("which packet is claiming closeout") &&
+        !content.includes("Two Stop hooks") &&
+        !content.includes("semantic-digest") &&
+        content.includes("Strict assurance is no longer supported") &&
         content.includes("specs/_shared/active-feature.json") &&
         content.includes("A target supplied by the host always wins") &&
         content.includes("only while its own task file has a copy in") &&
@@ -5408,9 +5413,9 @@ async function runStaticSemanticTests() {
         content.includes("## Hook portability") &&
         content.includes("runtime-dir.cjs") &&
         content.includes("derive their runtime directory from their own location") &&
-        content.includes("Thirteen `~/.claude/` sites") &&
+        content.includes("The `~/.claude/` sites in `state.cjs`, `lib/counter.cjs` and `lib/context.cjs`") &&
         content.includes("kept as Claude Code behaviour") &&
-        content.includes("Twenty dead-code lines in `lib/context.cjs` and `lib/detect.cjs`") &&
+        content.includes("The dead code in `lib/context.cjs` and `lib/detect.cjs`") &&
         content.includes("`src/omp/hooks/` is an overlay of one file"),
     },
     {
@@ -5478,7 +5483,7 @@ async function runStaticSemanticTests() {
     {
       label: "cf:specs SKILL stays lean after slim-flow diet",
       file: "src/claude/skills/specs/SKILL.md",
-      assert: (content) => content.trimEnd().split("\n").length >= 150 && content.trimEnd().split("\n").length <= 230,
+      assert: (content) => content.trimEnd().split("\n").length >= 140 && content.trimEnd().split("\n").length <= 230,
     },
     {
       label: "cf:develop SKILL stays within directional context budget",
@@ -5528,14 +5533,6 @@ async function runStaticSemanticTests() {
       },
     },
     {
-      label: "usage hook reads runtime config from hook cwd",
-      file: "src/claude/hooks/usage.cjs",
-      assert: (content) =>
-        content.includes("function readRuntime(cwd)") &&
-        content.includes("const cwd = input.cwd || process.cwd()") &&
-        content.includes("runtime.usage?.enabled === false"),
-    },
-    {
       label: "statusline layout contract keeps registry, fallback, cost gate, and weekly anchors",
       file: "src/claude/status.cjs",
       assert: (content) =>
@@ -5543,8 +5540,7 @@ async function runStaticSemanticTests() {
         content.includes("invalid layout falls back to the") &&
         content.includes("if (lines.length === 0) return null") &&
         content.includes("billingMode === 'api'") &&
-        content.includes("seven_day") &&
-        content.includes("USAGE_CACHE_TTL_MS = 300000"),
+        content.includes("rate_limits?.seven_day"),
     },
     {
       label: "repository guide documents statusline configuration",
@@ -5753,7 +5749,8 @@ async function runStaticSemanticTests() {
       assert: (content) =>
         content.includes("## Develop và Sync") &&
         content.includes("sync-finalize") &&
-        content.includes("## Legacy compatibility") &&
+        !content.includes("## Legacy compatibility") &&
+        !content.includes("legacy adapter đang cài sẵn") &&
         !/semantic_model|semantic-model|machine authority|task_registry|planning_depth|execution_tier|\blane\b/i.test(outsideLegacySections(content)),
     },
     {
@@ -5841,7 +5838,8 @@ async function runStaticSemanticTests() {
       file: "src/claude/skills/specs/SKILL.md",
       assert: (content) =>
         content.includes("Files are state") &&
-        content.includes("## Legacy compatibility") &&
+        !content.includes("## Legacy compatibility") &&
+        !content.includes("installed legacy adapters") &&
         !/semantic_model|semantic-model|machine authority|task_registry|planning_depth|execution_tier|\blane\b/i.test(outsideLegacySections(content)),
     },
   ];
@@ -6056,11 +6054,9 @@ async function runSettingsManifestConsistencyCheck() {
   const shipped = new Set(
     (manifest.runtime?.files || []).filter((f) => /^hooks\/[a-z-]+\.cjs$/.test(f)),
   );
-  // Helpers imported by completion-authority.cjs, not executable hook entrypoints
-  // (see src/claude/hooks/completion-authority.cjs:64-65 requiring ./completion-authority-state.cjs and ./completion-authority-check.cjs)
   const helperAllowlist = new Set([
-    "hooks/completion-authority-check.cjs",
-    "hooks/completion-authority-state.cjs",
+    // Run on demand by the docs skill (`echo '{}' | node .claude/hooks/docs-sync.cjs`), not at SessionStart.
+    "hooks/docs-sync.cjs",
   ]);
 
   const failures = [];
@@ -6245,7 +6241,8 @@ async function runCodeReviewBoundaryCheck() {
     present("auditor forbids the test suite", "auditor", "Never run the project's test suite or a test file, not even as a sanity check"),
     present("auditor limits Bash", "auditor", "`Bash` is for read-only inspection only"),
     present("auditor allows a read-only reproduction", "auditor", "cited as a reproduction and never as test evidence"),
-    present("auditor allows the Strict validator", "auditor", "the attestation validator `node .claude/scripts/validate-spec-output.cjs <specDir> --semantic-digest`"),
+    absent("auditor drops the Strict attestation validator", "auditor", "the attestation validator"),
+    absent("auditor drops the attestation marker", "auditor", "CAFEKIT_SEMANTIC_REVIEW_ATTESTATION"),
     present("auditor reports no test result as evidence", "auditor", "Never report a test result, pass count, or exit code as the review's evidence"),
     present("auditor fixes the unavailable proof line", "auditor", "write the proof line exactly as `**Execution proof:** unavailable (owned by cf:test)`"),
     present("auditor reports the proof field", "auditor", "- **Execution proof:** test-proof-v1 consumed | unavailable (owned by cf:test)"),

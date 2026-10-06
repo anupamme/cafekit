@@ -75,11 +75,11 @@ bin/lib/
 
 `--platform omp` installs CafeKit for the Oh My Pi coding agent. omp discovers `.claude/skills` and `.agents/skills` on its own (`skills.enableClaudeProject` and `skills.enableAgentsProject` default to true), so the installer copies no skill payload for it and `PLATFORMS.omp.capabilities.skills` is false. What omp lacks is CafeKit's enforcement chain, which `omp-runtime.js` provisions under `.omp/`:
 
-- `.omp/hooks/` — the Claude gate scripts, written from the migration manifest's `runtime.files` list (the same set that reaches `.claude/hooks/`; a directory walk would also ship `hooks/__tests__/`), with `src/omp/hooks/` written over them. That overlay is one file: `privacy-block.cjs`, which denies where Claude would ask, because omp's `tool_call` result has only `block` and `reason` and an ask there would be dropped and the access allowed. It is the only difference that is a contract rather than a spelling — omp's lowercase tool names (`bash`, `read`, `write`) are handled by the shared payload reader, so the scaffold guard and the tool-name table left the overlay. The overlay file is the current Claude file plus those edits; `bin/__tests__/omp-hooks.test.js` re-derives it from the Claude source and fails on a byte of drift in either direction, and on a second file.
-- `.omp/runtime.json` and `.omp/runtime.schema.json` — the hooks' configuration, read from the folder the hook lives in (see Hook portability). It ships no statusline keys, `usage.enabled: false` because `usage.cjs` reads Claude Code's credential file, and `codingLevel: 1` like Codex; no omp hook consumes `codingLevel` yet, since the style injection lives in the Codex rules hook. Without this file `rules.cjs` exits silently and an omp-only project never sees the rules.
+- `.omp/hooks/` — the Claude gate scripts, written from the migration manifest's `runtime.files` list (the same set that reaches `.claude/hooks/`; a directory walk would also ship `hooks/__tests__/`), with `src/omp/hooks/` written over them. That overlay is one file: `privacy-block.cjs`, which denies where Claude would ask, because omp's `tool_call` result has only `block` and `reason` and an ask there would be dropped and the access allowed. It is the only difference that is a contract rather than a spelling — omp's lowercase tool names (`bash`, `read`, `write`) are handled by the shared payload reader, so the tool-name table left the overlay. The overlay file is the current Claude file plus those edits; `bin/__tests__/omp-hooks.test.js` re-derives it from the Claude source and fails on a byte of drift in either direction, and on a second file.
+- `.omp/runtime.json` and `.omp/runtime.schema.json` — the hooks' configuration, read from the folder the hook lives in (see Hook portability). It ships no statusline keys, a deprecated `usage.enabled: false` that nothing reads any more, and `codingLevel: 1` like Codex; no omp hook consumes `codingLevel` yet, since the style injection lives in the Codex rules hook. Without this file `rules.cjs` exits silently and an omp-only project never sees the rules.
 - `.omp/extensions/cafekit-bridge.mjs` — the extension omp auto-loads. It shapes each omp event into the Claude-shaped payload the scripts read, runs them as child processes with an 8000 ms budget (omp itself substitutes a reasonless block at 30000 ms), and translates all three denial mechanisms back into omp's contract. It mints a session id per load because omp's `input` payload carries none, and honours `stop_hook_active` on `session_stop` so a blocked turn cannot loop.
 
-Carried: every hook registered for SessionStart, PreCompact, UserPromptSubmit, PreToolUse, PostToolUse, and Stop. Not carried: `agent.cjs` (SubagentStart) and `semantic-review-authority.cjs` (SubagentStop), because omp has no subagent lifecycle events; `state.cjs` likewise does not run at SubagentStop. `.omp/` is added to the root ignore rules as part of the install, since omp executes every file under `.omp/extensions/` and a committed copy would run on clone before any gate could act.
+Carried: every hook registered for SessionStart, PreCompact, UserPromptSubmit, PreToolUse, PostToolUse, and Stop, with two named divergences: omp still runs `docs-sync.cjs` at SessionStart, which Claude now runs only on demand from the `docs` skill, and does not run `spec-state.cjs` at PostToolUse. Not carried: `agent.cjs` (SubagentStart) and `state.cjs` (SubagentStop), because omp has no subagent lifecycle events. `.omp/` is added to the root ignore rules as part of the install, since omp executes every file under `.omp/extensions/` and a committed copy would run on clone before any gate could act.
 
 The bridge's dispatch table mirrors `src/claude/settings/settings.json` and `bin/__tests__/omp-bridge.test.js` fails if the two drift. The install is verified against the real omp extension contract read from the installed binary; the tests do not launch omp, which needs provider credentials.
 
@@ -89,7 +89,7 @@ The gate hooks under `src/claude/hooks/` run unchanged under `.claude/`, `.omp/`
 
 Skill paths are the one deliberate exception: they come from the platform registry (`PLATFORMS[*].skillsRef`), not the runtime directory, because omp reads `.agents/skills` and has no `.omp/skills`. `agent.cjs` mirrors that mapping.
 
-Two groups of `.claude` literals stay by design. Thirteen `~/.claude/` sites (`usage.cjs`, `state.cjs`, `lib/counter.cjs`, `lib/context.cjs`) read Claude Code's own files in the user's home directory and are kept as Claude Code behaviour; omp and other platforms have no equivalent, and `src/omp/runtime.json` turns the reachable one (`usage`) off. Twenty dead-code lines in `lib/context.cjs` and `lib/detect.cjs`, which nothing imports, are left in place rather than ported. `bin/__tests__/runtime-dir.test.js` copies the whole hook tree under a throwaway `.omp/` and checks that `rules.cjs`, `inspect-block.cjs`, `privacy-block.cjs`, and `spec-gate.cjs` all answer from `.omp/runtime.json` while no `.claude` path exists. `src/omp/hooks/` is an overlay of one file on top of that portable set, described above. The second seam is the envelope: `lib/hook-payload.cjs` translates a foreign host's key spellings and tool names into the shape the hooks read, which is what let the omp overlay shrink.
+Two groups of `.claude` literals stay by design. The `~/.claude/` sites in `state.cjs`, `lib/counter.cjs` and `lib/context.cjs` read Claude Code's own files in the user's home directory and are kept as Claude Code behaviour; omp and other platforms have no equivalent. The dead code in `lib/context.cjs` and `lib/detect.cjs`, which nothing imports, is left in place rather than ported. `bin/__tests__/runtime-dir.test.js` copies the whole hook tree under a throwaway `.omp/` and checks that `rules.cjs`, `inspect-block.cjs`, `privacy-block.cjs`, and `spec-gate.cjs` all answer from `.omp/runtime.json` while no `.claude` path exists. `src/omp/hooks/` is an overlay of one file on top of that portable set, described above. The second seam is the envelope: `lib/hook-payload.cjs` translates a foreign host's key spellings and tool names into the shape the hooks read, which is what let the omp overlay shrink.
 
 The shipped hook set is the explicit `runtime.files` list in `src/claude/migration-manifest.json`, so a new hook library must be added there or a packed install ships hooks whose `require` fails; `bin/__tests__/package-inventory.test.js` runs the packed install and catches the omission. `provenance.cjs` excludes `.omp/hooks/.logs`, `.omp/.logs`, and `.omp/runtime.json` from the worktree digest like their `.claude` and `.codex` counterparts.
 
@@ -102,11 +102,11 @@ Two things make the gates actually work there.
 - **The envelope.** Grok sends camelCase keys (`toolName`, `stopHookActive`, `sessionId`) and its own tool names (`run_terminal_command`, `read_file`, `search_replace`, `write`). `lib/hook-payload.cjs` normalizes grok's camelCase envelope into the Claude shape inside each hook, so `.claude/settings.json` needs no grok-specific edits and one hook file serves every host. Before it existed, `privacy-block.cjs` read an undefined `tool_name`, extracted no paths, and allowed the call: the gate looked installed and was open.
 - **The trust step.** Project hooks are silently skipped until the folder is trusted with `grok --trust` or `/hooks-trust`. The installer prints that once, because nothing in the output would otherwise reveal that the gates are inert. `CLAUDE_PROJECT_DIR` is set by grok for every hook as an alias of `GROK_WORKSPACE_ROOT`, so the hooks resolve the project root the way they always have.
 
-**What grok can carry is narrower than Claude.** It has four control-flow channels: a `PreToolUse` deny, a `UserPromptSubmit` block, a `Stop`/`SubagentStop` block, and exit 2. Every other event is passive, and an allowing `UserPromptSubmit` hook's stdout is discarded rather than added as context. So the gates work and the reminders do not: `rules.cjs`, `spec-state.cjs`, `session.cjs`, `docs-sync.cjs`, `state.cjs`, and the allowing path of `secret-output-guardrail.cjs` are normalized for one code path but never reach the model under grok. Grok also fails open on any hook timeout, crash, or malformed output, where the omp bridge fails closed.
+**What grok can carry is narrower than Claude.** It has four control-flow channels: a `PreToolUse` deny, a `UserPromptSubmit` block, a `Stop`/`SubagentStop` block, and exit 2. Every other event is passive, and an allowing `UserPromptSubmit` hook's stdout is discarded rather than added as context. So the gates work and the reminders do not: `rules.cjs`, `spec-state.cjs`, `session.cjs`, `state.cjs`, and the allowing path of `secret-output-guardrail.cjs` are normalized for one code path but never reach the model under grok. Grok also fails open on any hook timeout, crash, or malformed output, where the omp bridge fails closed.
 
-Denials carry their reason as a JSON `permissionDecision: "deny"` on stdout, which grok honours regardless of exit code, with the same text on stderr and exit 2 retained. Grok takes only the first stderr line, so a multi-line reason such as the scaffold guard's command would otherwise arrive truncated to its headline.
+Denials carry their reason as a JSON `permissionDecision: "deny"` on stdout, which grok honours regardless of exit code, with the same text on stderr and exit 2 retained. Grok takes only the first stderr line, so a multi-line reason would otherwise arrive truncated to its headline.
 
-`usage.cjs` is deliberately not routed through the reader. It reads the Claude Code OAuth token from the macOS Keychain and calls `api.anthropic.com`, and its prompt flag lowers the fetch interval from 300 s to 60 s, so normalizing its payload would make a non-Claude runtime touch Claude credentials five times as often for output grok discards.
+No hook reads Claude Code credentials any more: the usage hook, which read the OAuth token from the macOS Keychain to fetch quota, was removed, and the statusline takes quota from the `rate_limits` Claude Code sends.
 
 Three contract details are `[UNVERIFIED]`, because settling them costs a live grok session, and no test depends on any of them: whether a `"*"` matcher matches, since grok documents matchers as regular expressions and CafeKit uses `"*"` for `SubagentStart` and `PreCompact`; the input key `grep` and `list_dir` use for their pattern, which is what `inspect-block.cjs` gates on; and grok's spelling for `prompt`, `source`, and `trigger`, where the reader accepts the Claude key and its camelCase twin so either shape works. Each is settled by dumping a real envelope from a hook registered in a throwaway repository. Turning off `[compat.claude] hooks` is not supported: CafeKit registers no `.grok/hooks/*.json`, so a user who disables that scanner gets no gates.
 
@@ -237,24 +237,22 @@ keywords such as Python `prompt=` or `description=` from being corrupted.
 
 ## Completion gate identity
 
-Two Stop hooks ask about the project's Specs packets, and each first has to answer
-"which feature is this turn about?". They ask different questions, so they narrow an
-ambiguous scan differently.
+The Stop gate asks about the project's Specs packets, and it first has to answer "which
+feature is this turn about?". It asks which packet still has unfinished work. Any layout
+qualifies: a repository of legacy `spec.json` packets narrows exactly the way a
+process-first one does. If more than one packet still has work, the ambiguity stands. If
+every packet is finished and every one of them is process-first, the gate audits the whole
+set instead; a legacy packet never reaches that branch, because it exits before the
+`FLASH_UNVERIFIED`, feature-receipt, and completion-policy layers.
 
-- **The Stop gate asks which packet still has unfinished work.** Any layout qualifies:
-  a repository of legacy `spec.json` packets narrows exactly the way a process-first one
-  does. If more than one packet still has work, the ambiguity stands. If every packet is
-  finished and every one of them is process-first, the gate audits the whole set instead;
-  a legacy packet never reaches that branch, because it exits before the semantic-digest,
-  `FLASH_UNVERIFIED`, feature-receipt, and completion-policy layers.
-- **Closeout approval asks which packet is claiming closeout.** A packet is claiming
-  closeout when `isDurableCloseout` is true for it. One such packet resolves; none means
-  nothing is in flight and the hook stays silent; several keep the ambiguity and name
-  only those. A repository holding exactly one packet resolves it whatever its status,
-  because approval is claimed against a finished spec and a lone packet still
-  mid-execution must remain visible to the hook.
+A legacy `schema_version` `2.1` packet that claims closeout (`status` done, completed or
+complete, or a closeout phase) is blocked with "Legacy spec.json closeout is no longer
+supported; move the packet to plan.md with flat task files"; mid-execution it still gets
+the ordinary receipt checks. The closeout-approval hook that once asked which packet was
+claiming closeout, and the Strict reviewer attestation, were removed; the validator fails a
+`Strict` packet with "Strict assurance is no longer supported".
 
-Before this, both hooks decided identity by raw candidate count. A project that had
+Before this, the gate decided identity by raw candidate count. A project that had
 simply accumulated finished features was blocked on every turn, and because identity is
 decided first, the gate never reached receipt validation at all: a genuinely missing
 receipt was answered with an identity complaint instead.
@@ -268,15 +266,13 @@ When more than one packet is genuinely in play, record the one being worked on:
 { "featureName": "user-auth" }
 ```
 
-Both Stop hooks read it on both runtimes. **A target supplied by the host always wins**:
+The Stop gate reads it on both runtimes. **A target supplied by the host always wins**:
 the file is consulted only where a host payload named no feature, so it can never
 redirect a hook that already knows its feature. An absent, blank, malformed, or
 symlinked file is ignored rather than treated as a malformed target, so a project holding
 a stray file is never blocked by the escape hatch itself. The value is otherwise treated
 exactly like a host-supplied feature name and still faces the resolver's containment,
 existence, and JSON checks. `specs/_shared/` is already in the generated ignore rules.
-The approval prompt names the feature it is asking approval for, so a closeout cannot be
-approved without the user seeing which one it is.
 
 Nothing writes this file automatically; writing it belongs to whatever starts a task, not
 to a hook.
@@ -303,7 +299,7 @@ to a hook.
   adding a packet; the file makes it explicit and leaves a trace in the working tree
   instead of being invisible. An environment variable was rejected for the same reason
   the gate refuses a worker-writable runtime flag as an authorization.
-- **Two packets genuinely claiming closeout still block** until the file names one.
+- **Two packets that both still have unfinished work still block** until the file names one.
 
 ## Safety properties
 

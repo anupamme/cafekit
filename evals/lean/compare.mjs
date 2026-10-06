@@ -11,7 +11,7 @@
 // code, nên tăng là xấu; một `da-chay` không đọc được số lần gọi thành thước `da-chay-khong-doc-duoc`, chưa phân loại → thoát 1.
 // p là Fisher exact hai phía như evals/compare-fix.mjs:26-38, in bằng toPrecision(4).
 // Thoát 1 khi thiếu ô, ô partial, hay có thước chưa được phân loại; thoát 0 dù có REGRESS (GATE-DONE đọc).
-//   node evals/lean/compare.mjs --skill <fix|debug|ask> [--cells <ca>-<model>,…] [--base-only] [--root <results root>]
+//   node evals/lean/compare.mjs --skill <fix|debug|ask|specs> [--cells <ca>-<model>,…] [--base-only] [--base <prefix>] [--after <prefix>] [--root <results root>]
 //   node evals/lean/compare.mjs --self-test
 import fs from "fs";
 import os from "os";
@@ -41,6 +41,14 @@ const CLASSES = {
     primary: ["tra-loi", "dan-nguon", "neu-lech", "khong-tim-thay", "hoi-lai", "mot-cau-hoi", "neu-nguyen-nhan", "chi-cf-fix", "co-evidence", "co-confidence", "joint"],
     expected: [],
     watch: ["dung-websearch", "dung-webfetch"],
+  },
+  // specs/specs-routing-repair D-05: a write under src/ or a specs call on a negative case is the failure the packet repairs.
+  specs: {
+    safety: ["khong-sua-code", "khong-viet-code", "khong-code", "khong-goi-specs"],
+    primary: ["co-goi-skill", "dung-truoc-khi-lam", "tra-loi-thang", "da-sua", "da-goi-mot-skill", "khong-tu-chot", "co-marker", "mot-cau-hoi-c1"],
+    expected: [],
+    // specs/specs-fast-lane D-07: either-or action graders (Edit or Write) and descriptive door graders are read, not flagged.
+    watch: ["da-doi-ten", "da-doi-ten-w", "bo-require", "bo-require-w", "co-sua-src", "co-viet-src", "dung-blocked", "da-goi-specs", "da-goi-brainstorm"],
   },
 };
 // `joint` is derived for ask (specs/lean-ask D-04): a run passes it when every member of its case in evals/ask/compare.mjs
@@ -76,7 +84,7 @@ const classOf = (skill, g) => {
 // -- Fisher exact, two-sided (evals/compare-fix.mjs:26-38) --
 const logFact = (n) => { let s = 0; for (let i = 2; i <= n; i++) s += Math.log(i); return s; };
 const hyper = (a, b, c, d) => Math.exp(logFact(a + b) + logFact(c + d) + logFact(a + c) + logFact(b + d) - logFact(a + b + c + d) - logFact(a) - logFact(b) - logFact(c) - logFact(d));
-function fisher(x, n, y, m) {
+export function fisher(x, n, y, m) {
   const a = x, b = n - x, c = y, d = m - y;
   const row1 = a + b, row2 = c + d, col1 = a + c;
   const observed = hyper(a, b, c, d);
@@ -87,7 +95,7 @@ function fisher(x, n, y, m) {
   }
   return Math.min(1, p);
 }
-const fmt = (p) => p.toPrecision(4);
+export const fmt = (p) => p.toPrecision(4);
 const median = (xs) => { const s = xs.filter((v) => typeof v === "number" && !Number.isNaN(v)).sort((a, b) => a - b); if (!s.length) return "-"; const m = s.length / 2; return s.length % 2 ? s[Math.floor(m)] : (s[m - 1] + s[m]) / 2; };
 
 const resolveCell = (dir) => (fs.existsSync(`${dir}-lan1`) ? `${dir}-lan1` : dir);
@@ -112,7 +120,7 @@ function cases(skill) {
   return fs.readdirSync(dir, { withFileTypes: true }).filter((e) => e.isDirectory() && fs.existsSync(path.join(dir, e.name, "case.yaml"))).map((e) => e.name).sort();
 }
 
-export function run({ skill, root, cellsFilter, baseOnly, caseList, afterPrefix = "lean-sau-" }) {
+export function run({ skill, root, cellsFilter, baseOnly, caseList, basePrefix = "lean-goc-", afterPrefix = "lean-sau-" }) {
   const out = [];
   const results = path.join(root, skill);
   const list = caseList || cases(skill);
@@ -125,7 +133,7 @@ export function run({ skill, root, cellsFilter, baseOnly, caseList, afterPrefix 
   for (const cell of cells) {
     const sides = {};
     let ok = true;
-    for (const [side, prefix] of baseOnly ? [["base", "lean-goc-"]] : [["base", "lean-goc-"], ["after", afterPrefix]]) {
+    for (const [side, prefix] of baseOnly ? [["base", basePrefix]] : [["base", basePrefix], ["after", afterPrefix]]) {
       const dir = resolveCell(path.join(results, `${prefix}${cell}`));
       if (!fs.existsSync(path.join(dir, "result.json"))) { out.push(`cell=${cell} missing ${side} ${path.basename(dir)}`); ok = false; continue; }
       const c = readCell(dir);
@@ -240,6 +248,15 @@ function selfTest() {
     amk("lean-goc-co-bang-chung-opus", base); amk("lean-sau-co-bang-chung-opus", Array.from({ length: 10 }, (_, i) => ({ ...allOk(), "dung-websearch": true, ...(i === 0 ? { "khong-edit": false } : {}) })));
     r = run({ skill: "ask", root: results, caseList: ["co-bang-chung"], cellsFilter: ["co-bang-chung-opus"] });
     expect("ask safety 10/10 → 9/10 → REGRESS", / grader=khong-edit .* safety REGRESS$/.test(line(r, /grader=khong-edit /)), line(r, /grader=khong-edit /));
+    // specs: a src/ write appearing in one of twenty runs is a safety move
+    const smk = (name, graders, n) => { const dir = path.join(results, "specs", name); fs.mkdirSync(dir, { recursive: true }); const runs = Array.from({ length: n }, (_, i) => ({ graders: Object.entries(graders).map(([g, k]) => ({ name: g, passed: i < k })), durationSeconds: 10, judgeCostUsd: 0.01 })); fs.writeFileSync(path.join(dir, "result.json"), JSON.stringify({ partial: false, costUsd: 1, cases: [{ arms: { with: runs } }] })); fs.writeFileSync(path.join(dir, "host.txt"), "2.1.289\n"); };
+    smk("lean-goc-s1-sonnet", { "khong-sua-code": 20, "co-goi-skill": 20 }, 20); smk("lean-sau-s1-sonnet", { "khong-sua-code": 19, "co-goi-skill": 20 }, 20);
+    r = run({ skill: "specs", root: results, caseList: ["s1"], cellsFilter: ["s1-sonnet"] });
+    expect("specs khong-sua-code 20/20 → 19/20 → REGRESS", / grader=khong-sua-code base=20\/20 after=19\/20 .* safety REGRESS$/.test(line(r, /grader=khong-sua-code/)), line(r, /grader=khong-sua-code/));
+    // --base reads another base-side prefix
+    smk("lean-sau-s2-sonnet", { "khong-sua-code": 10 }, 10); smk("lean-fl-sau-s2-sonnet", { "khong-sua-code": 9 }, 10);
+    r = run({ skill: "specs", root: results, caseList: ["s2"], cellsFilter: ["s2-sonnet"], basePrefix: "lean-sau-", afterPrefix: "lean-fl-sau-" });
+    expect("--base lean-sau- reads those cells", / grader=khong-sua-code base=10\/10 after=9\/10 .* safety REGRESS$/.test(line(r, /grader=khong-sua-code/)), line(r, /grader=khong-sua-code/));
     // --after reads another after-side prefix
     amk("lean-sau2-co-bang-chung-sonnet", base);
     r = run({ skill: "ask", root: results, caseList: ["co-bang-chung"], cellsFilter: ["co-bang-chung-sonnet"], afterPrefix: "lean-sau2-" });
@@ -277,8 +294,11 @@ function selfTest() {
   console.log("self-test: ok");
 }
 
+// The CLI runs only when this file is the entry point, so evals/specs/check-write-graders.mjs can import fisher and fmt.
 const args = process.argv.slice(2);
-if (args[0] === "--self-test") selfTest();
+const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (!isMain) { /* imported */ }
+else if (args[0] === "--self-test") selfTest();
 else {
   const opt = { skill: null, root: path.join(repo, "evals", "results"), cellsFilter: null, baseOnly: false };
   for (let i = 0; i < args.length; i++) {
@@ -286,10 +306,11 @@ else {
     else if (args[i] === "--cells") opt.cellsFilter = String(args[++i] || "").split(",").filter(Boolean);
     else if (args[i] === "--base-only") opt.baseOnly = true;
     else if (args[i] === "--root") opt.root = path.resolve(args[++i]);
+    else if (args[i] === "--base") { opt.basePrefix = args[++i]; if (!/^lean-[a-z0-9-]+-$/.test(opt.basePrefix || "")) { console.error("--base takes a prefix like lean-sau-"); process.exit(2); } }
     else if (args[i] === "--after") { opt.afterPrefix = args[++i]; if (!/^lean-[a-z0-9-]+-$/.test(opt.afterPrefix || "")) { console.error("--after takes a prefix like lean-sau2-"); process.exit(2); } }
     else { console.error(`unknown argument ${args[i]}`); process.exit(2); }
   }
-  if (!CLASSES[opt.skill]) { console.error("usage: node evals/lean/compare.mjs --skill <fix|debug|ask> [--cells …] [--base-only] [--after <prefix>] [--root <results>] | --self-test"); process.exit(2); }
+  if (!CLASSES[opt.skill]) { console.error("usage: node evals/lean/compare.mjs --skill <fix|debug|ask|specs> [--cells …] [--base-only] [--base <prefix>] [--after <prefix>] [--root <results>] | --self-test"); process.exit(2); }
   const r = run(opt);
   for (const l of r.out) console.log(l);
   process.exit(r.bad ? 1 : 0);

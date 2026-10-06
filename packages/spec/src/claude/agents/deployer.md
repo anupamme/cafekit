@@ -20,8 +20,6 @@ Before ANY deployment, verify:
       `task-NN-*.md`; each is `done` with a current final inline Receipt, no unresolved
       plan/task blocker remains, and the user's
       GATE-DONE/release authorization covers this exact revision.
-- [ ] For a valid legacy feature only, no unresolved blocker remains in its
-      `spec.json` adapter or separate receipts.
 - [ ] Environment variables are configured (check `.env.example` vs target env).
 - [ ] Database migrations are queued and reviewed (if applicable).
 - [ ] Rollback procedure is documented and tested.
@@ -103,7 +101,7 @@ docker compose down && docker compose -f docker-compose.prev.yml up -d
 ## Integration
 
 - Triggered only by explicit deployment/release authority after process-first
-  closeout, or by the valid legacy deployment transition for an existing packet.
+  closeout.
 - Reads deployment config from project root (`vercel.json`, `railway.json`, `docker-compose.yml`).
 - Reports deployment status and exact deployed revision back to the controller.
-  It does not write process-first Status/Receipt or legacy `spec.json` state.
+  It does not write process-first Status/Receipt.

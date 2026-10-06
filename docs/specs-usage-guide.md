@@ -2,8 +2,7 @@
 
 `cf:specs` biến một ý tưởng thành một packet có thể đọc, review và thực thi
 bằng Markdown thuần. Layout chính là `specs/<feature>/plan.md` kèm các file
-`task-NN-<slug>.md` nằm cạnh nó. Luồng mới không dạy registry cũ; phần đó chỉ
-còn ở legacy adapter.
+`task-NN-<slug>.md` nằm cạnh nó. Luồng mới không dạy registry cũ.
 
 ## Routing thích ứng theo risk
 
@@ -217,14 +216,6 @@ Receipt không hợp lệ nếu thiếu fenced output, thiếu `Exit: 0`, thiế
 - `cf:sync` chỉ cập nhật observed state của task file và receipt.
 - `sync-finalize` chỉ dùng để promote một task flash/unverified sau khi có fresh
   canonical PASS.
-
-## Legacy compatibility
-
-Nếu một feature đã có `spec.json`, nested `tasks/task-R*.md`, hoặc receipt
-riêng, hãy giữ nó trên legacy adapter đang cài sẵn. Phần legacy có thể tiếp tục
-giữ `spec.json`, `task_registry`, `planning_depth`, `assurance_level`, `lane`,
-`execution_tier`, và `semantic_model`, nhưng các field này không thuộc v3
-packet mới.
 
 ## Tham chiếu
 

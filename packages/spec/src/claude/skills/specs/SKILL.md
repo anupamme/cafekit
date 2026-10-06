@@ -1,6 +1,6 @@
 ---
 name: cf:specs
-description: "Plan a feature before anyone implements it. Use the moment a user asks to add, build, implement, or change a capability — a payment flow, an external integration, a schema change, anything touching more than one or two files or carrying auth, data, or money risk. A short or vague request belongs here too: when what to build is still undecided, the scope gate is where those questions get asked — a scope question takes one turn and prevents a wrong build, so being in a hurry is not a reason to skip it. Reach for cf:brainstorm instead only when the outcome is already agreed and two designs genuinely compete. It produces a bounded plan and flat task files with human decisions at scope, findings, and completion; it never writes code. Use when work needs durable coordination or is not eligible for direct work; answer directly when the user only wants to be told or shown something, and skip only when a change is clear, isolated, reversible, routine, and likely limited to one or two files."
+description: "Plan a feature before anyone implements it. Use the moment a user asks to add, build, implement, or change a capability: a payment flow, an external integration, a schema change, anything touching more than one or two files. Auth, data, or money risk comes here first even when the request is clear, urgent, or says to just do it now; do not implement it yourself. A short or vague request belongs here too: the scope gate asks what is still undecided in one turn and prevents a wrong build, so a hurry is no reason to skip it. Reach for cf:brainstorm instead only when the outcome is already agreed and two designs genuinely compete. It produces a bounded plan and flat task files with human decisions at scope, findings, and completion; it never writes code. Use when work needs durable coordination or is not eligible for direct work; answer directly when the user only wants to be told or shown something, and skip only when a change is clear, isolated, reversible, routine, and likely limited to one or two files."
 user-invocable: true
 argument-hint: "<feature-description>"
 metadata:
@@ -134,13 +134,6 @@ verification run, so a receipt for a command that never ran satisfies it in eith
 mode. GATE-DONE is where a human weighs the evidence. These checks are a final safety net,
 not a substitute for human judgment at the three gates. Do not add a new schema, approval field,
 readiness bit, or review state to make the Markdown look more authoritative.
-
-## Legacy compatibility
-
-Existing features that contain `spec.json`, nested task files, or separate
-receipt files stay on the installed legacy adapters. Do not migrate or rewrite
-them while authoring an unrelated v3 feature. New Specs output always uses the
-flat layout above and never requires the legacy kernel.
 
 ## Maintenance
 
