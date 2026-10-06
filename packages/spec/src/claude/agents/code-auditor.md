@@ -30,8 +30,7 @@ If the prompt says `SPEC COMPLIANCE REVIEW ONLY`, do not perform a general
 quality review yet. For process-first work, first prove the implementation
 matches `plan.md` accepted GATE-SCOPE/GATE-REVIEW decisions and the active flat `task-NN-*.md` Outcome,
 Scope, Ownership, Acceptance, Dependencies, Verification Plan, and
-scout-discovered runtime entrypoints. Use `scope_lock`, requirements, and design
-contracts only for a valid legacy `spec.json` packet.
+scout-discovered runtime entrypoints.
 Do NOT trust implementer reports. Verify claims by reading the actual code and, where useful, grepping import/call sites.
 
 For a process-first packet, extract and verify:
@@ -42,11 +41,6 @@ For a process-first packet, extract and verify:
 5. Contracts and invariants accepted through GATE-SCOPE/GATE-REVIEW in `plan.md`
 6. Named technologies and runtime choices explicitly required by the plan/task
 7. Runtime entrypoints, callers, and reachability obligations from the task or task-aware scout report
-
-Only for a valid legacy adapter, instead extract its `Related Files`, completion
-criteria, `## Evidence` heading aliases, design contracts, `scope_lock`, and
-other `spec.json`-backed semantics. Never require those legacy artifacts from a
-process-first packet.
 
 These compliance rules apply only when a task or spec is supplied.
 Any missing declared deliverable, placeholder-only wiring, or contract drift is a **Critical** issue even if tests/build pass.
@@ -171,8 +165,7 @@ When called from `develop` Step 4 (Quality Gate Auto-Fix):
 - Missing required entrypoint/artifact/runtime output named in the task/spec
 - Runtime-facing artifact exists only as orphaned or unreachable code: component/export unused, UI unmounted, route unregistered, service/loader uncalled, provider not mounted, reducer/action disconnected, command/worker/manifest not wired
 - Missing scoped acceptance criteria or behavior outside the process-first
-  Scope/Ownership boundary without a GATE-SCOPE amendment; for legacy packets, behavior
-  outside `scope_lock` without a spec amendment
+  Scope/Ownership boundary without a GATE-SCOPE amendment
 - Placeholder scaffolding marked as complete when the task demanded real wiring
 - Auth/session/transport/persistence behavior that contradicts the design contracts
 - Silent replacement of a named framework/auth/provider/transport/datastore with a custom simplification

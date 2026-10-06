@@ -792,24 +792,22 @@ test('Specs primary output is a flat process-first packet with isolated legacy c
   assertVocabularyIsLegacyOnly(SPECS, regions);
 });
 
-test('core execution agents default to process-first state and isolate legacy packets', () => {
+test('core execution agents default to process-first state and carry no legacy adapter', () => {
   for (const filePath of PROCESS_FIRST_AGENTS) {
     const content = read(filePath);
     const name = path.basename(filePath);
     assert.match(content, /plan\.md/i, `${name} must read the process-first plan`);
     assert.match(content, /task-NN-\*\.md|task-NN-<slug>\.md/i, `${name} must understand flat tasks`);
-    assert.match(content, /legacy/i, `${name} must isolate legacy compatibility`);
+    assert.doesNotMatch(content, /legacy|spec\.json|scope_lock/i, `${name} must not teach a legacy adapter`);
   }
 
   const implementer = read(PROCESS_FIRST_AGENTS[0]);
   assert.match(implementer, /Under every dispatch mode[\s\S]{0,160}do NOT edit[\s\S]{0,80}`plan\.md`[\s\S]{0,80}`Status:`[\s\S]{0,80}`## Receipt`/i);
   assert.match(implementer, /controller/i);
-  assert.match(implementer, /process-first work[\s\S]{0,100}Ownership[\s\S]{0,100}`Related Files` only for a valid legacy adapter/i);
+  assert.match(implementer, /process-first work[\s\S]{0,100}Ownership\s+boundary\./i);
 
   const auditor = read(PROCESS_FIRST_AGENTS[2]);
   assert.match(auditor, /accepted GATE-SCOPE\/GATE-REVIEW decisions/i);
-  assert.match(auditor, /Only for a valid legacy adapter[\s\S]*`Related Files`[\s\S]*`## Evidence`/i);
-  assert.match(auditor, /Never require those legacy artifacts from a[\s\S]*process-first packet/i);
   assert.doesNotMatch(auditor, /CAFEKIT_SEMANTIC_REVIEW_ATTESTATION/);
 
   const docsKeeper = read(PROCESS_FIRST_AGENTS[3]);

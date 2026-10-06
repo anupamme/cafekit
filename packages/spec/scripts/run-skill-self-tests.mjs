@@ -4659,12 +4659,12 @@ async function runStaticSemanticTests() {
         content.includes("one unblocked task at a time"),
     },
     {
-      label: "implementer is single-track with process-first and legacy state prohibition",
+      label: "implementer is single-track with process-first state prohibition",
       file: "src/claude/agents/implementer.md",
       assert: (content) =>
         content.includes("within its workspace") &&
         content.includes("Do NOT edit `plan.md`, task `Status:`, or inline `## Receipt`") &&
-        content.includes("For legacy packets, do not edit\n  `spec.json`"),
+        !content.includes("For legacy packets"),
     },
     {
       label: "orchestrator sanctions worktree parallelism with single-writer rule and cap",

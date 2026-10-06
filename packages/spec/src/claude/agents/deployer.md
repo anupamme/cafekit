@@ -104,4 +104,4 @@ docker compose down && docker compose -f docker-compose.prev.yml up -d
   closeout.
 - Reads deployment config from project root (`vercel.json`, `railway.json`, `docker-compose.yml`).
 - Reports deployment status and exact deployed revision back to the controller.
-  It does not write process-first Status/Receipt or legacy `spec.json` state.
+  It does not write process-first Status/Receipt.
